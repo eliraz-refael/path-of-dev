@@ -99,7 +99,8 @@ export const noteMax = 90
 
 // Controls, invisible and direction marks, line and paragraph breaks, and emoji with their flags, skin tones and
 // keycaps, which would break the band's cells.
-const unsafe = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\u{FE0F}\u{20E3}]/gu
+const unsafe = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu
+const emoji = /[\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\u{FE0F}\u{20E3}]/gu
 const quotes = /^["'`\u2018\u2019\u201C\u201D]+|["'`\u2018\u2019\u201C\u201D]+$/g
 
 /**
@@ -110,7 +111,7 @@ const quotes = /^["'`\u2018\u2019\u201C\u201D]+|["'`\u2018\u2019\u201C\u201D]+$/
 export const noteOf = (reply: string): string | null => {
   const raw = replyFieldsOf(reply)?.['note']
   if (typeof raw !== 'string') return null
-  const line = raw.replace(unsafe, ' ').replace(/\s+/g, ' ').trim().replace(quotes, '').trim()
+  const line = raw.replace(unsafe, ' ').replace(emoji, ' ').replace(/\s+/g, ' ').trim().replace(quotes, '').trim()
   const words = line.split(' ').filter((word) => /\p{L}/u.test(word))
   const isJunk = /[{}<>\\|`]|https?:|www\./i.test(line) || /\b(12|twelve) words\b|^note\b/i.test(line)
   if (words.length < 2 || isJunk) return null

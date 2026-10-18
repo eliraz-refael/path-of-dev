@@ -1,7 +1,5 @@
 // What the band draws from: the session's values the mod keeps in `$.state`.
 
-import type { GradeDimension } from '@pathofdev/schema'
-
 /** Whether the local server answers. */
 export type Link = 'connecting' | 'online' | 'offline'
 
@@ -299,11 +297,22 @@ export type PetDisplay = { hidden: boolean; still: boolean }
  */
 export type PetScene = { pose: PetPose; display: PetDisplay; activeAt: number }
 
+/** A score the grader gives a prompt, as the rubric names it: the seven qualities, and regret. */
+export type GradeScore =
+  | 'clarity'
+  | 'grammar'
+  | 'specificity'
+  | 'instructive'
+  | 'context'
+  | 'doneCriteria'
+  | 'focus'
+  | 'regret'
+
 /**
  * What the pet coach says about one graded prompt: its lines in order (praise first, then a tip), each with `{name}`
  * where the pet's name goes, and the score the bubble is about, which the next unasked one may not be about again.
  */
-export type Said = { lines: ReadonlyArray<string>; topic: GradeDimension }
+export type Said = { lines: ReadonlyArray<string>; topic: GradeScore }
 
 /**
  * The last prompt the mod graded, kept on this machine only: the id of its `prompt.graded` event (the cause of the
@@ -312,7 +321,7 @@ export type Said = { lines: ReadonlyArray<string>; topic: GradeDimension }
  */
 export type Graded = {
   id: string
-  scores: Readonly<Record<GradeDimension, number>>
+  scores: Readonly<Record<GradeScore, number>>
   note: string | null
   grade: number
   said: Said | null
@@ -326,7 +335,7 @@ export type Graded = {
 export type CoachMemory = {
   last: Graded | null
   sinceBubble: number | null
-  lastTopic: GradeDimension | null
+  lastTopic: GradeScore | null
   lines: Readonly<Record<string, number>>
 }
 

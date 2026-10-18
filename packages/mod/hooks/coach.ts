@@ -140,15 +140,29 @@ const praises: Record<QualityDimension, ReadonlyArray<string>> = {
   grammar: ['{name} admires that tidy writing.', 'Neatly written, {name} thinks.'],
 }
 
+const praiseWords = [
+  'great',
+  'nice',
+  'good',
+  'excellent',
+  'perfect',
+  'well[ -]done',
+  'lovely',
+  'awesome',
+  'solid',
+  'strong',
+  'clear',
+  'nothing',
+  'no change',
+  'looks good',
+]
+const praising = new RegExp(`^(${praiseWords.join('|')})\\b`, 'i')
+
 /**
  * A note that praises rather than suggests: the rubric lets the grader praise a prompt nothing would improve, and
  * praise is no tip.
  */
-export const isPraise = (note: string): boolean =>
-  note.endsWith('!') ||
-  /^(great|nice|good|excellent|perfect|well[ -]done|lovely|awesome|solid|strong|clear|nothing|no change|looks good)\b/i.test(
-    note,
-  )
+export const isPraise = (note: string): boolean => note.endsWith('!') || praising.test(note)
 
 /** The line after the last one said of this kind and score; the lines it said, with this one. */
 const nextLine = (

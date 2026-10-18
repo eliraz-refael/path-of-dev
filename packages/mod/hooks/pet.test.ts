@@ -695,7 +695,7 @@ describe('the pet coach', () => {
     expect(await bubbles()).toBe(0)
   })
 
-  test('a bubble a new turn took down before it showed costs nothing: the next good prompt still speaks', async ($, on) => {
+  test('a bubble a new turn took down before it showed costs nothing: the next good prompt speaks', async ($, on) => {
     const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
     const bubbles = async () =>
       (await changes($, clock, 15_000)).filter((one) => (one.text ?? '').includes('“')).length
