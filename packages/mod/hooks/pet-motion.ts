@@ -185,8 +185,13 @@ export const asleepWalker = (walker: Walker): Walker => ({
   facing: 'right',
 })
 
-/** Back in its place, as when it is stilled or hidden: what it was doing is let go. */
-export const settledWalker = (walker: Walker): Walker => ({ ...homeWalker, turn: walker.turn, asleep: walker.asleep })
+/** Back in its place, as when it is stilled or hidden: its walk is let go, its reactions kept to play there. */
+export const settledWalker = (walker: Walker): Walker => ({
+  ...homeWalker,
+  turn: walker.turn,
+  asleep: walker.asleep,
+  queue: heldWalker(walker).queue,
+})
 
 /** Reactions join the queue, each kind once (the newest of a kind wins), and wake the pet. */
 export const withReactions = (walker: Walker, reactions: ReadonlyArray<Reaction>): Walker => {
@@ -213,6 +218,9 @@ export const heldWalker = (walker: Walker): Walker => {
   const facing = act.reaction.kind === 'fetch' ? 'right' : walker.facing
   return { ...walker, away: act.from, facing, act: null, walkTo: null, queue: [act.reaction, ...walker.queue] }
 }
+
+/** The room the pet may wander in: what the band last drew, or before it draws after a reload, where the pet stands. */
+export const roomNow = (drawn: number | null, walker: Walker): number => drawn ?? walker.away
 
 /** Whether the pet has a step to take now: a reaction to play, or a wander, once the band is free. */
 export const wantsStep = (walker: Walker, context: Pick<StepContext, 'free' | 'wanders'>): boolean =>
@@ -396,7 +404,7 @@ export const sameScene = (a: PetScene | null, b: PetScene | null): boolean => JS
 // What the pet reacts to.
 
 /** A grade as the band shows it, to one decimal: a prompt the band says was graded 7 makes the pet hop. */
-const shownGrade = (grade: number): number => Math.round(grade * 10) / 10
+export const shownGrade = (grade: number): number => Math.round(grade * 10) / 10
 
 /**
  * What the pet does about a batch of the stream (what one cause earned): it fetches a drop a prompt earned, carrying
@@ -525,6 +533,13 @@ export const laneRow = (face: string, pose: PetPose, width: number, beside: Row 
   if (beside !== null && besideCells <= before)
     return kept([blank(before - besideCells), ...beside, blank(1), ...pet, blank(after)])
   return kept([blank(before), ...pet, blank(after)])
+}
+
+/** The blank the pet stands after, apart from the rest: only the pet and its name take a click. */
+export const leadOf = (row: Row): { lead: Row; rest: Row } => {
+  const at = row.findIndex((run) => run.text.trim() !== '')
+  const cut = at < 0 ? row.length : at
+  return { lead: row.slice(0, cut), rest: row.slice(cut) }
 }
 
 /**

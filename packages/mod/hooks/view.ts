@@ -3,6 +3,7 @@ import type { PluginOptions } from 'claude-code'
 import type { BandView, GainLine, OwnedItem, StatsView, Wardrobe } from '../types'
 import { heartsFor, knowsCareOf } from './care'
 import { boostText, foodOf, tierOf } from './celebrate'
+import { faceOf, shownGrade } from './pet-motion'
 import { knowsSigilsOf, multiplierText, sigilOf, wornSigil } from './sigils'
 
 // What the band draws, worked out from the server's snapshot and stream; no game rule is computed here.
@@ -143,17 +144,8 @@ export const bar = (view: BandView, width: number): { filled: number; empty: num
 }
 
 // Placeholder sprites until the pixel art lands: one face per species, a little bigger per form.
-const faces: Record<string, ReadonlyArray<string>> = {
-  fox: ['ᓚᘏᗢ', 'ᓚᘏᗢ✧', '✧ᓚᘏᗢ✧', '✦ᓚᘏᗢ✦'],
-  slime: ['(•ᴗ•)', '(•ᴗ•)✧', '✧(•ᴗ•)✧', '✦(•ᴗ•)✦'],
-  robot: ['[o_o]', '[o_o]✧', '✧[o_o]✧', '✦[o_o]✦'],
-  owl: ['{◉,◉}', '{◉,◉}✧', '✧{◉,◉}✧', '✦{◉,◉}✦'],
-}
-
-export const sprite = (pet: NonNullable<BandView['pet']>): string => {
-  const forms = faces[pet.species] ?? faces['fox'] ?? ['?']
-  return forms[Math.min(pet.form, forms.length - 1)] ?? '?'
-}
+/** The pet's face as the pane and the welcome show it: the band's, at rest and facing its name. */
+export const sprite = (pet: NonNullable<BandView['pet']>): string => faceOf(pet, 'idle', 'right')
 
 /** Hearts for a mood, by the rules' happy line; the starter's when an older server doesn't say. */
 export const hearts = (mood: number, happyAbove = 70): string => heartsFor(mood, happyAbove)
@@ -189,7 +181,7 @@ const wordsFor = (words: ReadonlyMap<string, string>, reason: string): string =>
   words.get(reason) ?? reason.replace(/[._]+/g, ' ')
 
 /** A grade as the player reads it: to one decimal, 4.7, or a whole 10. */
-const gradeText = (grade: number): string => String(Math.round(grade * 10) / 10)
+const gradeText = (grade: number): string => String(shownGrade(grade))
 
 const signed = (amount: number): string => (amount < 0 ? `−${-amount}` : `+${amount}`)
 

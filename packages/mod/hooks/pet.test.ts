@@ -16,7 +16,10 @@ import {
   petRowOf,
   poseOf,
   reactionsOf,
+  roomNow,
+  settledWalker,
   stepWalker,
+  walkerOf,
   wanderLane,
   withReactions,
 } from './pet-motion'
@@ -66,7 +69,7 @@ const reply = (status: number, body: unknown) => ({
 type Sent = { path: string; body: unknown }
 
 /** The engine beneath the mod, and a local server that answers its routes and hands the stream the test's events. */
-const world = (on: On, clock: Clock, pet: unknown, stream: Array<{ seq: number }>) => {
+const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: number }>) => {
   const sent: Array<Sent> = []
   on('ui.toast', () => ({ value: undefined }))
   on('ui.status', () => ({ value: undefined }))
@@ -97,7 +100,7 @@ const world = (on: On, clock: Clock, pet: unknown, stream: Array<{ seq: number }
     if (e.init?.method === 'DELETE') return reply(200, { closed: true })
     if (url.pathname === '/v1/sessions')
       return reply(200, {
-        snapshot: snapshotOf(pet),
+        snapshot: snapshotOf(petOf()),
         rules: careRules,
         minClientVersion: '0.0.0',
         acceptedEventTypes: [],
@@ -139,13 +142,22 @@ const until = async (clock: Clock, check: () => boolean | Promise<boolean>) => {
   throw new Error('the mod never got there')
 }
 
-/** A session with the pet hatched and the stream open; `send` hands the mod events, `store` what it keeps. */
-const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}, pet: unknown = ember) => {
+/**
+ * A session with the pet hatched and the stream open; `send` hands the mod events, `store` what it keeps. A test that
+ * hatches the pet later puts it in `hatchery`, where the server's snapshots find it.
+ */
+const playing = async (
+  $: Dollar,
+  on: On,
+  store: Record<string, unknown> = {},
+  pet: unknown = ember,
+  hatchery: { pet: unknown } = { pet },
+) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
   mock.store(on, { explored: ['acme/widgets'], ...store })
   mock.env(on, { HOME: '/home/player' })
   const stream: Array<{ seq: number }> = []
-  const sent = world(on, clock, pet, stream)
+  const sent = world(on, clock, () => hatchery.pet, stream)
   await $.session.start(start)
   await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
   await clock.settle()
@@ -164,7 +176,7 @@ type Band = Awaited<ReturnType<typeof mountBand>>
 
 /** The pet's piece of band row 2 in a drawing (its lane, name and hearts), or null when it draws none. */
 const petIn = async (ui: Band): Promise<string | null> =>
-  (await ui.find({ type: 'Button', key: 'band:pet' }))?.text ?? null
+  (await ui.find({ type: 'Box', key: 'band:lane' }))?.text ?? null
 
 /** The pet's piece of band row 2 now. */
 const petText = async ($: Dollar, isWorking = false): Promise<string | null> => {
@@ -304,6 +316,19 @@ describe('the pet wanders', () => {
     await until(clock, () => opened() === 2)
     expect((await changes($, clock, 20_000)).length).toBeGreaterThan(3)
   })
+
+  test('a click on the blank it wanders in pats nothing: only the pet and its name take one', async ($, on) => {
+    const { clock } = await playing($, on)
+    const ui = await mountBand($)
+    for (let at = 0; at < 6_000; at += 500) {
+      const lane = (await petIn(ui)) ?? ''
+      const button = (await ui.find({ type: 'Button', key: 'band:pet' }))?.text
+      expect(lane.startsWith(' ')).toBe(true)
+      expect(button).toBe(lane.trimStart())
+      await clock.advance(500)
+    }
+    await ui.unmount()
+  })
 })
 
 describe('the pet reacts', () => {
@@ -356,6 +381,38 @@ describe('the pet reacts', () => {
     const pat = (await changes($, clock, 3_000)).map((one) => one.text)
     expect(pat).toContain(' ᓚᘏᗢ♥ Ember ♥♥♥')
     expect(pat).toContain(' ᓚᘏᗢ♡ Ember ♥♥♥')
+  })
+
+  test('a pat gets it up from a rest at once, not when the rest would have ended', async ($, on) => {
+    // A sleepy pet rests 3 to 12 seconds between walks.
+    const { clock, send } = await playing($, on, {}, { ...ember, mood: 20 })
+    const ui = await mountBand($)
+    let quiet = 0
+    let last = await petIn(ui)
+    for (let round = 0; quiet < 750 && round < 400; round++) {
+      await clock.advance(250)
+      const now = await petIn(ui)
+      quiet = now === last ? quiet + 250 : 0
+      last = now
+    }
+    await ui.unmount()
+    // At rest now, with 2 seconds of it left at least; the pat arrives within one of them, and shows straight away.
+    expect(quiet).toBe(750)
+    await send(serverEvent('pet.petted', { mood: 25, gained: 5 }, 'f1'))
+    const seen = (await changes($, clock, 500)).map((one) => one.text ?? '')
+    expect(seen.some((text) => /ᓚᘏᗢ[♥♡]|[♥♡]ᗢᘏᓗ/.test(text))).toBe(true)
+  })
+
+  test('what happens before it hatches is not saved up for the pet that hatches later', async ($, on) => {
+    const hatchery: { pet: unknown } = { pet: null }
+    const { clock, send } = await playing($, on, {}, null, hatchery)
+    await turn($, clock, () => send(graded(9, 'p1'), dropped('uncommon', 'p1')))
+    await clock.advance(10_000)
+    hatchery.pet = ember
+    await send(serverEvent('pet.hatched', { species: 'fox', name: 'Ember', form: 0, mood: 82, equipped: {} }, 'h1'))
+    const seen = (await changes($, clock, 10_000)).map((one) => one.text ?? '')
+    expect(seen.length).toBeGreaterThan(1)
+    expect(seen.some((text) => text.includes('◆') || text.includes('♪'))).toBe(false)
   })
 
   test('cheers while a level-up plays, arms up and sparkles by turns', async ($, on) => {
@@ -607,6 +664,24 @@ describe('the walker', () => {
     const held = stepWalker(started, context({ free: false })).walker
     expect(held.act).toBeNull()
     expect(held.queue).toEqual([hop])
+  })
+
+  test('stilled or hidden, it keeps the reactions waiting for the band, the one it was playing first', () => {
+    const hop: Reaction = { kind: 'hop' }
+    const pat: Reaction = { kind: 'pat' }
+    const playing = stepWalker(withReactions(homeWalker, [hop, pat]), context()).walker
+    expect(playing.act?.reaction).toEqual(hop)
+    expect(settledWalker({ ...playing, away: 4 })).toMatchObject({ away: 0, act: null, queue: [hop, pat] })
+  })
+
+  test('after a reload, before the band draws, it stays where it stood instead of snapping home', () => {
+    const scene = { pose: pose({ away: 10, facing: 'left' }), display: { hidden: false, still: false }, activeAt: 0 }
+    const kept = walkerOf(scene, { wanders: true, animates: true })
+    expect(kept.away).toBe(10)
+    const next = stepWalker(kept, context({ room: roomNow(null, kept) })).walker
+    expect(next.away).toBeGreaterThanOrEqual(9)
+    // Once the band has drawn, its lane is the room.
+    expect(roomNow(6, kept)).toBe(6)
   })
 
   test("a fetch goes off the lane's far end and comes back to where it began, in under five seconds", () => {
