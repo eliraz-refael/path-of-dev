@@ -2,12 +2,25 @@ import { it } from "@effect/vitest"
 import { engineVersion, initialState } from "@pathofdev/engine"
 import type { ServerEvent } from "@pathofdev/schema"
 import { PlayerState } from "@pathofdev/schema"
-import { Effect, Schema } from "effect"
+import { Duration, Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
-import { lapse, migrate, migrations, Presence, runMigrations } from "../src/index.ts"
-import { client, localPlayer, minutesLater, nextId, profile, prompt, session, start, testSql, withServer } from "./fixtures.ts"
+import { lapse, migrate, migrations, Presence, runMigrations, sweepEvery } from "../src/index.ts"
+import {
+  client,
+  localPlayer,
+  minutesLater,
+  nextId,
+  profile,
+  prompt,
+  session,
+  start,
+  testSql,
+  untilAsleep,
+  wakeLoops,
+  withServer,
+} from "./fixtures.ts"
 
 // Presence over the routes: a mod that keeps its session live opens it, its stream polls keep it fresh, and it closes
 // it at the end; the sweep closes one unheard for two minutes. Only the changes reach the log.
@@ -33,20 +46,11 @@ const spans = Effect.gen(function* () {
   return row?.state.progress.presence ?? []
 })
 
-/** Lets work the test clock woke finish: it runs its queries on the real clock. */
-const settle = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
-
 /**
- * The test clock moved on in the sweep's own steps, each let finish, so every sweep reads the time it woke at and sets
- * its next wake from there.
+ * The test clock moved on in the sweep's own steps, each only once the last sweep is back asleep, so every sweep reads
+ * the time it woke at and sets its next wake from there.
  */
-const sweepFor = (seconds: number) =>
-  Effect.gen(function* () {
-    for (let passed = 0; passed < seconds; passed += 30) {
-      yield* TestClock.adjust("30 seconds")
-      yield* settle
-    }
-  })
+const sweepFor = (seconds: number) => wakeLoops(sweepEvery, seconds / Duration.toSeconds(sweepEvery))
 
 const heardAt = (sessionId: string) =>
   Effect.gen(function* () {
@@ -76,6 +80,7 @@ describe("presence", () => {
       Effect.gen(function* () {
         const api = yield* client
         yield* api.openSession({ payload: { sessionId: session, presence: true } })
+        yield* untilAsleep(sweepEvery)
         yield* TestClock.adjust("90 seconds")
         // The day's offer is on the stream already, so the poll answers at once.
         yield* api.stream({ query: { after: 0, session } })
@@ -134,6 +139,7 @@ describe("presence", () => {
       Effect.gen(function* () {
         const api = yield* client
         yield* api.openSession({ payload: { sessionId: session, presence: true } })
+        yield* untilAsleep(sweepEvery)
         yield* TestClock.adjust("1 minute")
         expect(yield* api.closeSession({ params: { id: session } })).toEqual({ closed: true })
         expect(yield* api.closeSession({ params: { id: session } })).toEqual({ closed: false })
@@ -195,6 +201,7 @@ describe("presence: review fixes", () => {
         yield* api.openSession({ payload: { sessionId: session, presence: true } })
         // What the sweep saw: unheard since the start. A poll then names the session before the close.
         const seen = { player_id: player.id, session_id: session, last_heard_at: start }
+        yield* untilAsleep(sweepEvery)
         yield* TestClock.adjust("150 seconds")
         yield* presence.heard(player.id, session)
         expect(yield* lapse(seen)).toBe(false)

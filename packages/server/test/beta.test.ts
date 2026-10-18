@@ -2,11 +2,19 @@ import { it } from "@effect/vitest"
 import { isGithubLogin } from "@pathofdev/schema"
 import { Effect, Layer, Option, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/sql"
-import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
 import type { BetaConfig, GithubUser } from "../src/index.ts"
 import { adminIdsOf, GitHub, notALogin, notInBeta, onlyAdmins, refreshEvery } from "../src/index.ts"
-import { dump, publicWebHandler, session, start, testPublicServices, testServices, webHandler } from "./fixtures.ts"
+import {
+  dump,
+  publicWebHandler,
+  session,
+  start,
+  testPublicServices,
+  testServices,
+  wakeLoops,
+  webHandler,
+} from "./fixtures.ts"
 
 // The beta list, kept from the mod by the public server's admins, end to end through the public build's routes over a
 // fresh database. GitHub is a table the test fills; the admin is Root, by GitHub user id 7, and ALLOWED_LOGINS lists
@@ -97,19 +105,8 @@ const rows = Effect.gen(function* () {
   return yield* sql<{ login: string }>`SELECT login FROM beta_logins ORDER BY login`
 })
 
-/** Lets work the test clock woke finish: it runs its queries on the real clock. */
-const settle = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
-
-/** The status `ask` answers once the read the test clock woke has had its time: up to 2 seconds of the real clock. */
-const settledStatus = (ask: Effect.Effect<Response>, expected: number) =>
-  Effect.gen(function* () {
-    let status = 0
-    for (let tries = 0; tries < 40 && status !== expected; tries++) {
-      yield* settle
-      status = (yield* ask).status
-    }
-    return status
-  })
+/** The beta list's refresh and the presence sweep: the public server's loops that sleep `refreshEvery`. */
+const loops = 2
 
 // ── logins ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -380,14 +377,14 @@ describe("the beta list", () => {
         yield* sql`INSERT INTO beta_logins (login, added_by, added_at) VALUES ('Carol', 7, ${start})`
         // Until the next read, the server goes by what it read.
         expect((yield* signInOf(handle, carol)).status).toBe(401)
-        yield* TestClock.adjust(refreshEvery)
-        expect(yield* settledStatus(signInOf(handle, carol), 200)).toBe(200)
+        yield* wakeLoops(refreshEvery, 1, loops)
+        expect((yield* signInOf(handle, carol)).status).toBe(200)
         const bearer = yield* signedIn(handle, carol)
         expect((yield* open(handle, bearer)).status).toBe(200)
         yield* sql`DELETE FROM beta_logins`
         expect((yield* open(handle, bearer)).status).toBe(200)
-        yield* TestClock.adjust(refreshEvery)
-        expect(yield* settledStatus(open(handle, bearer), 401)).toBe(401)
+        yield* wakeLoops(refreshEvery, 1, loops)
+        expect((yield* open(handle, bearer)).status).toBe(401)
       }),
     ))
 

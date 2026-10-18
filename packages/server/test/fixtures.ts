@@ -11,7 +11,7 @@ import type { Player as PlayerType, ServerEvent } from "@pathofdev/schema"
 import { PgClient } from "@effect/sql-pg"
 import { PathOfDevApi } from "@pathofdev/schema"
 import type { Scope } from "effect"
-import { Effect, Layer, Option, Redacted } from "effect"
+import { Clock, Context, Duration, Effect, Layer, Option, Redacted } from "effect"
 import { HttpEffect, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { HttpApiTest } from "effect/http-api"
 import { SqlClient } from "effect/sql"
@@ -171,6 +171,79 @@ export const freshDatabase: Effect.Effect<Database, SqlError, Scope.Scope> =
     return database
   })
 
+// ── the test clock, watched ──────────────────────────────────────────────────────────────────────────────────────────
+//
+// The server's background loops (the presence sweep, the beta list's refresh) sleep on the test clock, wake when a test
+// moves it, then run their queries on the real clock. A test that moves the clock again before a loop is back asleep
+// loses that wake: the loop sleeps from the later time. So a test waits on the loops, not for a fixed time:
+//
+//   untilAsleep ─▶ TestClock.adjust(every) ─▶ the loops wake and work ─▶ untilAsleep: each back asleep, past now
+//
+// The server's layers get the test clock with every sleep on it kept in `Sleeps` until it ends.
+
+/** A sleep on the test clock: how long, and when it ends. */
+interface Sleep {
+  readonly millis: number
+  readonly until: number
+}
+
+/** The sleeps the server's fibers are in now, and the test clock's time. */
+export class Sleeps extends Context.Service<
+  Sleeps,
+  { readonly pending: () => ReadonlyArray<Sleep>; readonly now: () => number }
+>()("pathofdev/test/Sleeps") {}
+
+/** The test clock, with each sleep on it kept in `Sleeps` while it lasts. */
+const watchedClock = Layer.effectContext(
+  Effect.gen(function* () {
+    const base = yield* Clock.Clock
+    const pending = new Set<Sleep>()
+    const clock: Clock.Clock = {
+      ...base,
+      sleep: (duration) =>
+        Effect.suspend(() => {
+          const millis = Duration.toMillis(duration)
+          const sleep: Sleep = { millis, until: base.currentTimeMillisUnsafe() + millis }
+          pending.add(sleep)
+          return base.sleep(duration).pipe(Effect.ensuring(Effect.sync(() => pending.delete(sleep))))
+        }),
+    }
+    return Context.make(Clock.Clock, clock).pipe(
+      Context.add(Sleeps, Sleeps.of({ pending: () => [...pending], now: () => base.currentTimeMillisUnsafe() })),
+    )
+  }),
+)
+
+/** A few milliseconds of real time, for work the test clock woke to get on with. */
+const pause = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 5)))
+
+/**
+ * Waits until `loops` background loops that sleep `every` are asleep again, each until after now on the test clock:
+ * whatever their last wake started is done. Only those loops sleep exactly that long. A loop not back within five
+ * seconds of real time fails the test.
+ */
+export const untilAsleep = (every: Duration.Duration, loops = 1) =>
+  Effect.gen(function* () {
+    const sleeps = yield* Sleeps
+    const asleep = () =>
+      sleeps.pending().filter((one) => one.millis === Duration.toMillis(every) && one.until > sleeps.now()).length
+    const deadline = Date.now() + 5000
+    while (asleep() < loops && Date.now() < deadline) yield* pause
+    if (asleep() < loops) {
+      return yield* Effect.die(new Error(`${loops} loops that sleep ${Duration.format(every)} never all went back to sleep`))
+    }
+  })
+
+/** Moves the test clock on by `every`, `times` over, each time with the loops asleep before and after. */
+export const wakeLoops = (every: Duration.Duration, times = 1, loops = 1) =>
+  Effect.gen(function* () {
+    for (let time = 0; time < times; time++) {
+      yield* untilAsleep(every, loops)
+      yield* TestClock.adjust(every)
+      yield* untilAsleep(every, loops)
+    }
+  })
+
 /** A SQL client over a fresh database, and the server's randomness, for a test of the tables alone. */
 export const testSql = Layer.merge(Layer.unwrap(Effect.map(freshDatabase, sqlLayer)), ServerRandom.layer())
 
@@ -178,7 +251,9 @@ export const testSql = Layer.merge(Layer.unwrap(Effect.map(freshDatabase, sqlLay
 export const testServices = (stepper?: Stepper, dev = false, seed?: string) =>
   Layer.unwrap(
     Effect.map(freshDatabase, (database) =>
-      Layer.mergeAll(services(database, profile, { stepper, dev, seed }), HttpServer.layerServices),
+      Layer.mergeAll(services(database, profile, { stepper, dev, seed }), HttpServer.layerServices).pipe(
+        Layer.provideMerge(watchedClock),
+      ),
     ),
   ).pipe(Layer.provideMerge(Layer.effectDiscard(TestClock.setTime(Date.parse(start)))))
 
@@ -189,7 +264,9 @@ export const testServices = (stepper?: Stepper, dev = false, seed?: string) =>
 export const testOnlineServices = <A, E>(auth: Layer.Layer<A, E, SqlClient.SqlClient | Players>) =>
   Layer.unwrap(
     Effect.map(freshDatabase, (database) =>
-      Layer.mergeAll(auth.pipe(Layer.provideMerge(core("online", database))), HttpServer.layerServices),
+      Layer.mergeAll(auth.pipe(Layer.provideMerge(core("online", database))), HttpServer.layerServices).pipe(
+        Layer.provideMerge(watchedClock),
+      ),
     ),
   ).pipe(Layer.provideMerge(Layer.effectDiscard(TestClock.setTime(Date.parse(start)))))
 
@@ -206,7 +283,7 @@ export const testPublicServices = <E>(
       Layer.mergeAll(
         publicServices(database, { profileOrigin: defaultProfileOrigin, ...beta }, github),
         HttpServer.layerServices,
-      ),
+      ).pipe(Layer.provideMerge(watchedClock)),
     ),
   ).pipe(Layer.provideMerge(Layer.effectDiscard(TestClock.setTime(Date.parse(start)))))
 
