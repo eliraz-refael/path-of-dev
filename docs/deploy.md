@@ -158,6 +158,8 @@ The public pages at `pathof.dev/u/<login>` come from this server, while every ot
 landing page:
 
 1. In Coolify, open the server app's **Domains** and add `https://pathof.dev/u` beside `https://api.pathof.dev`.
+   Coolify marks it with a red "DNS mismatch": `pathof.dev` is proxied, so it resolves to Cloudflare's addresses, not
+   the server's. Coolify flags any proxied name this way; the route works.
 2. Turn **Strip Prefixes** off for it, so the server sees `/u/<login>` as it was asked for. With it on, every
    profile is the 404.
 3. Redeploy, then check the three answers below:
@@ -167,6 +169,10 @@ curl -sI https://pathof.dev/u/nobody | head -3       # 404, cache-control: no-st
 curl -sI https://pathof.dev/u/<a public login>       # 200, after `/pathofdev profile public`
 curl -sI https://pathof.dev/ | head -1               # 200, still the landing page
 ```
+
+`/pathofdev profile` needs the mod at 0.3.0 or later. An older install says it doesn't know the argument; update it
+with `claude plugin marketplace update path-of-dev` and `claude plugin update pathofdev@path-of-dev`, then restart
+Claude Code.
 
 Pages are never cached (`no-store`), so no Cloudflare rule is needed; a hide, a private or a delete shows on the next
 view. `PROFILE_ORIGIN` (default `https://pathof.dev`) is where the server says the pages live, in

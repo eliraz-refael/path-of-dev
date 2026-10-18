@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Count, GradeDimension, IsoDateTime, Percent, Ulid } from "./primitives.ts"
+import { Count, GradeDimension, IsoDateTime, Percent, storable, Ulid } from "./primitives.ts"
 import { CheckoutRef, CommitRef, RepoRef, WorkRef } from "./subjects.ts"
 
 // Client events are observations of work, never scores: the server decides what each one is worth. The one
@@ -96,7 +96,7 @@ export const ClientEvent = Schema.Union([
   SessionCompacted,
   CommandUsed,
   ContextMeasured,
-])
+]).check(storable)
 export type ClientEvent = typeof ClientEvent.Type
 export type ClientEventType = ClientEvent["type"]
 

@@ -46,6 +46,23 @@ export const Name = Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schem
  */
 export const TypedName = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
 
+// Code units jsonb can't hold: a NUL, or half of a surrogate pair with no other half. Postgres and PGlite refuse
+// both, so an input holding one would fail its write with a 500.
+const unstorable = /\u0000|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/
+
+/** Whether every string in `value`, keys too, can be kept in a jsonb column. */
+export const isStorable = (value: unknown): boolean =>
+  typeof value === "string"
+    ? !unstorable.test(value)
+    : Array.isArray(value)
+      ? value.every(isStorable)
+      : typeof value === "object" && value !== null
+        ? Object.entries(value).every(([key, field]) => isStorable(key) && isStorable(field))
+        : true
+
+/** For an input the server logs as jsonb: one it couldn't keep is malformed, not a failed write. */
+export const storable = Schema.makeFilter((value: unknown) => isStorable(value) || "no NUL and no lone surrogate")
+
 // Enums the mod reads are open on the wire: a newer server may send a value an older mod doesn't know, and the
 // mod renders it with a fallback. The schemas stay closed because the server validates what it accepts.
 

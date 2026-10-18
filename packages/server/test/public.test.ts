@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import { engineVersion } from "@pathofdev/engine"
-import { DevCommand } from "@pathofdev/schema"
+import { DevCommand, isStorable } from "@pathofdev/schema"
 import { Effect, Exit, Layer, Option, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
@@ -14,7 +14,7 @@ import {
   publicConfigOf,
   publicEnvOf,
 } from "../src/index.ts"
-import { dump, hatch, prompt, publicWebHandler, session, testPublicServices } from "./fixtures.ts"
+import { dump, hatch, nextId, prompt, publicWebHandler, session, start, testPublicServices } from "./fixtures.ts"
 
 // The public server as its entry wires it: its settings from the environment, and its routes over the core, online,
 // with the beta's accounts. GitHub is a table the test fills.
@@ -22,6 +22,7 @@ import { dump, hatch, prompt, publicWebHandler, session, testPublicServices } fr
 //   env ─▶ publicConfigOf ─▶ PublicConfig            (round trip; a missing or bad var named)
 //   Request ─▶ PublicRoutes ─▶ publicServices(db, allowlist, FakeGitHub)
 //     /healthz ─▶ 200 │ dev commands ─▶ refused │ a newer save ─▶ 503 + Retry-After, nothing written
+//     a string jsonb can't hold ─▶ that event invalid, the rest of its batch kept │ that command 400, nothing written
 
 const serverRuns = { timeout: 120_000, arbitrary: { runs: 5 } }
 
@@ -206,9 +207,8 @@ describe("the public build", () => {
           const saved = sql`SELECT state, server_seq FROM player_state`
           const before = yield* saved
           const rolls = yield* sql`SELECT * FROM rolls`
-          // Postgres's jsonb holds no NUL and no lone surrogate, so a string with one fails the write whatever the
-          // command: the edge's to turn away (TODOS.md), not this property's.
-          for (const command of commands.filter((one) => !/\\u(0000|d[89a-f])/i.test(JSON.stringify(one)))) {
+          // A command holding a string jsonb can't hold is malformed, answered 400: the next property's case.
+          for (const command of commands.filter(isStorable)) {
             const response = yield* handle(request("/v1/commands", "POST", bearer, command))
             expect(response.status).toBe(200)
             expect(yield* json(response)).toMatchObject({ status: "refused", code: "not_allowed" })
@@ -217,6 +217,63 @@ describe("the public build", () => {
           expect(yield* sql`SELECT * FROM rolls`).toEqual(rolls)
           const opened = yield* handle(request("/v1/sessions", "POST", bearer, { sessionId: session }))
           expect(((yield* json(opened)) as { snapshot: { dev?: boolean } }).snapshot.dev).toBeUndefined()
+        }),
+      ),
+    serverRuns,
+  )
+})
+
+describe("a string jsonb can't hold", () => {
+  // A NUL, or half of a surrogate pair: Postgres's jsonb takes neither, so the write would fail with a 500, and the mod
+  // keeps its whole queue on a 5xx. The edge turns the one input away instead.
+  const Unstorable = Schema.Tuple([
+    Schema.String.check(Schema.isPattern(/^[a-z ]{0,8}$/)),
+    Schema.Literals(["\u0000", "\ud83d", "\ude00"]),
+    Schema.String.check(Schema.isPattern(/^[a-z ]{0,8}$/)),
+  ])
+  const passed = (runner: string) => ({
+    id: nextId(),
+    type: "tests.passed",
+    occurredAt: start,
+    sessionId: session,
+    data: { checkout: null, runner },
+  })
+
+  it.effect.prop(
+    "turns away the one event as invalid and takes the rest of its batch",
+    [Unstorable],
+    ([pieces]) =>
+      withPublic(
+        Effect.gen(function* () {
+          const handle = yield* publicWebHandler
+          const { bearer } = yield* signedIn(handle)
+          const bad = passed(pieces.join(""))
+          const batch = [prompt(8), bad, prompt(6)]
+          const response = yield* handle(request("/v1/events", "POST", bearer, { events: batch }))
+          expect(response.status).toBe(200)
+          const { results } = (yield* json(response)) as { results: ReadonlyArray<{ id: string; status: string; reason?: string }> }
+          expect(results.map(({ id, status, reason }) => ({ id, status, reason }))).toEqual([
+            { id: batch[0]!.id, status: "accepted", reason: undefined },
+            { id: bad.id, status: "rejected", reason: "invalid" },
+            { id: batch[2]!.id, status: "accepted", reason: undefined },
+          ])
+        }),
+      ),
+    serverRuns,
+  )
+
+  it.effect.prop(
+    "answers a command holding one 400, and writes nothing",
+    [Unstorable],
+    ([pieces]) =>
+      withPublic(
+        Effect.gen(function* () {
+          const handle = yield* publicWebHandler
+          const { bearer } = yield* signedIn(handle)
+          const before = yield* dump
+          const command = { ...hatch(), data: { species: "fox", name: pieces.join("") } }
+          expect((yield* handle(request("/v1/commands", "POST", bearer, command))).status).toBe(400)
+          expect(yield* dump).toEqual(before)
         }),
       ),
     serverRuns,

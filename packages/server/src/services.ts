@@ -17,18 +17,24 @@ import { PlayerWriter } from "./writer.ts"
 // request acts for on top, as its `Authentication`: the local server its one player.
 //
 //   ServerRandom (seeded once) ─┐
-//   DevMode ────────────────────┤
+//   DevMode (local only) ───────┤
 //   Database ─▶ migrate ────────┼─▶ QuestPacks ─▶ StreamHub ─▶ PlayerWriter ─▶ Players(kind), Presence (+ sweep)
 //                               ┘
 
 export interface CoreOptions {
   /** The engine's step, swappable so tests can make it fail. */
   readonly stepper?: Stepper | undefined
-  /** Dev mode: the dev commands are taken. Only the local dev sandbox turns it on. */
+  /** Dev mode: the dev commands are taken. Only the local dev sandbox asks, and only a local server heeds it. */
   readonly dev?: boolean | undefined
   /** Seeds the server's randomness, so a test sees the same ids twice; from the OS when unset. */
   readonly seed?: string | undefined
 }
+
+/**
+ * Whether a `kind` server built with `options` is in dev mode: only a local one that asks. An online server never is,
+ * whatever its options hold, so no setting of the public server can let a dev command through.
+ */
+export const devModeOf = (kind: ServerKind, options: CoreOptions): boolean => kind === "local" && options.dev === true
 
 /** The server's randomness, seeded once, then the database, migrated. */
 const Base = (database: Database, seed: string | undefined) =>
@@ -38,8 +44,8 @@ const Base = (database: Database, seed: string | undefined) =>
   )
 
 /**
- * The services behind the routes of a `kind` server, over `database`: migrated, with the presence sweep running; dev
- * mode off.
+ * The services behind the routes of a `kind` server, over `database`: migrated, with the presence sweep running, and
+ * in dev mode only as `devModeOf` allows.
  */
 export const core = (kind: ServerKind, database: Database, options: CoreOptions = {}) => {
   const Live = Presence.sweeper.pipe(Layer.provideMerge(Presence.layer))
@@ -48,6 +54,6 @@ export const core = (kind: ServerKind, database: Database, options: CoreOptions 
     Layer.provideMerge(StreamHub.layer),
     Layer.provideMerge(QuestPacks.layer),
     Layer.provideMerge(Base(database, options.seed)),
-    Layer.provideMerge(DevMode.layer(options.dev ?? false)),
+    Layer.provideMerge(DevMode.layer(devModeOf(kind, options))),
   )
 }

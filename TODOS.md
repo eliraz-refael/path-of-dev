@@ -34,28 +34,16 @@ the work is, why it matters, where things stand and what it waits on.
 
 ## Known gaps from the review
 
-### Dev mode out of the production build
+### Dev commands out of the public build
 
-- **What:** make dev mode impossible in the public build, not just switched off: the public entry should not wire the
-  dev command handlers at all, or the build should leave them out.
-- **Why:** today the public server forces `DevMode` off and the engine refuses dev commands without it, but the code
-  paths still ship in production, one config mistake away from being reachable.
-- **Context:** PR 5 adds a property that a public build refuses every dev command. Dev commands live in the engine
-  (refused without dev mode, even in a replay) and in the server's command routing. `PATHOFDEV_DEV=1` only selects the
-  local dev home. Decide between a separate command group the public entry never mounts, and removing dev mode from the
-  server package into a local-only module.
-- **Depends on:** the public server entry (PR 5).
-
-### Turn away strings Postgres can't store
-
-- **What:** have the edge reject (as `invalid`) an event or command holding a string with a NUL character or a lone
-  UTF-16 surrogate, before the write path sees it.
-- **Why:** `jsonb` stores neither, so such an input fails its whole write with a 500, on PGlite and Postgres alike. A
-  command is answered 500; an event fails its batch, and the mod keeps the whole queue on a 5xx, so one bad string
-  would hold every later event back for good.
-- **Context:** found by PR 5's dev-command property, which draws arbitrary strings; it skips those for now. A check on
-  the decoded input's JSON (`\u0000`, or `\ud800`-`\udfff` not in a pair) is enough; names already have patterns.
-- **Depends on:** nothing.
+- **What:** leave the dev commands out of what the public server decodes and runs: a command schema without them for
+  its route, or the engine's dev handling in a module only the local server loads.
+- **Why:** an online server can't be in dev mode (`devModeOf`, in server/services.ts), so the engine refuses every dev
+  command there, but the commands still decode and the code that runs them still ships. A bug in that one check would
+  let a player grant themselves XP, gold or items.
+- **Context:** `Command` (schema/commands.ts) holds the dev commands, and `step` runs them when its context says `dev`.
+  public.test.ts has a property that the public server refuses every dev command and its save stays as it was.
+- **Depends on:** nothing; worth it before open signup.
 
 ### Change a session and log its event in one transaction
 
