@@ -30,6 +30,23 @@ import { goldRow, labelRun, edgeRow, levelRow } from './band'
 import { celebrationOf, chimeOf, chimeWav, gapMs, idleMs, joinQueue, motionOf, queueOf, scriptOf } from './celebrate'
 import type { Row } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
+import type { Coach } from './coach'
+import {
+  asked,
+  bubbleRow,
+  canSpeak,
+  coachOf,
+  fitsWhole,
+  freshCoach,
+  gradedOf,
+  heardOf,
+  minBubble,
+  noTipText,
+  phasesOf,
+  remembered,
+  tipText,
+  unasked,
+} from './coach'
 import type { DevAsk, ServerKind } from './dev'
 import { devAskOf, devCommandOf, devUsage, previewEvents, previews, serverOf, startHint, toNextLevel } from './dev'
 import { barRow, capitalised, rarityColors, slotRow, stageRows } from './frames'
@@ -39,6 +56,7 @@ import {
   isGradable,
   isSlashCommand,
   minWordsOf,
+  noteOf,
   RUBRIC,
   rubricVersion,
   scoresOf,
@@ -196,6 +214,8 @@ const care = atom({ plugin: 'pathofdev', key: 'care' }, null)
 const welcome = atom({ plugin: 'pathofdev', key: 'welcome' }, null)
 const wizard = atom({ plugin: 'pathofdev', key: 'wizard' }, null)
 const petScene = atom({ plugin: 'pathofdev', key: 'pet' }, null)
+const coachMemory = atom({ plugin: 'pathofdev', key: 'coach' }, null)
+const bubble = atom({ plugin: 'pathofdev', key: 'bubble' }, null)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -456,8 +476,9 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
     await saveQueue($)
     playSoon($, 0)
   }
-  // After the celebrations are queued: the pet's reaction waits for them.
+  // After the celebrations are queued: the pet's reaction waits for them, and what it says waits for that.
   await petReact($, events)
+  await coachHear($, events)
 }
 
 /** Takes the gain's line down in `ms`, unless a newer line has taken its place by then. */
@@ -638,6 +659,7 @@ const petContext = (): StepContext => ({
   free: !isTurnRunning && playing === null && lineup.length === 0,
   sleepy: petSleepy,
   room: roomNow(petRoom, walker),
+  holds: toSay.length > 0 || bubbleTimer !== null,
 })
 
 const petSceneNow = () => sceneOf(walker, petDisplay, petActiveAt, modeOf(motion, petDisplay))
@@ -655,6 +677,7 @@ const stepPet = ($: EngineInterface) => {
   walker = step.walker
   if (step.waitMs !== null) petStep = $.clock.after(step.waitMs, () => stepPet($))
   void drawPet($).catch(() => undefined)
+  void speakWhenFree($).catch(() => undefined)
 }
 
 /** Starts the pet's steps when it has one to take; otherwise holds it, a reaction a turn cut short to play again. */
@@ -670,6 +693,7 @@ const syncPet = async ($: EngineInterface) => {
   petStep = null
   if (!context.free) walker = heldWalker(walker)
   await drawPet($)
+  await speakWhenFree($)
 }
 
 /** The pet falls asleep 10 minutes after the player was last active, at `now` or before. */
@@ -697,6 +721,8 @@ const wakePet = async ($: EngineInterface) => {
 const petReact = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>) => {
   const reactions = reactionsOf(events, motion)
   if (petDisplay.hidden || reactions.length === 0 || ((await read($, view))?.pet ?? null) === null) return
+  // A bubble on show gives way: the reaction plays now.
+  if (bubbleTimer !== null) await hush($)
   walker = withReactions(walker, reactions)
   // A pet at rest gets up for it now, not when its rest would have ended; one mid-reaction finishes that first.
   if (walker.act === null) {
@@ -718,6 +744,7 @@ const setPetDisplay = async ($: EngineInterface, next: PetDisplay) => {
 
 /** `/pathofdev pet …`: where the pet stands on the band, or the player's new choice. */
 const petCommand = async ($: EngineInterface, ask: PetAsk): Promise<string> => {
+  if (ask.kind === 'tip') return coachTip($)
   const next = displayAfter(ask, petDisplay)
   if (ask.kind !== 'view') await setPetDisplay($, next)
   return petDisplayText(next, (await read($, view))?.pet?.name ?? null, motion)
@@ -733,6 +760,76 @@ const startPet = async ($: EngineInterface) => {
   const now = await $.clock.now()
   petActiveAt = kept?.activeAt ?? now
   napLater($, now)
+  // The bubble the last copy left comes down at its time, or now if that has passed.
+  const said = await read($, bubble)
+  bubbleTimer?.cancel()
+  const hushLater = () => void hush($).catch(() => undefined)
+  bubbleTimer = said === null ? null : $.clock.after(Math.max(0, said.until - now), hushLater)
+}
+
+// The pet coach (coach.ts): the lines waiting until the pet's reactions have played and the band is free, the timer of
+// the line on show, and the room the band last left a bubble. Its memory, the grader's note in it, stays here.
+let coach: Coach = 'good'
+let toSay: ReadonlyArray<{ text: string; ms: number }> = []
+let bubbleTimer: Timer | null = null
+let bubbleRoom: number | null = null
+
+/** The XP a graded prompt earned: the pet may say something about it, once its reactions have played. */
+const coachHear = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>) => {
+  const heard = heardOf(events)
+  if (heard === null) return
+  const pet = (await read($, view))?.pet ?? null
+  const decided = unasked((await read($, coachMemory)) ?? freshCoach, heard, coach, pet !== null && !petDisplay.hidden)
+  await update($, coachMemory, () => decided.memory)
+  if (decided.said === null || pet === null) return
+  toSay = phasesOf(decided.said, pet.name)
+  await syncPet($)
+}
+
+/** The next line, once the pet may speak: it holds still where it stands while each line stands its time. */
+const speakWhenFree = async ($: EngineInterface) => {
+  // A pet off the band says nothing, and keeps nothing to say once it is back.
+  if (petDisplay.hidden) toSay = []
+  const [line, ...rest] = toSay
+  if (line === undefined || bubbleTimer !== null || !canSpeak(walker, petDisplay.hidden, petContext().free)) return
+  toSay = rest
+  petStep?.cancel()
+  petStep = null
+  bubbleTimer = $.clock.after(line.ms, () => {
+    bubbleTimer = null
+    const goesOn = toSay.length > 0 && canSpeak(walker, petDisplay.hidden, petContext().free)
+    void (goesOn ? speakWhenFree($) : hush($)).catch(() => undefined)
+  })
+  const until = (await $.clock.now()) + line.ms
+  await update($, bubble, () => ({ text: line.text, until }))
+}
+
+/** The bubble comes down and what waited to be said goes; the pet wanders on. */
+const hush = async ($: EngineInterface) => {
+  bubbleTimer?.cancel()
+  bubbleTimer = null
+  toSay = []
+  if ((await read($, bubble)) !== null) await update($, bubble, () => null)
+  await syncPet($)
+}
+
+/**
+ * `/pathofdev pet tip`: the tip about the last graded prompt in the bubble, and here too unless the band last had room
+ * for it whole. With no pet on the band, or no room for a bubble at all, it is only here.
+ */
+const coachTip = async ($: EngineInterface): Promise<string> => {
+  const pet = (await read($, view))?.pet ?? null
+  const answer = asked((await read($, coachMemory)) ?? freshCoach)
+  await update($, coachMemory, () => answer.memory)
+  if (answer.said === null) return noTipText(pet?.name ?? null)
+  const name = pet?.name ?? 'Your pet'
+  const text = tipText(answer.said, name)
+  if (pet === null || petDisplay.hidden || (bubbleRoom !== null && bubbleRoom < minBubble)) return text
+  await hush($)
+  toSay = phasesOf(answer.said, name)
+  await syncPet($)
+  const isWhole = bubbleRoom !== null && fitsWhole(answer.said, name, bubbleRoom)
+  return isWhole ? `${name} says it beside itself on the band.` : text
 }
 
 /**
@@ -1627,6 +1724,9 @@ const grade = async ($: EngineInterface, prompt: string, words: number) => {
   })
   const scores = result.isAnswered ? scoresOf(result.text) : null
   if (scores === null) return
+  // The note stays on this machine, with the pet coach, kept before the XP it earns can come back: it is in no event.
+  const graded = gradedOf(stamped.id, scores, result.isAnswered ? noteOf(result.text) : null)
+  await update($, coachMemory, (kept) => remembered(kept ?? freshCoach, graded))
   await enqueue($, { ...stamped, type: 'prompt.graded', data: { scores, rubricVersion, words, grader: 'haiku' } })
 }
 
@@ -1681,6 +1781,7 @@ export const register: Register = (on, options) => {
   const minWords = minWordsOf(options)
   gradeWords = minWords
   motion = motionOf(options)
+  coach = coachOf(options)
   toasts = toastsOf(options)
   server = serverOf(options)
   target = targetOf(options)
@@ -1712,7 +1813,7 @@ export const register: Register = (on, options) => {
           'Open the Path of Dev pane: your inventory, the shop, stats and missions (`welcome` for the first-run ' +
           'guide, `server` to say or switch which server you play on, `login` and `logout` for the online server, ' +
           '`profile public|private|hide|show` for your public page there, `account export|delete` for your data ' +
-          'there, `beta list|add|remove` for its admins, `pet still|move|hide|show` for your pet on the band, ' +
+          'there, `beta list|add|remove` for its admins, `pet still|move|hide|show|tip` for your pet on the band, ' +
           '`dev …` on the dev server)',
       })
       .catch(() => undefined)
@@ -1850,6 +1951,8 @@ export const register: Register = (on, options) => {
   // A celebration never plays over a main-loop turn: it waits for the idle prompt.
   on('turn.start', async ($, e, next) => {
     await holdCelebrations($)
+    // A new turn moves on from the last prompt: the pet's bubble about it comes down.
+    if (e.agentId === undefined) await hush($)
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -1936,10 +2039,19 @@ export const register: Register = (on, options) => {
     const widths = [...others, ...(petCells > 0 ? [petCells] : [])]
     const chip = missionChip(await read($, missions), roomBeside(columns, widths, 2), await $.clock.now())
     const chipCells = chip === null ? [] : [cellsOfRow(chip)]
-    // The pet coach's tip will be the last argument: a text set beside the pet, its lane widened to hold it.
     const petRoomLeft = roomBeside(columns, [...others, ...chipCells], 2) - 2
-    const lane = pet === null ? null : petRowOf(pet, scene, petHearts, motion, shown, petRoomLeft)
-    if (lane !== null) petRoom = lane.room
+    // The pet coach's bubble takes what the lane leaves beside a pet sitting still, and the gain line's room, which
+    // steps aside while the pet speaks (a celebration's slot never does). The mission keeps its room either way.
+    const said = e.props.isWorking || sitting === null ? null : await read($, bubble)
+    const lends = slot === null && last !== null
+    const lent = [cellsOfRow(level), cellsOfRow(gold), ...chipCells]
+    const speakRoom = lends ? roomBeside(columns, lent, 2) - 2 : petRoomLeft
+    bubbleRoom = sitting === null ? null : speakRoom - cellsOfRow(sitting.row) - 1
+    const beside = said === null || bubbleRoom === null ? null : bubbleRow(said.text, bubbleRoom)
+    const laneRoom = beside === null ? petRoomLeft : speakRoom
+    const lane = pet === null ? null : petRowOf(pet, scene, petHearts, motion, shown, laneRoom, beside)
+    // The walker's room is the lane's without a bubble: the pet holds still while it speaks.
+    if (lane !== null && beside === null) petRoom = lane.room
     const petLane = lane === null ? null : leadOf(lane.row)
     // Under the edge, a row of air, then the XP bar alone and everything else under it, both set in from the sides.
     return (
@@ -1970,7 +2082,7 @@ export const register: Register = (on, options) => {
             {chip === null ? null : draw(Text, chip, 'mission')}
             {slot !== null ? (
               draw(Text, slot, 'slot')
-            ) : last === null ? null : (
+            ) : last === null || (lends && beside !== null) ? null : (
               <Text color={toneColor[last.tone]} dimColor={last.tone === 'quiet'}>
                 {last.text}
               </Text>

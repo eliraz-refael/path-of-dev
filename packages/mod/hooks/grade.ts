@@ -4,7 +4,10 @@ import type { PluginOptions } from 'claude-code'
 // Grading the prompts the player types: which ones are graded, what Haiku is asked, and reading its scores back.
 // Only the scores leave the machine; the prompt, the answer it follows and the grader's note stay here.
 
-/** The rubric below, as the server's `prompt.rubricVersion` names it. A change to the rubric bumps it. */
+/**
+ * The rubric below, as the server's `prompt.rubricVersion` names it. A change to what the scores mean bumps it; the
+ * note's wording, which never leaves the machine, doesn't.
+ */
 export const rubricVersion = 1
 
 export const RUBRIC = `You grade one prompt a developer typed to an AI coding assistant. Score each from 0 to 10 against what
@@ -17,8 +20,10 @@ context: gives the why behind the ask
 doneCriteria: says how to know it is finished (tests pass, a behaviour, a shape)
 focus: one well-sized ask rather than a sprawling list
 regret: how much it walks back or corrects earlier work or instructions (0 none, 10 undo everything)
+note: the one concrete thing that would have made this prompt better, as a friendly suggestion to the developer in at
+most 12 words, such as "Say which test should pass when it's done."; brief praise if nothing would
 Reply with strict JSON only, no prose and no code fence:
-{"clarity":n,"grammar":n,"specificity":n,"instructive":n,"context":n,"doneCriteria":n,"focus":n,"regret":n,"note":"at most 8 words"}`
+{"clarity":n,"grammar":n,"specificity":n,"instructive":n,"context":n,"doneCriteria":n,"focus":n,"regret":n,"note":"..."}`
 
 /** How much of the previous answer the grader reads: its end, where the question to the player usually is. */
 export const answerTail = 1500
@@ -60,20 +65,20 @@ const scoreOf = (value: unknown): number | null =>
 const isComplete = (scores: Record<GradeDimension, number | null>): scores is Record<GradeDimension, number> =>
   Object.values(scores).every((score) => score !== null)
 
-/**
- * The scores in the reply's {...}, its first `{` to its last `}`; null when it doesn't parse or any score is missing
- * or out of range.
- */
-export const scoresOf = (reply: string): Record<GradeDimension, number> | null => {
+/** The fields of the reply's {...}, its first `{` to its last `}`; null when it doesn't parse as an object. */
+const replyFieldsOf = (reply: string): Record<string, unknown> | null => {
   const json = /\{[\s\S]*\}/.exec(reply)?.[0]
   if (json === undefined) return null
-  let parsed: unknown
   try {
-    parsed = JSON.parse(json)
+    return fieldsOf(JSON.parse(json))
   } catch {
     return null
   }
-  const fields = fieldsOf(parsed)
+}
+
+/** The scores in the reply's {...}; null when it doesn't parse or any score is missing or out of range. */
+export const scoresOf = (reply: string): Record<GradeDimension, number> | null => {
+  const fields = replyFieldsOf(reply)
   if (fields === null) return null
   const scores: Record<GradeDimension, number | null> = {
     clarity: scoreOf(fields['clarity']),
@@ -86,4 +91,29 @@ export const scoresOf = (reply: string): Record<GradeDimension, number> | null =
     regret: scoreOf(fields['regret']),
   }
   return isComplete(scores) ? scores : null
+}
+
+/** The longest note the pet says, in characters: twelve words and some slack. A longer one is cut at a word. */
+export const noteMax = 90
+
+// Controls, invisible and direction marks, line and paragraph breaks, and emoji, which would break the band's cells.
+const unsafe = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Extended_Pictographic}\u{FE0F}]/gu
+const quotes = /^["'`\u2018\u2019\u201C\u201D]+|["'`\u2018\u2019\u201C\u201D]+$/g
+
+/**
+ * The grader's note in the reply, as the pet may say it: one line, trimmed, its quotes and anything that would break
+ * the band taken out, cut at a word past `noteMax`. Null when there is none or it is junk: no two words of letters,
+ * markup or code, a link, or the rubric's own words read back. It stays on this machine.
+ */
+export const noteOf = (reply: string): string | null => {
+  const raw = replyFieldsOf(reply)?.['note']
+  if (typeof raw !== 'string') return null
+  const line = raw.replace(unsafe, ' ').replace(/\s+/g, ' ').trim().replace(quotes, '').trim()
+  const words = line.split(' ').filter((word) => /\p{L}/u.test(word))
+  const isJunk = /[{}<>\\|`]|https?:|www\./i.test(line) || /\b(12|twelve) words\b|^note\b/i.test(line)
+  if (words.length < 2 || isJunk) return null
+  if (line.length <= noteMax) return line
+  const cut = line.slice(0, noteMax - 1)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > noteMax / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, '')}…`
 }

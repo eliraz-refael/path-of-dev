@@ -20,6 +20,13 @@
       "options": ["full", "reduced", "off"],
       "default": "full"
     },
+    "coach": {
+      "type": "string",
+      "title": "Pet coach",
+      "description": "When your pet says a short tip about your last prompt in a bubble beside it on the band: now and then after a prompt graded 7 or more (good, the default), also after weaker ones, gently (always), or only when you ask with /pathofdev pet tip (off). At most one tip every 3 graded prompts. The tip comes from Haiku's grade and stays on your machine.",
+      "options": ["good", "always", "off"],
+      "default": "good"
+    },
     "toasts": {
       "type": "boolean",
       "title": "Reward toasts",

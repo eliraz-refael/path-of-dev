@@ -692,6 +692,43 @@ describe('grading prompts', () => {
     expect(wire).not.toContain('clear ask')
   })
 
+  test("keeps the grader's note on this machine: prompt.graded carries none, and nothing sent or queued has it", async ($, on) => {
+    const note = 'Mention the zebra fixture you want covered.'
+    grader(on, REPLY.replace('"note":"clear ask"', `"note":"${note}"`))
+    // A store that keeps every write, the queue's among them, for the test to read.
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    const kept = new Map<string, unknown>([['explored', ['acme/widgets']]])
+    const stored: Array<string> = []
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      stored.push(JSON.stringify(e.value) ?? '')
+      return { value: undefined }
+    })
+    on('store.delete', ($, e) => {
+      kept.delete(e.key)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock)
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await clock.settle()
+    const graded = ofType(eventsOf(sent), 'prompt.graded')
+    expect(graded).toHaveLength(1)
+    expect(Object.keys(graded[0]?.['data'] ?? {}).sort()).toEqual(['grader', 'rubricVersion', 'scores', 'words'])
+    expect(JSON.stringify(graded)).not.toContain('zebra')
+    expect(JSON.stringify(sent)).not.toContain('zebra')
+    // The queue lives in the store until it is sent: the note was never in it.
+    expect(stored.some((value) => value.includes('prompt.graded'))).toBe(true)
+    expect(stored.join('\n')).not.toContain('zebra')
+    // It is kept for the pet coach, which says it when asked.
+    expect((await $.command.run({ command: 'pathofdev', args: 'pet tip', origin: composer, presentation })).text).toContain(note)
+  })
+
   test('reads the previous graded prompt beside the next one', async ($, on) => {
     const asked = grader(on)
     const { flushed } = await started($, on)
@@ -2211,6 +2248,42 @@ describe('missions on the band', () => {
     await $.command.run({ command: 'pathofdev', args: 'pet still', origin: composer, presentation })
     expect(wandering).toEqual(await chips())
     expect(wandering).toContain('◎ Clear Thinker ▰▰▰▱▱ 3/5')
+  })
+
+  test("the pet's speech bubble leaves the mission the same room, at every width, cut to what is left", async ($, on) => {
+    const pet = { species: 'fox', name: 'Ember', form: 0, mood: 82, equipped: {} }
+    grader(on, REPLY.replace('"note":"clear ask"', '"note":"Say which of the parser tests should pass once it is done."'))
+    const { clock } = await streaming($, on, ownedOf(), false, { quests: missionsNow(), rules: missionRules, kept: { pet } })
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    const widths: Array<number> = []
+    for (let columns = 56; columns <= 140; columns += 2) widths.push(columns)
+    const rowsOf = async () => {
+      const shown: Array<{ chip: string | null; lane: string | null }> = []
+      for (const columns of widths) {
+        const texts = await bandAt($, columns)
+        shown.push({
+          chip: texts.find((text) => text.includes('◎')) ?? null,
+          lane: texts.find((text) => text.includes('Ember')) ?? null,
+        })
+      }
+      return shown
+    }
+    const quiet = await rowsOf()
+    expect((await $.command.run({ command: 'pathofdev', args: 'pet tip', origin: composer, presentation })).text).toBe(
+      'Ember says it beside itself on the band.',
+    )
+    await clock.settle()
+    const speaking = await rowsOf()
+    expect(speaking.map((one) => one.chip)).toEqual(quiet.map((one) => one.chip))
+    for (const one of speaking) expect(one.lane).toMatch(/Ember ♥♥♥$/)
+    const bubbles = speaking.flatMap((one) => /“[^”]*”/.exec(one.lane ?? '')?.[0] ?? [])
+    expect(bubbles).toContain('“Say which of the parser tests should pass once it is done.”')
+    expect(bubbles.some((one) => one.endsWith('…”'))).toBe(true)
+    // Never a stub: a bubble with less room than a few words is none.
+    for (const one of bubbles) expect(one.split(' ').length).toBeGreaterThanOrEqual(3)
+    // Narrow, the bubble has no room and the band shows none: the lane is the pet's alone.
+    expect(speaking[0]?.lane).toBe(quiet[0]?.lane)
   })
 
   test('steps from the title down to the count, and says how many are done once none runs', () => {
