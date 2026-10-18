@@ -2198,6 +2198,21 @@ describe('missions on the band', () => {
     expect(narrow.join('\n')).not.toContain('Clear Thinker')
   })
 
+  test('a wandering pet leaves the mission the room a pet sitting still would', async ($, on) => {
+    const pet = { species: 'fox', name: 'Ember', form: 0, mood: 82, equipped: {} }
+    await streaming($, on, ownedOf(), false, { quests: missionsNow(), rules: missionRules, kept: { pet } })
+    const chips = async () => {
+      const shown: Array<string | null> = []
+      for (let columns = 56; columns <= 110; columns += 2)
+        shown.push((await bandAt($, columns)).find((text) => text.includes('◎')) ?? null)
+      return shown
+    }
+    const wandering = await chips()
+    await $.command.run({ command: 'pathofdev', args: 'pet still', origin: composer, presentation })
+    expect(wandering).toEqual(await chips())
+    expect(wandering).toContain('◎ Clear Thinker ▰▰▰▱▱ 3/5')
+  })
+
   test('steps from the title down to the count, and says how many are done once none runs', () => {
     const mission = (questId: string, status: MissionView['status'], progress: number, goal: number, cadence = 'daily'): MissionView => ({
       questId,

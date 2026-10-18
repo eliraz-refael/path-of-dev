@@ -19,19 +19,20 @@ import type {
   Loop,
   Motion,
   PaneTab,
+  PetDisplay,
   Stage,
   WelcomeStep,
   WelcomeView,
   Wizard,
 } from '../types'
-import { happyLine } from './care'
+import { happyLine, moodWord } from './care'
 import { goldRow, labelRun, edgeRow, levelRow } from './band'
 import { celebrationOf, chimeOf, chimeWav, gapMs, idleMs, joinQueue, motionOf, queueOf, scriptOf } from './celebrate'
 import type { Row } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
 import type { DevAsk, ServerKind } from './dev'
 import { devAskOf, devCommandOf, devUsage, previewEvents, previews, serverOf, startHint, toNextLevel } from './dev'
-import { barRow, rarityColors, slotRow, stageRows } from './frames'
+import { barRow, capitalised, rarityColors, slotRow, stageRows } from './frames'
 import {
   answerTail,
   askFor,
@@ -115,6 +116,32 @@ import type { MissionEntry } from './missions'
 import { knowsTogether, missionChip, missionsLayout, missionsViewOf, roomBeside } from './missions'
 import type { Choice } from './pane'
 import { brand, headerGap, headerOf, lookSections, otherItems, paneId, renamedNote, tabBarOf, tabOf } from './pane'
+import type { PetAsk, StepContext, Walker } from './pet-motion'
+import {
+  asleepWalker,
+  displayAfter,
+  displayOf,
+  heldWalker,
+  homeWalker,
+  leadOf,
+  modeOf,
+  napMs,
+  petAskOf,
+  petDisplayKey,
+  petDisplayText,
+  petDisplayWord,
+  petRowOf,
+  reactionsOf,
+  roomNow,
+  sameScene,
+  sceneOf,
+  settledWalker,
+  stepWalker,
+  walkerOf,
+  wanderingPet,
+  wantsStep,
+  withReactions,
+} from './pet-motion'
 import type { ProfileAsk } from './profile'
 import { profileAskOf, profileRouteOf, profileTextOf } from './profile'
 import type { ShopAction, ShopEntry } from './shop'
@@ -168,6 +195,7 @@ const shop = atom({ plugin: 'pathofdev', key: 'shop' }, null)
 const care = atom({ plugin: 'pathofdev', key: 'care' }, null)
 const welcome = atom({ plugin: 'pathofdev', key: 'welcome' }, null)
 const wizard = atom({ plugin: 'pathofdev', key: 'wizard' }, null)
+const petScene = atom({ plugin: 'pathofdev', key: 'pet' }, null)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -423,10 +451,13 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   if (toast !== null) $.ui.toast(toast)
   const glyph = shown?.glyph ?? ''
   const celebrations = motion === 'off' ? [] : events.flatMap((event) => celebrationOf(event, glyph) ?? [])
-  if (celebrations.length === 0) return
-  lineup = celebrations.reduce(joinQueue, lineup)
-  await saveQueue($)
-  playSoon($, 0)
+  if (celebrations.length > 0) {
+    lineup = celebrations.reduce(joinQueue, lineup)
+    await saveQueue($)
+    playSoon($, 0)
+  }
+  // After the celebrations are queued: the pet's reaction waits for them.
+  await petReact($, events)
 }
 
 /** Takes the gain's line down in `ms`, unless a newer line has taken its place by then. */
@@ -544,6 +575,8 @@ const resumeCelebrations = async ($: EngineInterface) => {
 
 /** Starts, re-rates or stops the looks' loops, as what is drawn and the moment ask. */
 const syncLoop = async ($: EngineInterface) => {
+  // The pet moves and rests with the loops: what holds them holds it.
+  await syncPet($)
   const owned = await read($, wardrobe)
   // The pane's previews loop while it is open: the owned looks, and the ones on the shop's shelf.
   const offered = isPaneOpen ? offerLooks(await read($, shop)) : []
@@ -585,6 +618,121 @@ const tickLoop = async ($: EngineInterface, rate: number) => {
   // A stop that came in while this tick was being written wins: the still looks stay. An atom a /clear emptied is
   // written again, so the loops pick up where they were.
   await update($, loops, loopsNow)
+}
+
+// The living pet, which pet-motion.ts works out step by step: the walker in the mod's memory, the timer of its next
+// step, the nap 10 minutes after the player was last active, and the player's choice from the store. A step draws only
+// what changed on the band; a reload starts the timers again from session.start, the pet where the state last saw it.
+let walker: Walker = homeWalker
+let petDisplay: PetDisplay = wanderingPet
+let petActiveAt = 0
+/** How far from its place the band last let the pet go (unknown after a reload), and whether its mood is low. */
+let petRoom: number | null = null
+let petSleepy = false
+let petStep: Timer | null = null
+let petNap: Timer | null = null
+
+/** The band is free for the pet: no main-loop turn, and no celebration playing or waiting to. */
+const petContext = (): StepContext => ({
+  ...modeOf(motion, petDisplay),
+  free: !isTurnRunning && playing === null && lineup.length === 0,
+  sleepy: petSleepy,
+  room: roomNow(petRoom, walker),
+})
+
+const petSceneNow = () => sceneOf(walker, petDisplay, petActiveAt, modeOf(motion, petDisplay))
+
+/** Draws the pet as the walker has it, when that changed; the write takes the walker as it is when it lands. */
+const drawPet = async ($: EngineInterface) => {
+  if (sameScene(await read($, petScene), petSceneNow())) return
+  await update($, petScene, petSceneNow)
+}
+
+/** One step, and the timer for the next, set before anything is awaited so that two steps never run side by side. */
+const stepPet = ($: EngineInterface) => {
+  petStep = null
+  const step = stepWalker(walker, petContext())
+  walker = step.walker
+  if (step.waitMs !== null) petStep = $.clock.after(step.waitMs, () => stepPet($))
+  void drawPet($).catch(() => undefined)
+}
+
+/** Starts the pet's steps when it has one to take; otherwise holds it, a reaction a turn cut short to play again. */
+const syncPet = async ($: EngineInterface) => {
+  const pet = (await read($, view))?.pet ?? null
+  petSleepy = pet !== null && moodWord(pet.mood, happyLine(await read($, care))) === 'sleepy'
+  const context = petContext()
+  if (pet !== null && !petDisplay.hidden && wantsStep(walker, context)) {
+    petStep ??= $.clock.after(0, () => stepPet($))
+    return
+  }
+  petStep?.cancel()
+  petStep = null
+  if (!context.free) walker = heldWalker(walker)
+  await drawPet($)
+}
+
+/** The pet falls asleep 10 minutes after the player was last active, at `now` or before. */
+const napLater = ($: EngineInterface, now: number) => {
+  petNap?.cancel()
+  petNap = $.clock.after(Math.max(0, petActiveAt + napMs - now), () => {
+    petNap = null
+    petStep?.cancel()
+    petStep = null
+    walker = asleepWalker(walker)
+    void drawPet($).catch(() => undefined)
+  })
+}
+
+/** The player prompted: the pet wakes, if it slept, and naps 10 minutes from now. */
+const wakePet = async ($: EngineInterface) => {
+  const now = await $.clock.now()
+  petActiveAt = now
+  walker = { ...walker, asleep: false }
+  napLater($, now)
+  await syncPet($)
+}
+
+/** What a batch of the stream earned, the pet reacts to once the band is free; a reaction wakes it, as prompts do. */
+const petReact = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>) => {
+  const reactions = reactionsOf(events, motion)
+  if (petDisplay.hidden || reactions.length === 0 || ((await read($, view))?.pet ?? null) === null) return
+  walker = withReactions(walker, reactions)
+  // A pet at rest gets up for it now, not when its rest would have ended; one mid-reaction finishes that first.
+  if (walker.act === null) {
+    petStep?.cancel()
+    petStep = null
+  }
+  petActiveAt = await $.clock.now()
+  napLater($, petActiveAt)
+  await syncPet($)
+}
+
+/** The player's choice, kept in the store: a pet that stops wandering settles in its place beside its name. */
+const setPetDisplay = async ($: EngineInterface, next: PetDisplay) => {
+  petDisplay = next
+  if (!modeOf(motion, next).wanders) walker = settledWalker(walker)
+  await $.store.set(petDisplayKey, next)
+  await syncPet($)
+}
+
+/** `/pathofdev pet …`: where the pet stands on the band, or the player's new choice. */
+const petCommand = async ($: EngineInterface, ask: PetAsk): Promise<string> => {
+  const next = displayAfter(ask, petDisplay)
+  if (ask.kind !== 'view') await setPetDisplay($, next)
+  return petDisplayText(next, (await read($, view))?.pet?.name ?? null, motion)
+}
+
+/** A fresh copy of the mod: the choice from the store, the pet where the state last saw it, and its timers anew. */
+const startPet = async ($: EngineInterface) => {
+  petStep?.cancel()
+  petStep = null
+  petDisplay = displayOf(await $.store.get(petDisplayKey))
+  const kept = await read($, petScene)
+  walker = walkerOf(kept, modeOf(motion, petDisplay))
+  const now = await $.clock.now()
+  petActiveAt = kept?.activeAt ?? now
+  napLater($, now)
 }
 
 /**
@@ -1420,6 +1568,8 @@ const runCommandLine = async ($: EngineInterface, args: string): Promise<string>
   if (beta !== null) return typeof beta === 'string' ? beta : keepBeta($, beta)
   const profile = profileAskOf(args)
   if (profile !== null) return typeof profile === 'string' ? profile : keepProfile($, profile)
+  const petAsk = petAskOf(args)
+  if (petAsk !== null) return typeof petAsk === 'string' ? petAsk : petCommand($, petAsk)
   const data = dataAskOf(args)
   if (data !== null) {
     if (typeof data === 'string') return data
@@ -1550,6 +1700,7 @@ export const register: Register = (on, options) => {
     paneClock?.cancel()
     paneClock = null
     syncPaneClock($)
+    await startPet($)
     stopLoops()
     // The atom outlives a reload: clear the last copy's frames, or a sync with no clock to start leaves them frozen.
     await update($, loops, () => null)
@@ -1561,7 +1712,8 @@ export const register: Register = (on, options) => {
           'Open the Path of Dev pane: your inventory, the shop, stats and missions (`welcome` for the first-run ' +
           'guide, `server` to say or switch which server you play on, `login` and `logout` for the online server, ' +
           '`profile public|private|hide|show` for your public page there, `account export|delete` for your data ' +
-          'there, `beta list|add|remove` for its admins, `dev …` on the dev server)',
+          'there, `beta list|add|remove` for its admins, `pet still|move|hide|show` for your pet on the band, ' +
+          '`dev …` on the dev server)',
       })
       .catch(() => undefined)
     await $.command
@@ -1618,6 +1770,8 @@ export const register: Register = (on, options) => {
   on('prompt.submit', async ($, e, next) => {
     const result = await next(e)
     const byPlayer = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
+    // Any prompt the player sends wakes the pet, graded or not; it never reacts to the grade here.
+    if (result.drop === undefined && byPlayer) later($, () => wakePet($))
     if (result.drop !== undefined || !byPlayer || isSlashCommand(e.text)) return result
     const text = e.text.trim()
     const words = wordsOf(e.text)
@@ -1765,16 +1919,28 @@ export const register: Register = (on, options) => {
     // The hearts follow the rules' happy line; a pet the server cares for takes a pat from a click.
     const cared = await read($, care)
     const petHearts = pet === null ? '' : hearts(pet.mood, happyLine(cared))
-    // The mission on row 2 takes what the row's other pieces leave, so the row never wraps for it.
-    const petCells =
-      pet !== null
-        ? cellsOf(`${sprite(pet)} ${pet.name} ${petHearts}`)
-        : canHatch(current)
-          ? cellsOf(hatchLabel) + 4
-          : cellsOf(eggHint)
+    // The mission on row 2 takes the room it would beside a pet sitting still, and the pet's lane what is left then,
+    // up to its width, so the row never wraps for either. A pet the player hid takes nothing.
     const tail = slot !== null ? cellsOfRow(slot) : last === null ? 0 : cellsOf(last.text)
-    const widths = [cellsOfRow(level), cellsOfRow(gold), petCells, ...(tail > 0 ? [tail] : [])]
+    const others = [cellsOfRow(level), cellsOfRow(gold), ...(tail > 0 ? [tail] : [])]
+    const scene = (await read($, petScene)) ?? petSceneNow()
+    const sitting = pet === null ? null : petRowOf(pet, scene, petHearts, motion, shown, 0)
+    const petCells =
+      sitting !== null
+        ? cellsOfRow(sitting.row)
+        : pet !== null
+          ? 0
+          : canHatch(current)
+            ? cellsOf(hatchLabel) + 4
+            : cellsOf(eggHint)
+    const widths = [...others, ...(petCells > 0 ? [petCells] : [])]
     const chip = missionChip(await read($, missions), roomBeside(columns, widths, 2), await $.clock.now())
+    const chipCells = chip === null ? [] : [cellsOfRow(chip)]
+    // The pet coach's tip will be the last argument: a text set beside the pet, its lane widened to hold it.
+    const petRoomLeft = roomBeside(columns, [...others, ...chipCells], 2) - 2
+    const lane = pet === null ? null : petRowOf(pet, scene, petHearts, motion, shown, petRoomLeft)
+    if (lane !== null) petRoom = lane.room
+    const petLane = lane === null ? null : leadOf(lane.row)
     // Under the edge, a row of air, then the XP bar alone and everything else under it, both set in from the sides.
     return (
       <Box flexDirection="column">
@@ -1785,15 +1951,18 @@ export const register: Register = (on, options) => {
           <Box flexWrap="wrap" columnGap={2}>
             {draw(Text, level, 'level')}
             {draw(Text, gold, 'gold')}
-            {pet !== null && cared?.isKnown === true ? (
-              <Button key="band:pet" plain onPress={() => void act($, pat)}>
-                {sprite(pet)} {pet.name} <Text color="error">{petHearts}</Text>
-              </Button>
-            ) : pet !== null ? (
-              <Text>
-                {sprite(pet)} {pet.name} <Text color="error">{petHearts}</Text>
-              </Text>
-            ) : canHatch(current) ? (
+            {petLane !== null ? (
+              <Box key="band:lane">
+                {petLane.lead.length > 0 ? draw(Text, petLane.lead, 'pet:lead') : null}
+                {cared?.isKnown === true ? (
+                  <Button key="band:pet" plain onPress={() => void act($, pat)}>
+                    {draw(Text, petLane.rest, 'pet')}
+                  </Button>
+                ) : (
+                  draw(Text, petLane.rest, 'pet')
+                )}
+              </Box>
+            ) : pet !== null ? null : canHatch(current) ? (
               <Button key="hatch" label={hatchLabel} variant="primary" onPress={() => void hatch($)} />
             ) : (
               <Text dimColor>{eggHint}</Text>
@@ -2472,6 +2641,10 @@ export const register: Register = (on, options) => {
     } else {
       const shownPet = { face: sprite(pet), name: pet.name, mood: pet.mood }
       const card = petCardLayout(cared, shownPet, columns, await $.clock.now())
+      // The pet on the band, wandering, still or hidden: the toggles do what `/pathofdev pet …` does.
+      const onBand = (await read($, petScene))?.display ?? petDisplay
+      const still = onBand.still ? 'move' : 'still'
+      const shown = onBand.hidden ? 'show' : 'hide'
       petSection = (
         <Box key="pet" flexDirection="column" marginBottom={1}>
           {draw(Text, card.title, 'pet:title')}
@@ -2483,6 +2656,23 @@ export const register: Register = (on, options) => {
               {card.petHint === null ? null : draw(Text, card.petHint, 'pet:hint')}
             </Box>
           ) : null}
+          <Box key="pet:band" flexWrap="wrap" columnGap={2} marginLeft={2}>
+            <Text dimColor>{petDisplayWord(onBand, motion)}</Text>
+            {onBand.hidden ? null : (
+              <Button
+                key={`pet:${still}`}
+                plain
+                label={capitalised(still)}
+                onPress={() => void petCommand($, { kind: still })}
+              />
+            )}
+            <Button
+              key={`pet:${shown}`}
+              plain
+              label={capitalised(shown)}
+              onPress={() => void petCommand($, { kind: shown })}
+            />
+          </Box>
           {card.boost === null ? null : draw(Text, card.boost, 'pet:boost')}
           {card.canPet ? (
             <Box flexDirection="column" marginLeft={2}>
