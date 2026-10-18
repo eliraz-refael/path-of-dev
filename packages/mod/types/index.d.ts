@@ -266,6 +266,37 @@ export type CareView = {
   boost: { pct: number; endsAt: number } | null
 }
 
+/** Which way the pet faces on the band: toward its name, on the lane's right, or away from it. */
+export type Facing = 'left' | 'right'
+
+/** The pet's face: as it is, happy, chewing, or asleep. Never sad: a low mood only makes it rest longer. */
+export type PetLook = 'idle' | 'happy' | 'chew' | 'asleep'
+
+/** A glyph or two beside the pet's face: a sparkle, a crumb, a heart, the drop it carries, its z's. */
+export type PetMark = { text: string; color?: string; dim?: boolean }
+
+/**
+ * The pet as the band draws it: `away` cells from its place beside its name, the way it faces, its face, and the marks
+ * behind and before it; `isAway` while it is off the lane, fetching a drop.
+ */
+export type PetPose = {
+  away: number
+  facing: Facing
+  look: PetLook
+  back: PetMark | null
+  front: PetMark | null
+  isAway: boolean
+}
+
+/** How the player wants the pet on the band, kept in the mod's store: on it or hidden, wandering or still. */
+export type PetDisplay = { hidden: boolean; still: boolean }
+
+/**
+ * The pet on the band now: its pose, the player's choice, and when the player last prompted, patted or fed it (clock
+ * ms), which it naps 10 minutes after.
+ */
+export type PetScene = { pose: PetPose; display: PetDisplay; activeAt: number }
+
 /** The `/pathofdev` pane's tabs; the last is the first-run welcome, which a player may open again. */
 export type PaneTab = 'inventory' | 'shop' | 'stats' | 'missions' | 'welcome'
 
@@ -346,6 +377,8 @@ declare module 'claude-code' {
       welcome: WelcomeView | null
       /** The welcome's step and drafts while it shows; null when it starts afresh. */
       wizard: Wizard | null
+      /** The pet on the band as last drawn, so a reload finds it where it stood; null until it is first drawn. */
+      pet: PetScene | null
     }
   }
 }
