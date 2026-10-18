@@ -25,7 +25,7 @@ export const inputSchemaVersion = 1
 
 /**
  * Dev mode: the sandbox that takes the dev commands. Only the local server turns it on, from `PATHOFDEV_DEV=1`, and
- * only over a home of its own; any other server leaves it off, so the engine refuses them there.
+ * only over a home of its own; an online server can't (`devModeOf`), so the engine refuses them there.
  */
 export class DevMode extends Context.Service<DevMode, { readonly isOn: boolean }>()("pathofdev/DevMode") {
   static readonly layer = (isOn: boolean) => Layer.succeed(DevMode, { isOn })

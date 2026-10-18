@@ -6,7 +6,8 @@ import { Predicate, Result, Schema } from "effect"
 // never fails its batch, and keep its time inside the window the engine trusts.
 //
 //   raw ─▶ decode ── unknown type ──────────────────────────────▶ rejected unknown_type (the mod keeps it queued)
-//            │    └─ malformed, or a moment that doesn't exist ──▶ rejected invalid
+//            │    └─ malformed, a string jsonb can't hold, ────────▶ rejected invalid
+//            │       or a moment that doesn't exist
 //            └─▶ occurredAt
 //                 ├─ more than 7 days before receipt ────────────▶ rejected too_old
 //                 ├─ more than 5 minutes after receipt ──────────▶ admitted, pulled back to receipt + 5 minutes

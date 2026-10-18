@@ -23,7 +23,7 @@ import type { Database } from "./db.ts"
 import { ApiRoutes } from "./http.ts"
 import type { LocalProfile } from "./players.ts"
 import { Players } from "./players.ts"
-import type { CoreOptions } from "./services.ts"
+import type { LocalOptions } from "./services.ts"
 import { core } from "./services.ts"
 
 // The local server: one player, PGlite in ~/.pathofdev/data, HTTP on a Unix socket in a 0700 directory, so only the
@@ -277,7 +277,7 @@ export const LocalAuth = (profile: LocalProfile) =>
   )
 
 /** Everything behind the local server's routes, over `database`: the core, and its one player's `Authentication`. */
-export const services = (database: Database, profile: LocalProfile, options?: CoreOptions) =>
+export const services = (database: Database, profile: LocalProfile, options?: LocalOptions) =>
   LocalAuth(profile).pipe(Layer.provideMerge(core("local", database, options)))
 
 /** The local server, listening on the socket until the scope closes. */

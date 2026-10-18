@@ -6,8 +6,9 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it as test } from "vitest"
 import { starterCatalog, starterRules } from "@pathofdev/engine"
-import { catalog, checkedCatalog, claimHome, isDevMode, localPaths, localServer, WrongHome } from "../src/index.ts"
-import { client, nextId, profile, prompt, session, unnamed, withEnv, withoutQuests, withServer } from "./fixtures.ts"
+import type { LocalOptions } from "../src/index.ts"
+import { catalog, checkedCatalog, claimHome, core, DevMode, isDevMode, localPaths, localServer, WrongHome } from "../src/index.ts"
+import { client, freshDatabase, nextId, profile, prompt, session, unnamed, withEnv, withoutQuests, withServer } from "./fixtures.ts"
 
 // Dev mode: a sandbox save in a home of its own, the only place the dev commands run.
 
@@ -155,4 +156,23 @@ describe("the catalogue the server runs", () => {
     )
     expect(() => checkedCatalog(starterRules, off)).toThrow("wyrm-sigil: ×3 is outside legendary's ×2.3-2.5")
   })
+})
+
+describe("dev mode", () => {
+  // The public server's core is an online one: however it is built, no option it is handed turns dev mode on.
+  it.effect("is on only in a local server that asks for it, never in an online one, whatever it is handed", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        for (const dev of [false, true]) {
+          const asked: LocalOptions = { dev }
+          for (const [kind, built] of [
+            ["local", core("local", yield* freshDatabase, asked)],
+            ["online", core("online", yield* freshDatabase, asked)],
+          ] as const) {
+            const isOn = yield* Effect.provide(Effect.map(DevMode, (mode) => mode.isOn), built)
+            expect({ kind, dev, isOn }).toEqual({ kind, dev, isOn: kind === "local" && dev })
+          }
+        }
+      }),
+    ), 60_000)
 })

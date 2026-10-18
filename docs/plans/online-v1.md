@@ -133,4 +133,5 @@ local.ts single-player comments, hub.ts:5, site level path.
 
 ## Unresolved (user deferred)
 - ~~Where site/ lives (own app vs inside the server app)~~ — decided in PR 6: its own app.
-- Dev mode in the prod build — config-off in v1; TODO to remove.
+- ~~Dev mode in the prod build~~ — after v1: dev mode follows from the server kind (`devModeOf`), so an online server
+  can't be in it whatever it is handed; the engine's dev code still ships, unreachable there.

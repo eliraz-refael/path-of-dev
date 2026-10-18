@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Count, Name, Rarity, Slot, TypedName, Ulid } from "./primitives.ts"
+import { Count, Name, Rarity, Slot, storable, TypedName, Ulid } from "./primitives.ts"
 
 // Commands are player choices, answered synchronously. Like events they carry a ULID and are idempotent;
 // unlike events they can be refused.
@@ -107,7 +107,7 @@ export const Command = Schema.Union([
   DevRestockShop,
   DevSetMood,
   DevSetShards,
-])
+]).check(storable)
 export type Command = typeof Command.Type
 export type CommandType = Command["type"]
 

@@ -34,29 +34,6 @@ the work is, why it matters, where things stand and what it waits on.
 
 ## Known gaps from the review
 
-### Dev mode out of the production build
-
-- **What:** make dev mode impossible in the public build, not just switched off: the public entry should not wire the
-  dev command handlers at all, or the build should leave them out.
-- **Why:** today the public server forces `DevMode` off and the engine refuses dev commands without it, but the code
-  paths still ship in production, one config mistake away from being reachable.
-- **Context:** PR 5 adds a property that a public build refuses every dev command. Dev commands live in the engine
-  (refused without dev mode, even in a replay) and in the server's command routing. `PATHOFDEV_DEV=1` only selects the
-  local dev home. Decide between a separate command group the public entry never mounts, and removing dev mode from the
-  server package into a local-only module.
-- **Depends on:** the public server entry (PR 5).
-
-### Turn away strings Postgres can't store
-
-- **What:** have the edge reject (as `invalid`) an event or command holding a string with a NUL character or a lone
-  UTF-16 surrogate, before the write path sees it.
-- **Why:** `jsonb` stores neither, so such an input fails its whole write with a 500, on PGlite and Postgres alike. A
-  command is answered 500; an event fails its batch, and the mod keeps the whole queue on a 5xx, so one bad string
-  would hold every later event back for good.
-- **Context:** found by PR 5's dev-command property, which draws arbitrary strings; it skips those for now. A check on
-  the decoded input's JSON (`\u0000`, or `\ud800`-`\udfff` not in a pair) is enough; names already have patterns.
-- **Depends on:** nothing.
-
 ### Change a session and log its event in one transaction
 
 - **What:** in `presence.ts`, opening, closing and lapsing a session should change the `sessions` row and log its
