@@ -2,12 +2,24 @@ import { it } from "@effect/vitest"
 import { engineVersion, initialState } from "@pathofdev/engine"
 import type { ServerEvent } from "@pathofdev/schema"
 import { PlayerState } from "@pathofdev/schema"
-import { Effect, Schema } from "effect"
+import { Duration, Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
-import { lapse, migrate, migrations, Presence, runMigrations } from "../src/index.ts"
-import { client, localPlayer, minutesLater, nextId, profile, prompt, session, start, testSql, withServer } from "./fixtures.ts"
+import { lapse, migrate, migrations, Presence, runMigrations, sweepEvery } from "../src/index.ts"
+import {
+  client,
+  localPlayer,
+  minutesLater,
+  nextId,
+  profile,
+  prompt,
+  session,
+  start,
+  testSql,
+  wakeLoops,
+  withServer,
+} from "./fixtures.ts"
 
 // Presence over the routes: a mod that keeps its session live opens it, its stream polls keep it fresh, and it closes
 // it at the end; the sweep closes one unheard for two minutes. Only the changes reach the log.
@@ -33,20 +45,11 @@ const spans = Effect.gen(function* () {
   return row?.state.progress.presence ?? []
 })
 
-/** Lets work the test clock woke finish: it runs its queries on the real clock. */
-const settle = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
-
 /**
- * The test clock moved on in the sweep's own steps, each let finish, so every sweep reads the time it woke at and sets
- * its next wake from there.
+ * The test clock moved on in the sweep's own steps, each only once the last sweep is back asleep, so every sweep reads
+ * the time it woke at and sets its next wake from there.
  */
-const sweepFor = (seconds: number) =>
-  Effect.gen(function* () {
-    for (let passed = 0; passed < seconds; passed += 30) {
-      yield* TestClock.adjust("30 seconds")
-      yield* settle
-    }
-  })
+const sweepFor = (seconds: number) => wakeLoops(sweepEvery, seconds / Duration.toSeconds(sweepEvery))
 
 const heardAt = (sessionId: string) =>
   Effect.gen(function* () {

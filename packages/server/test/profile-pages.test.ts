@@ -95,9 +95,11 @@ const Hidden = Schema.Literals([
   "x/ada/",
 ])
 
+/** A character name built to break markup, no longer than a name may be (32), or the save wouldn't read. */
 const Hostile = Schema.Array(Schema.Literals(["<", ">", "&", '"', "'", "a", "</style>", "<script>", " onload=", "🐉"])).check(
   Schema.isMinLength(1),
   Schema.isMaxLength(8),
+  Schema.makeFilter((pieces) => pieces.join("").length <= 32 || "longer than a character name may be"),
 )
 
 const Section = Schema.Literals(profileSections)

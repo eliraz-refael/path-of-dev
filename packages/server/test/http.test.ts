@@ -4,6 +4,7 @@ import { Effect, Fiber } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
+import { streamTimeout } from "../src/index.ts"
 import {
   client,
   commandUsed,
@@ -15,6 +16,7 @@ import {
   prompt,
   session,
   start,
+  untilAsleep,
   withoutQuests,
   withServer,
 } from "./fixtures.ts"
@@ -162,8 +164,8 @@ describe("GET /v1/stream", () => {
       Effect.gen(function* () {
         const api = yield* client
         const poll = yield* Effect.forkChild(api.stream({ query: { after: 0 } }))
-        // Let the poll park; the test clock never fires the 25-second timer on its own.
-        yield* TestClock.adjust("1 second")
+        // Let the poll park on its 25-second timer, which the test clock never fires on its own.
+        yield* untilAsleep(streamTimeout)
         const sent = yield* api.sendEvents({ payload: { events: [commit("a")] } })
         const stream = yield* Fiber.join(poll)
         expect(stream.events.map((event) => event.seq)).toEqual(sent.events.map((event) => event.seq))
@@ -179,6 +181,7 @@ describe("GET /v1/stream", () => {
         const sent = yield* api.sendEvents({ payload: batch })
         const cursor = sent.events.length
         const poll = yield* Effect.forkChild(api.stream({ query: { after: cursor } }))
+        yield* untilAsleep(streamTimeout)
         yield* TestClock.adjust("1 second")
         yield* api.sendEvents({ payload: batch })
         yield* TestClock.adjust("1 second")
@@ -194,6 +197,8 @@ describe("GET /v1/stream", () => {
       Effect.gen(function* () {
         const api = yield* client
         const poll = yield* Effect.forkChild(api.stream({ query: { after: 0 } }))
+        // Parked first: a clock moved while its reads still connect would time the connection out instead.
+        yield* untilAsleep(streamTimeout)
         yield* TestClock.adjust("24 seconds")
         expect(poll.pollUnsafe()).toBeUndefined()
         yield* TestClock.adjust("1 second")
