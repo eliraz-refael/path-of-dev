@@ -24,21 +24,17 @@ import { PlayerWriter } from "./writer.ts"
 export interface CoreOptions {
   /** The engine's step, swappable so tests can make it fail. */
   readonly stepper?: Stepper | undefined
+  /** Dev mode: the dev commands are taken. Only the local dev sandbox asks, and only a local server heeds it. */
+  readonly dev?: boolean | undefined
   /** Seeds the server's randomness, so a test sees the same ids twice; from the OS when unset. */
   readonly seed?: string | undefined
-}
-
-/** A local server's options, which alone can turn dev mode on. */
-export interface LocalOptions extends CoreOptions {
-  /** Dev mode: the dev commands are taken. Only the local dev sandbox turns it on. */
-  readonly dev?: boolean | undefined
 }
 
 /**
  * Whether a `kind` server built with `options` is in dev mode: only a local one that asks. An online server never is,
  * whatever its options hold, so no setting of the public server can let a dev command through.
  */
-export const devModeOf = (kind: ServerKind, options: LocalOptions): boolean => kind === "local" && options.dev === true
+export const devModeOf = (kind: ServerKind, options: CoreOptions): boolean => kind === "local" && options.dev === true
 
 /** The server's randomness, seeded once, then the database, migrated. */
 const Base = (database: Database, seed: string | undefined) =>
@@ -51,13 +47,7 @@ const Base = (database: Database, seed: string | undefined) =>
  * The services behind the routes of a `kind` server, over `database`: migrated, with the presence sweep running, and
  * in dev mode only as `devModeOf` allows.
  */
-export function core(kind: "local", database: Database, options?: LocalOptions): ReturnType<typeof coreOf>
-export function core(kind: "online", database: Database, options?: CoreOptions): ReturnType<typeof coreOf>
-export function core(kind: ServerKind, database: Database, options: LocalOptions = {}) {
-  return coreOf(kind, database, options)
-}
-
-const coreOf = (kind: ServerKind, database: Database, options: LocalOptions) => {
+export const core = (kind: ServerKind, database: Database, options: CoreOptions = {}) => {
   const Live = Presence.sweeper.pipe(Layer.provideMerge(Presence.layer))
   return Layer.mergeAll(Players.layer(kind), Live).pipe(
     Layer.provideMerge(PlayerWriter.make(options.stepper ?? step)),

@@ -6,7 +6,6 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it as test } from "vitest"
 import { starterCatalog, starterRules } from "@pathofdev/engine"
-import type { LocalOptions } from "../src/index.ts"
 import { catalog, checkedCatalog, claimHome, core, DevMode, isDevMode, localPaths, localServer, WrongHome } from "../src/index.ts"
 import { client, freshDatabase, nextId, profile, prompt, session, unnamed, withEnv, withoutQuests, withServer } from "./fixtures.ts"
 
@@ -159,20 +158,14 @@ describe("the catalogue the server runs", () => {
 })
 
 describe("dev mode", () => {
-  // The public server's core is an online one: however it is built, no option it is handed turns dev mode on.
-  it.effect("is on only in a local server that asks for it, never in an online one, whatever it is handed", () =>
+  // The public server's core is an online one: whatever it is handed, it never takes a dev command.
+  it.effect("is on in a local server that asks for it, and off in an online one asked the same", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        for (const dev of [false, true]) {
-          const asked: LocalOptions = { dev }
-          for (const [kind, built] of [
-            ["local", core("local", yield* freshDatabase, asked)],
-            ["online", core("online", yield* freshDatabase, asked)],
-          ] as const) {
-            const isOn = yield* Effect.provide(Effect.map(DevMode, (mode) => mode.isOn), built)
-            expect({ kind, dev, isOn }).toEqual({ kind, dev, isOn: kind === "local" && dev })
-          }
-        }
+        const isOn = Effect.map(DevMode, (mode) => mode.isOn)
+        expect(yield* Effect.provide(isOn, core("local", yield* freshDatabase, { dev: true }))).toBe(true)
+        expect(yield* Effect.provide(isOn, core("local", yield* freshDatabase))).toBe(false)
+        expect(yield* Effect.provide(isOn, core("online", yield* freshDatabase, { dev: true }))).toBe(false)
       }),
     ), 60_000)
 })

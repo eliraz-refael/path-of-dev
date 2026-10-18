@@ -34,6 +34,17 @@ the work is, why it matters, where things stand and what it waits on.
 
 ## Known gaps from the review
 
+### Dev commands out of the public build
+
+- **What:** leave the dev commands out of what the public server decodes and runs: a command schema without them for
+  its route, or the engine's dev handling in a module only the local server loads.
+- **Why:** an online server can't be in dev mode (`devModeOf`, in server/services.ts), so the engine refuses every dev
+  command there, but the commands still decode and the code that runs them still ships. A bug in that one check would
+  let a player grant themselves XP, gold or items.
+- **Context:** `Command` (schema/commands.ts) holds the dev commands, and `step` runs them when its context says `dev`.
+  public.test.ts has a property that the public server refuses every dev command and its save stays as it was.
+- **Depends on:** nothing; worth it before open signup.
+
 ### Change a session and log its event in one transaction
 
 - **What:** in `presence.ts`, opening, closing and lapsing a session should change the `sessions` row and log its
