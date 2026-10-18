@@ -2,7 +2,7 @@ import type { GradeDimension, QualityDimension, ServerEvent } from '@pathofdev/s
 import type { PluginOptions } from 'claude-code'
 import type { CoachMemory, Graded, Said } from '../types'
 import type { Row } from './cells'
-import { cellsOf, clip } from './cells'
+import { cellsOf, cutAtWord } from './cells'
 import type { Walker } from './pet-motion'
 import { shownGrade, wellGradedAt } from './pet-motion'
 
@@ -140,6 +140,16 @@ const praises: Record<QualityDimension, ReadonlyArray<string>> = {
   grammar: ['{name} admires that tidy writing.', 'Neatly written, {name} thinks.'],
 }
 
+/**
+ * A note that praises rather than suggests: the rubric lets the grader praise a prompt nothing would improve, and
+ * praise is no tip.
+ */
+export const isPraise = (note: string): boolean =>
+  note.endsWith('!') ||
+  /^(great|nice|good|excellent|perfect|well[ -]done|lovely|awesome|solid|strong|clear|nothing|no change|looks good)\b/i.test(
+    note,
+  )
+
 /** The line after the last one said of this kind and score; the lines it said, with this one. */
 const nextLine = (
   lines: Readonly<Record<string, number>>,
@@ -153,7 +163,7 @@ const nextLine = (
 /**
  * What the pet says about a graded prompt, never about `avoid`: after a good prompt, praise for its strongest score and
  * a tip when a score is low; after a weaker one, a tip alone. The tip is the grader's note when the note is about the
- * weakest score (which it most likely is), else the pet's own line. Null when there is nothing to say.
+ * weakest score (which it most likely is) and is no praise, else the pet's own line. Null when there is nothing to say.
  */
 export const sayAbout = (
   graded: Graded,
@@ -167,7 +177,7 @@ export const sayAbout = (
   const praise = good ? (strongestOf(graded.scores).find((one) => one !== avoid) ?? null) : null
   let said = lines
   const advice = (dimension: GradeDimension): string => {
-    if (graded.note !== null && dimension === weakest[0]) return graded.note
+    if (graded.note !== null && !isPraise(graded.note) && dimension === weakest[0]) return graded.note
     const next = nextLine(said, `tip:${dimension}`, tips[dimension])
     said = next.lines
     return next.line
@@ -206,29 +216,40 @@ export const heardOf = (events: ReadonlyArray<ServerEvent>): { id: string; grade
   return null
 }
 
+/** What the pet is about to say unasked about a prompt, and the lines it says, kept once the bubble shows. */
+export type Saying = { id: string; said: Said; lines: Readonly<Record<string, number>> }
+
 /**
- * The server graded the prompt: the memory with its grade, and what the pet says unasked about it, if anything. Only
- * about the last prompt graded, while the pet is on the band to say it (`onBand`), as the `coach` option allows, at
- * most once in `everyGraded` graded prompts, and not about the last bubble's score. A prompt the player already asked
- * about gets no bubble of its own.
+ * The server graded the prompt: the memory with its grade, and what the pet would say unasked about it, if anything.
+ * Only about the last prompt graded, while the pet is on the band to say it (`onBand`), as the `coach` option allows,
+ * at most once in `everyGraded` graded prompts, and not about the last bubble's score. A prompt the player already
+ * asked about gets no bubble of its own. Nothing counts as said until the bubble shows (`spoke`).
  */
 export const unasked = (
   memory: CoachMemory,
   heard: { id: string; grade: number },
   coach: Coach,
   onBand: boolean,
-): { memory: CoachMemory; said: Said | null } => {
+): { memory: CoachMemory; saying: Saying | null } => {
   const { last } = memory
-  if (last === null || last.id !== heard.id) return { memory, said: null }
+  if (last === null || last.id !== heard.id) return { memory, saying: null }
   const graded: Graded = { ...last, grade: heard.grade }
   const kept: CoachMemory = { ...memory, last: graded }
   const isQuiet = memory.sinceBubble !== null && memory.sinceBubble < everyGraded
   const isAllowed = coach === 'always' || (coach === 'good' && isGood(heard.grade))
-  if (!onBand || !isAllowed || isQuiet || last.said !== null) return { memory: kept, said: null }
+  if (!onBand || !isAllowed || isQuiet || last.said !== null) return { memory: kept, saying: null }
   const { said, lines } = sayAbout(graded, memory.lines, memory.lastTopic)
-  if (said === null) return { memory: kept, said: null }
-  return { memory: { ...kept, last: { ...graded, said }, lines, sinceBubble: 0, lastTopic: said.topic }, said }
+  return { memory: kept, saying: said === null ? null : { id: heard.id, said, lines } }
 }
+
+/** The bubble showed: what it said is the prompt's, the next unasked one waits 3 graded prompts, on another score. */
+export const spoke = (memory: CoachMemory, saying: Saying): CoachMemory => ({
+  ...memory,
+  last: memory.last?.id === saying.id ? { ...memory.last, said: saying.said } : memory.last,
+  lines: saying.lines,
+  sinceBubble: 0,
+  lastTopic: saying.said.topic,
+})
 
 /** `/pathofdev pet tip`: what the pet says about the last graded prompt, weak or not; the same when asked again. */
 export const asked = (memory: CoachMemory): { memory: CoachMemory; said: Said | null } => {
@@ -259,25 +280,9 @@ export const noTipText = (name: string | null): string =>
 export const canSpeak = (walker: Walker, hidden: boolean, free: boolean): boolean =>
   !hidden && free && !walker.asleep && walker.act === null && walker.queue.length === 0
 
-/** A text cut to `room` cells: at a word when that keeps most of it, else at a glyph, an ellipsis where it was cut. */
-const fitted = (text: string, room: number): string => {
-  if (cellsOf(text) <= room) return text
-  let kept = ''
-  for (const word of text.split(' ')) {
-    const next = kept === '' ? word : `${kept} ${word}`
-    if (cellsOf(next) + 1 > room) break
-    kept = next
-  }
-  const trimmed = kept.replace(/[\s,;:.-]+$/, '')
-  if (trimmed !== '' && cellsOf(trimmed) * 2 >= room) return `${trimmed}…`
-  return clip([{ text }], room)
-    .map((run) => run.text)
-    .join('')
-}
-
 /** The bubble beside the pet, in `cells` at most: the line in quotes, cut to fit; null when the band has no room. */
 export const bubbleRow = (text: string, cells: number): Row | null =>
-  cells < minBubble ? null : [{ text: '“', dim: true }, { text: fitted(text, cells - 2) }, { text: '”', dim: true }]
+  cells < minBubble ? null : [{ text: '“', dim: true }, { text: cutAtWord(text, cells - 2) }, { text: '”', dim: true }]
 
 /** Whether every line of what the pet says shows whole in a bubble of `cells`. */
 export const fitsWhole = (said: Said, name: string, cells: number): boolean =>

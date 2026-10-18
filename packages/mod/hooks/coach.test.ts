@@ -10,10 +10,12 @@ import {
   freshCoach,
   gradedOf,
   heardOf,
+  isPraise,
   minBubble,
   phasesOf,
   remembered,
   sayAbout,
+  spoke,
   tipText,
   unasked,
   weakestOf,
@@ -85,6 +87,16 @@ describe('what the pet says', () => {
     expect(avoided?.lines).toEqual(['{name} suggests one ask at a time; the rest can wait.'])
   })
 
+  test("a note that praises is no tip: the pet's own line stands in for it", () => {
+    for (const note of ['Great, clear prompt!', 'Nothing to improve here.', 'Clear and well scoped.']) {
+      expect(isPraise(note)).toBe(true)
+      expect(sayAbout(graded({ doneCriteria: 3 }, 5, note), {}, null).said?.lines).toEqual([
+        "{name} wonders how you'll know it's done: a passing test? a behaviour?",
+      ])
+    }
+    expect(isPraise('Say which test should pass.')).toBe(false)
+  })
+
   test('says its lines for a score by turns, never the same one twice in a row', () => {
     let lines = {}
     const said: Array<string> = []
@@ -114,12 +126,12 @@ describe('when it speaks unasked', () => {
 
   test('after a good prompt, as the coach option allows; after a weak one only when it says always', () => {
     const memory = knowing(graded({ doneCriteria: 4 }, 8))
-    expect(unasked(memory, heard, 'good', true).said).not.toBeNull()
-    expect(unasked(memory, heard, 'always', true).said).not.toBeNull()
-    expect(unasked(memory, heard, 'off', true).said).toBeNull()
+    expect(unasked(memory, heard, 'good', true).saying).not.toBeNull()
+    expect(unasked(memory, heard, 'always', true).saying).not.toBeNull()
+    expect(unasked(memory, heard, 'off', true).saying).toBeNull()
     const weak = { id: 'p1', grade: 4.2 }
-    expect(unasked(memory, weak, 'good', true).said).toBeNull()
-    expect(unasked(memory, weak, 'always', true).said?.lines).toHaveLength(1)
+    expect(unasked(memory, weak, 'good', true).saying).toBeNull()
+    expect(unasked(memory, weak, 'always', true).saying?.said.lines).toHaveLength(1)
   })
 
   test("at most once in 3 graded prompts, never about the last bubble's score again", () => {
@@ -129,27 +141,38 @@ describe('when it speaks unasked', () => {
       const id = `p${round}`
       memory = remembered(memory, gradedOf(id, scores({ doneCriteria: 4, specificity: 5 }), null))
       const next = unasked(memory, { id, grade: 8 }, 'good', true)
-      memory = next.memory
-      topics.push(next.said?.topic ?? null)
+      // Each bubble shows: only a shown one counts.
+      memory = next.saying === null ? next.memory : spoke(next.memory, next.saying)
+      topics.push(next.saying?.said.topic ?? null)
     }
     expect(topics).toEqual(['doneCriteria', null, null, 'specificity', null, null, 'doneCriteria'])
   })
 
+  test('a bubble that never showed counts for nothing: the next good prompt may still speak', () => {
+    let memory = remembered(freshCoach, gradedOf('p1', scores({ doneCriteria: 4 }), null))
+    const first = unasked(memory, { id: 'p1', grade: 8 }, 'good', true)
+    expect(first.saying).not.toBeNull()
+    // Hushed before it showed: `spoke` never ran.
+    memory = remembered(first.memory, gradedOf('p2', scores({ doneCriteria: 4 }), null))
+    expect(unasked(memory, { id: 'p2', grade: 8 }, 'good', true).saying?.said.topic).toBe('doneCriteria')
+    expect(first.memory.last?.said).toBeNull()
+  })
+
   test('only about the last prompt graded, with the pet on the band, and not once the player asked', () => {
     const memory = knowing(graded({ doneCriteria: 4 }, 8, null, 'p2'))
-    expect(unasked(memory, heard, 'good', true)).toEqual({ memory, said: null })
+    expect(unasked(memory, heard, 'good', true)).toEqual({ memory, saying: null })
     const later = { id: 'p2', grade: 8 }
     // Off the band, or still an egg: nothing said, and nothing counted against the next.
     const hidden = unasked(memory, later, 'good', false)
-    expect(hidden.said).toBeNull()
+    expect(hidden.saying).toBeNull()
     expect(hidden.memory.sinceBubble).toBeNull()
-    expect(unasked(asked(memory).memory, later, 'good', true).said).toBeNull()
+    expect(unasked(asked(memory).memory, later, 'good', true).saying).toBeNull()
   })
 
   test("takes the server's grade for the prompt: it decides between praise and a tip alone", () => {
     const memory = knowing(graded({ doneCriteria: 4 }, 7.2))
     expect(unasked(memory, { id: 'p1', grade: 6.4 }, 'always', true).memory.last?.grade).toBe(6.4)
-    expect(unasked(memory, { id: 'p1', grade: 6.4 }, 'always', true).said?.lines).toHaveLength(1)
+    expect(unasked(memory, { id: 'p1', grade: 6.4 }, 'always', true).saying?.said.lines).toHaveLength(1)
   })
 
   test('the XP a graded prompt earned names the prompt by its cause; other XP is none', () => {
@@ -190,6 +213,10 @@ describe("the grader's note", () => {
     expect(noteOf(reply('  Say which test should pass.  '))).toBe('Say which test should pass.')
     expect(noteOf(reply('"Name the\nfailing\ttest."'))).toBe('Name the failing test.')
     expect(noteOf(reply('Name the file\u0007 and the error \u{1F600}'))).toBe('Name the file and the error')
+    // Flags, skin tones and keycaps too, which the band can't count the cells of.
+    expect(noteOf(reply('Ship it \u{1F1FA}\u{1F1F8} once 1\u{20E3} test \u{1F44D}\u{1F3FD} passes'))).toBe(
+      'Ship it once 1 test passes',
+    )
   })
 
   test('is cut at a word past its longest', () => {

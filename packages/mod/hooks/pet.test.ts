@@ -695,6 +695,40 @@ describe('the pet coach', () => {
     expect(await bubbles()).toBe(0)
   })
 
+  test('a bubble a new turn took down before it showed costs nothing: the next good prompt still speaks', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    const bubbles = async () =>
+      (await changes($, clock, 15_000)).filter((one) => (one.text ?? '').includes('“')).length
+    await gradedTurn($, clock, sent, send, 9)
+    // The XP's shimmer still plays, and the hop waits: the player starts the next turn before the pet can speak.
+    await $.turn.start({ text: 'and the empty case', turnId: 't2' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1, isAborted: false, turnId: 't2', reason: 'answer' })
+    expect(await bubbles()).toBe(0)
+    await gradedTurn($, clock, sent, send, 9)
+    expect(await bubbles()).toBe(2)
+  })
+
+  test('with no room on the band for a bubble, it says nothing and counts nothing', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    const narrow = await $.ui.mount({
+      plugin: 'pathofdev',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { ...bandProps(), bodyColumns: 50 },
+    })
+    await gradedTurn($, clock, sent, send, 9)
+    for (let at = 0; at < 15_000; at += 250) {
+      expect((await narrow.findAll({ type: 'Text' })).some((one) => one.text.includes('“'))).toBe(false)
+      await clock.advance(250)
+    }
+    await narrow.unmount()
+    // Wide again, the next good prompt speaks: the one with no room cost nothing.
+    await petText($)
+    await gradedTurn($, clock, sent, send, 9)
+    const texts = (await changes($, clock, 15_000)).map((one) => one.text ?? '')
+    expect(texts.filter((text) => text.includes('“'))).toHaveLength(2)
+  })
+
   test('pet tip answers here when the pet is hidden, still an egg, or nothing was graded yet', async ($, on) => {
     const hatchery: { pet: unknown } = { pet: null }
     const { clock, send, sent } = await playing($, on, {}, null, hatchery, goodReply)

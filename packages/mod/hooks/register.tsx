@@ -20,6 +20,7 @@ import type {
   Motion,
   PaneTab,
   PetDisplay,
+  Said,
   Stage,
   WelcomeStep,
   WelcomeView,
@@ -30,7 +31,7 @@ import { goldRow, labelRun, edgeRow, levelRow } from './band'
 import { celebrationOf, chimeOf, chimeWav, gapMs, idleMs, joinQueue, motionOf, queueOf, scriptOf } from './celebrate'
 import type { Row } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
-import type { Coach } from './coach'
+import type { Coach, Saying } from './coach'
 import {
   asked,
   bubbleRow,
@@ -44,6 +45,7 @@ import {
   noTipText,
   phasesOf,
   remembered,
+  spoke,
   tipText,
   unasked,
 } from './coach'
@@ -767,10 +769,12 @@ const startPet = async ($: EngineInterface) => {
   bubbleTimer = said === null ? null : $.clock.after(Math.max(0, said.until - now), hushLater)
 }
 
-// The pet coach (coach.ts): the lines waiting until the pet's reactions have played and the band is free, the timer of
-// the line on show, and the room the band last left a bubble. Its memory, the grader's note in it, stays here.
+// The pet coach (coach.ts): the lines waiting until the pet's reactions have played and the band is free, what they
+// say unasked (kept as said once the bubble shows), the timer of the line on show, and the room the band last left a
+// bubble. Its memory, the grader's note in it, stays here.
 let coach: Coach = 'good'
 let toSay: ReadonlyArray<{ text: string; ms: number }> = []
+let saying: Saying | null = null
 let bubbleTimer: Timer | null = null
 let bubbleRoom: number | null = null
 
@@ -779,29 +783,47 @@ const coachHear = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   const heard = heardOf(events)
   if (heard === null) return
   const pet = (await read($, view))?.pet ?? null
-  const decided = unasked((await read($, coachMemory)) ?? freshCoach, heard, coach, pet !== null && !petDisplay.hidden)
-  await update($, coachMemory, () => decided.memory)
-  if (decided.said === null || pet === null) return
-  toSay = phasesOf(decided.said, pet.name)
+  const onBand = pet !== null && !petDisplay.hidden
+  // Worked out from the memory as the write lands, so a grade kept meanwhile is not undone.
+  const decided: { saying: Saying | null } = { saying: null }
+  await update($, coachMemory, (kept) => {
+    const next = unasked(kept ?? freshCoach, heard, coach, onBand)
+    decided.saying = next.saying
+    return next.memory
+  })
+  if (decided.saying === null || pet === null) return
+  saying = decided.saying
+  toSay = phasesOf(decided.saying.said, pet.name)
   await syncPet($)
 }
 
 /** The next line, once the pet may speak: it holds still where it stands while each line stands its time. */
 const speakWhenFree = async ($: EngineInterface) => {
-  // A pet off the band says nothing, and keeps nothing to say once it is back.
-  if (petDisplay.hidden) toSay = []
   const [line, ...rest] = toSay
-  if (line === undefined || bubbleTimer !== null || !canSpeak(walker, petDisplay.hidden, petContext().free)) return
+  if (line === undefined || bubbleTimer !== null) return
+  // Off the band, or with no room on it for a bubble, the pet says nothing, keeps nothing to say, and wanders on.
+  if (petDisplay.hidden || (bubbleRoom !== null && bubbleRoom < minBubble)) {
+    toSay = []
+    saying = null
+    await syncPet($)
+    return
+  }
+  if (!canSpeak(walker, petDisplay.hidden, petContext().free)) return
   toSay = rest
   petStep?.cancel()
   petStep = null
-  bubbleTimer = $.clock.after(line.ms, () => {
+  const timer = $.clock.after(line.ms, () => {
     bubbleTimer = null
     const goesOn = toSay.length > 0 && canSpeak(walker, petDisplay.hidden, petContext().free)
     void (goesOn ? speakWhenFree($) : hush($)).catch(() => undefined)
   })
+  bubbleTimer = timer
+  const shown = saying
+  saying = null
+  if (shown !== null) await update($, coachMemory, (kept) => spoke(kept ?? freshCoach, shown))
   const until = (await $.clock.now()) + line.ms
-  await update($, bubble, () => ({ text: line.text, until }))
+  // A hush that came in meanwhile has taken this line down: the write leaves the band as the hush left it.
+  await update($, bubble, (now) => (bubbleTimer === timer ? { text: line.text, until } : now))
 }
 
 /** The bubble comes down and what waited to be said goes; the pet wanders on. */
@@ -809,6 +831,7 @@ const hush = async ($: EngineInterface) => {
   bubbleTimer?.cancel()
   bubbleTimer = null
   toSay = []
+  saying = null
   if ((await read($, bubble)) !== null) await update($, bubble, () => null)
   await syncPet($)
 }
@@ -819,16 +842,21 @@ const hush = async ($: EngineInterface) => {
  */
 const coachTip = async ($: EngineInterface): Promise<string> => {
   const pet = (await read($, view))?.pet ?? null
-  const answer = asked((await read($, coachMemory)) ?? freshCoach)
-  await update($, coachMemory, () => answer.memory)
-  if (answer.said === null) return noTipText(pet?.name ?? null)
+  const answer: { said: Said | null } = { said: null }
+  await update($, coachMemory, (kept) => {
+    const next = asked(kept ?? freshCoach)
+    answer.said = next.said
+    return next.memory
+  })
+  const { said } = answer
+  if (said === null) return noTipText(pet?.name ?? null)
   const name = pet?.name ?? 'Your pet'
-  const text = tipText(answer.said, name)
+  const text = tipText(said, name)
   if (pet === null || petDisplay.hidden || (bubbleRoom !== null && bubbleRoom < minBubble)) return text
   await hush($)
-  toSay = phasesOf(answer.said, name)
+  toSay = phasesOf(said, name)
   await syncPet($)
-  const isWhole = bubbleRoom !== null && fitsWhole(answer.said, name, bubbleRoom)
+  const isWhole = bubbleRoom !== null && fitsWhole(said, name, bubbleRoom)
   return isWhole ? `${name} says it beside itself on the band.` : text
 }
 

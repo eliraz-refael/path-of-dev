@@ -1,5 +1,6 @@
 import type { GradeDimension } from '@pathofdev/schema'
 import type { PluginOptions } from 'claude-code'
+import { cutAtWord } from './cells'
 
 // Grading the prompts the player types: which ones are graded, what Haiku is asked, and reading its scores back.
 // Only the scores leave the machine; the prompt, the answer it follows and the grader's note stay here.
@@ -93,11 +94,12 @@ export const scoresOf = (reply: string): Record<GradeDimension, number> | null =
   return isComplete(scores) ? scores : null
 }
 
-/** The longest note the pet says, in characters: twelve words and some slack. A longer one is cut at a word. */
+/** The longest note the pet says, in cells: twelve words and some slack. A longer one is cut at a word. */
 export const noteMax = 90
 
-// Controls, invisible and direction marks, line and paragraph breaks, and emoji, which would break the band's cells.
-const unsafe = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Extended_Pictographic}\u{FE0F}]/gu
+// Controls, invisible and direction marks, line and paragraph breaks, and emoji with their flags, skin tones and
+// keycaps, which would break the band's cells.
+const unsafe = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\u{FE0F}\u{20E3}]/gu
 const quotes = /^["'`\u2018\u2019\u201C\u201D]+|["'`\u2018\u2019\u201C\u201D]+$/g
 
 /**
@@ -112,8 +114,5 @@ export const noteOf = (reply: string): string | null => {
   const words = line.split(' ').filter((word) => /\p{L}/u.test(word))
   const isJunk = /[{}<>\\|`]|https?:|www\./i.test(line) || /\b(12|twelve) words\b|^note\b/i.test(line)
   if (words.length < 2 || isJunk) return null
-  if (line.length <= noteMax) return line
-  const cut = line.slice(0, noteMax - 1)
-  const space = cut.lastIndexOf(' ')
-  return `${(space > noteMax / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, '')}…`
+  return cutAtWord(line, noteMax)
 }

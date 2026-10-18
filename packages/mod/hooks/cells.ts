@@ -93,3 +93,22 @@ export const clip = (row: Row, room: number): Row => {
   }
   return room <= 0 ? [] : [...kept, { text: '…', dim: true }]
 }
+
+/**
+ * A text cut to `room` cells: at a word when that keeps at least half of it, else at a glyph, with an ellipsis where it
+ * was cut, and no stray punctuation before it.
+ */
+export const cutAtWord = (text: string, room: number): string => {
+  if (cellsOf(text) <= room) return text
+  let kept = ''
+  for (const word of text.split(' ')) {
+    const next = kept === '' ? word : `${kept} ${word}`
+    if (cellsOf(next) + 1 > room) break
+    kept = next
+  }
+  const trimmed = kept.replace(/[\s,;:.-]+$/, '')
+  if (trimmed !== '' && cellsOf(trimmed) * 2 >= room) return `${trimmed}…`
+  return clip([{ text }], room)
+    .map((run) => run.text)
+    .join('')
+}
