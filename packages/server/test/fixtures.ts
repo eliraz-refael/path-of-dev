@@ -227,7 +227,8 @@ export const untilAsleep = (every: Duration.Duration, loops = 1) =>
     const sleeps = yield* Sleeps
     const asleep = () =>
       sleeps.pending().filter((one) => one.millis === Duration.toMillis(every) && one.until > sleeps.now()).length
-    for (let tries = 0; tries < 1000 && asleep() < loops; tries++) yield* pause
+    const deadline = Date.now() + 5000
+    while (asleep() < loops && Date.now() < deadline) yield* pause
     if (asleep() < loops) {
       return yield* Effect.die(new Error(`${loops} loops that sleep ${Duration.format(every)} never all went back to sleep`))
     }

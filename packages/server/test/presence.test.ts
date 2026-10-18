@@ -17,6 +17,7 @@ import {
   session,
   start,
   testSql,
+  untilAsleep,
   wakeLoops,
   withServer,
 } from "./fixtures.ts"
@@ -79,6 +80,7 @@ describe("presence", () => {
       Effect.gen(function* () {
         const api = yield* client
         yield* api.openSession({ payload: { sessionId: session, presence: true } })
+        yield* untilAsleep(sweepEvery)
         yield* TestClock.adjust("90 seconds")
         // The day's offer is on the stream already, so the poll answers at once.
         yield* api.stream({ query: { after: 0, session } })
@@ -137,6 +139,7 @@ describe("presence", () => {
       Effect.gen(function* () {
         const api = yield* client
         yield* api.openSession({ payload: { sessionId: session, presence: true } })
+        yield* untilAsleep(sweepEvery)
         yield* TestClock.adjust("1 minute")
         expect(yield* api.closeSession({ params: { id: session } })).toEqual({ closed: true })
         expect(yield* api.closeSession({ params: { id: session } })).toEqual({ closed: false })
@@ -198,6 +201,7 @@ describe("presence: review fixes", () => {
         yield* api.openSession({ payload: { sessionId: session, presence: true } })
         // What the sweep saw: unheard since the start. A poll then names the session before the close.
         const seen = { player_id: player.id, session_id: session, last_heard_at: start }
+        yield* untilAsleep(sweepEvery)
         yield* TestClock.adjust("150 seconds")
         yield* presence.heard(player.id, session)
         expect(yield* lapse(seen)).toBe(false)

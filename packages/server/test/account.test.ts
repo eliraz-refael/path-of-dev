@@ -34,6 +34,7 @@ import {
   Players,
   playerTables,
   ProfileOrigin,
+  streamTimeout,
 } from "../src/index.ts"
 import type { Handle } from "./fixtures.ts"
 import {
@@ -49,6 +50,7 @@ import {
   signIn,
   testOnlineServices,
   testPublicServices,
+  untilAsleep,
   webHandler,
   withServer,
 } from "./fixtures.ts"
@@ -597,8 +599,8 @@ describe("a delete", () => {
         const handle = yield* publicWebHandler
         const { bearer } = yield* signIn(handle, ada)
         const poll = yield* Effect.forkChild(handle(request("/v1/stream?after=0", "GET", bearer)))
-        // Real time, which the test clock doesn't hold: the poll gets to its wait first.
-        yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 300)))
+        // The poll gets to its wait first.
+        yield* untilAsleep(streamTimeout)
         expect((yield* handle(request("/v1/account/delete", "POST", bearer, { login: "ada" }))).status).toBe(200)
         // No clock moves: only the delete's wakeup, or a read that finds no player, ends the poll.
         const answered = yield* Fiber.join(poll)
