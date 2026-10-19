@@ -251,8 +251,8 @@ export const xpText = (maxXp: number | null): string =>
   maxXp === null
     ? 'The better the grade, the more XP the prompt earns.'
     : // As the engine rounds a grant: to the thousandth.
-      `A prompt earns up to ${maxXp} XP, at a 10, and ${Math.round(maxXp * 700) / 1000} at a 7, before your sigil and ` +
-      'boosts.'
+      `A prompt earns up to ${maxXp} XP, at a 10, and ${Math.round(maxXp * 700) / 1000} at a 7, before your ` +
+      'sigil and boosts.'
 
 /** The loot a grade rolls for, in a sentence, from the rules' chance at a 10 and the great grade's lift. */
 export const lootText = (grading: Pick<GradingView, 'lootAtTen' | 'greatAt' | 'greatFactor'>): string => {

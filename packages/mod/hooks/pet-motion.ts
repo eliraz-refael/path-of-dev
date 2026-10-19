@@ -435,7 +435,7 @@ export const sameScene = (a: PetScene | null, b: PetScene | null): boolean => JS
 
 // What the pet reacts to.
 
-/** A grade as the band shows it, to one decimal: a prompt the band says was graded 7 (by rubric 1) makes the pet hop. */
+/** A grade as the band shows it, to one decimal: a prompt the band says was graded 7 (rubric 1) makes the pet hop. */
 export const shownGrade = (grade: number): number => Math.round(grade * 10) / 10
 
 /**

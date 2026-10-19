@@ -1,6 +1,7 @@
 import type { GradeDimension, GradedV2, PromptKind, RulesConfig } from '@pathofdev/schema'
 import type { PluginOptions } from 'claude-code'
 import { cutAtWord } from './cells'
+import { isRecord } from './server'
 
 // Grading the prompts the player types: which ones are graded, what Haiku is asked, and reading its scores back.
 // Only the scores leave the machine; the prompt, the answer it follows, the grader's note and the words it found
@@ -11,8 +12,6 @@ import { cutAtWord } from './cells'
  * note's wording, which never leaves the machine, doesn't.
  */
 export type Rubric = 1 | 2
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
 /**
  * The rubric to grade with: 2 against a server whose rules carry `prompt.v2`, which only one that prices it sends,
@@ -171,7 +170,8 @@ const kinds: ReadonlyArray<PromptKind> = ['task', 'question', 'discussion', 'ste
 const kindOf = (value: unknown): PromptKind | null => kinds.find((kind) => kind === value) ?? null
 
 /** A measure that may be null: null as given, else a score; undefined when it is missing or out of range. */
-const nullableOf = (value: unknown): number | null | undefined => (value === null ? null : (scoreOf(value) ?? undefined))
+const nullableOf = (value: unknown): number | null | undefined =>
+  value === null ? null : (scoreOf(value) ?? undefined)
 
 /**
  * The kind and the measures in the reply's {...}; null when it doesn't parse, the kind is none of the four, or a
@@ -208,9 +208,15 @@ const isWord = (entry: string): boolean => {
 
 const escaped = (word: string): string => word.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 
-/** Whether `word` stands in `text` as a whole word, any case: `cat` never in `concatenate`, nor `don` in `don't`. */
+/**
+ * Whether `word` stands in `text` as a whole word, any case: `cat` never in `concatenate`, nor `don` in `don't` or
+ * `don’t`. An apostrophe joins a word only between letters, so a word in single quotes (`'recieve'`) stands whole.
+ */
 const isWholeWordIn = (word: string, text: string): boolean =>
-  new RegExp(`(?<![\\p{L}\\p{N}_'])${escaped(word)}(?![\\p{L}\\p{N}_'])`, 'iu').test(text)
+  new RegExp(
+    `(?<![\\p{L}\\p{N}_])(?<![\\p{L}\\p{N}]['’])${escaped(word)}(?![\\p{L}\\p{N}_])(?!['’][\\p{L}\\p{N}])`,
+    'iu',
+  ).test(text)
 
 /**
  * Whether the prompt is spelled clean, by the reply's `misspelled` list: true when no word on it (one word each, the

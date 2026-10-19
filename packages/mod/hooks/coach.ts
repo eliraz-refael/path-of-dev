@@ -6,6 +6,7 @@ import { cellsOf, cutAtWord } from './cells'
 import type { Rubric } from './grade'
 import type { Walker } from './pet-motion'
 import { shownGrade, wellGradedAt } from './pet-motion'
+import { isRecord } from './server'
 
 // The pet coach: a short tip the pet says in a speech bubble beside itself on band row 2, about the prompt the player
 // typed last. It makes no model call of its own: the tip is the grader's note when that is a sensible one, else a line
@@ -100,8 +101,6 @@ type MeasureScores = Readonly<Record<GradeMeasure, number | null>>
 const praiseCraftAt = 9
 /** A tone this or lower is hostile, as the starter rules' `caps.hostile.toneAtMost` says, unless the rules say else. */
 export const hostileToneAt = 2
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
 /** The tone the rules cap a grade at as hostile (`prompt.v2.caps.hostile.toneAtMost`), else the starter's 2. */
 export const hostileToneOf = (rules: Partial<RulesConfig>): number => {

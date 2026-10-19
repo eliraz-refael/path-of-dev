@@ -132,6 +132,14 @@ describe('the misspelled check, by example', () => {
     expect(verified(['teh'], 'fix_teh_bug')).toBe(false)
   })
 
+  it('review fix: a word in quotes stands whole, and a typed apostrophe joins a word as the plain one does', () => {
+    expect(verified(['Submitt'], "the button says 'Submitt' now")).toBe(true)
+    expect(verified(['recieve'], "'recieve' the payload")).toBe(true)
+    expect(verified(['don'], 'don’t touch the API')).toBe(false)
+    expect(verified(['t'], 'don’t touch the API')).toBe(false)
+    expect(verified(['t'], "don't touch the API")).toBe(false)
+  })
+
   it('ignores case, and compares both sides composed', () => {
     expect(verified(['Teh'], 'fix TEH bug')).toBe(true)
     expect(verified(['café'], 'the café menu')).toBe(true)
