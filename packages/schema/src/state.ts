@@ -1,6 +1,17 @@
 import { Schema } from "effect"
 import { Boost, ClaimKind, ClaimStatus, InventoryEntry, Pet, Pity, PlayerStats } from "./domain.ts"
-import { Count, IsoDate, IsoDateTime, Name, Percent, QualityDimension, Rarity, Slot, Ulid } from "./primitives.ts"
+import {
+  Count,
+  IsoDate,
+  IsoDateTime,
+  Measure,
+  Name,
+  Percent,
+  QualityDimension,
+  Rarity,
+  Slot,
+  Ulid,
+} from "./primitives.ts"
 import { MissionCadence } from "./quests.ts"
 import { Egg, ScoringFact } from "./rules.ts"
 import { CheckoutRef, GitHubWork } from "./subjects.ts"
@@ -96,15 +107,19 @@ export const StatCounters = Schema.Struct({
     recent: Schema.Array(SessionPeak),
   }),
   /**
-   * Graded prompts, the sum of their weighted quality grades (0-10 each), those regretted (`prompt.regretAt`), the
-   * best grade, and the sum of each quality score over them, which the profile averages.
+   * Graded prompts, the sum of their grades (0-10 each), those regretted (`prompt.regretAt`), the best grade, the sum
+   * of each rubric 1 quality score over them and of each rubric 2 measure, with how many gave it a score, which the
+   * profile averages. They count the prompts of one rubric, `rubric`: the first rubric 2 prompt starts them afresh, so
+   * the averages and the best never mix two scales, and a rubric 1 prompt after it counts nowhere here.
    */
   prompts: Schema.Struct({
+    rubric: Schema.Literals([1, 2]),
     graded: Count,
     scoreSum: NonNegative,
     regretted: Count,
     best: PlayerStats.fields.grades.fields.best,
     dimensions: Schema.Record(QualityDimension, NonNegative),
+    measures: Schema.Record(Measure, Schema.Struct({ sum: NonNegative, count: Count })),
   }),
 })
 export interface StatCounters extends Schema.Schema.Type<typeof StatCounters> {}

@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs"
 import type { Context, InventoryEntry, PlayerState } from "@pathofdev/schema"
+import { CommandRefusal, Input, IsoDateTime, QuestPack, RollRecord } from "@pathofdev/schema"
+import { Schema } from "effect"
 import { initialState, starterCatalog, starterQuestPack, starterRules } from "../src/index.ts"
 
 // The golden v1 log's player and the context each of its steps ran under. The log itself is in fixtures/v1-log.json,
@@ -56,3 +59,25 @@ export const goldenContext = (logSeq: number, now: string, mode: Context["mode"]
   questPacks: [starterQuestPack],
   mode,
 })
+
+/** The log as engine 14 wrote it: its inputs decoded as this engine reads them, what it made left as it was. */
+const Golden = Schema.Struct({
+  engineVersion: Schema.Number,
+  rulesVersion: Schema.Number,
+  /** The quest pack it ran under, version 3. */
+  questPack: QuestPack,
+  steps: Schema.Array(
+    Schema.Struct({
+      input: Input,
+      now: IsoDateTime,
+      events: Schema.Unknown,
+      rolls: Schema.Array(RollRecord),
+      refusal: Schema.NullOr(CommandRefusal),
+    }),
+  ),
+  end: Schema.Unknown,
+})
+
+export const golden = Schema.decodeUnknownSync(Golden)(
+  JSON.parse(readFileSync(new URL("./fixtures/v1-log.json", import.meta.url), "utf8")),
+)

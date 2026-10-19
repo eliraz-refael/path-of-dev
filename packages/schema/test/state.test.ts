@@ -5,6 +5,7 @@ import { Command, Context, PlayerState, RollRecord, RulesConfig, ServerEvent, Se
 const ulid = "01K6ZQ8W3J5V7XKQ2M4N6P8R9T"
 const at = "2026-10-08T12:00:00Z"
 const shards = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 }
+const none = { sum: 0, count: 0 }
 
 const fresh = {
   characterName: "Player",
@@ -31,11 +32,22 @@ const fresh = {
       commands: {},
       context: { crossed: { pct50: 0, pct75: 0, pct100: 0 }, sessions: 0, peakSum: 0, recent: [] },
       prompts: {
+        rubric: 1,
         graded: 0,
         scoreSum: 0,
         regretted: 0,
         best: 0,
         dimensions: { clarity: 0, grammar: 0, specificity: 0, instructive: 0, context: 0, doneCriteria: 0, focus: 0 },
+        measures: {
+          intent: none,
+          grounding: none,
+          why: none,
+          successShape: none,
+          scope: none,
+          forward: none,
+          craft: none,
+          tone: none,
+        },
       },
     },
   },

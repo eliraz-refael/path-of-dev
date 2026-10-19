@@ -5,44 +5,61 @@ import type { QuestPack } from "@pathofdev/schema"
 // verifier. A version once published never changes: an edit here takes a new version. Two prompt missions also grant
 // a short XP boost, so writing well pays a little more for a while.
 //
+// Version 4 keeps every quest, its order and its rubric 1 filter as version 3 had them, so the seeded draw and every
+// rubric 1 prompt count as they did, and adds a rubric 2 filter beside each prompt filter: its measures, and its grades
+// on rubric 2's higher scale, above the steer's cap of 8 for the very-well goals, so short approvals can't farm them.
+// The words fit both rubrics, so they name no grade a rubric 2 prompt doesn't need.
+//
 // The parallel weeklies are modest on purpose: sessions cost the player tokens, so each one asks for a well-graded
 // prompt in every session, more sessions than asked earn nothing, and the rewards stay in the usual weekly range.
 
 export const starterQuestPack: QuestPack = {
   id: "starter",
-  version: 3,
+  version: 4,
   title: "First Quests",
   quests: [
     {
       id: "clear-thinker",
       title: "Clear Thinker",
-      description: "Write 5 prompts with clarity 8 or more today.",
+      description: "Write 5 prompts that make clear what you want (8 or more) today.",
       cadence: "daily",
-      goal: { kind: "fact", fact: "prompt.graded", count: 5, scores: { clarity: 8 } },
+      goal: { kind: "fact", fact: "prompt.graded", count: 5, scores: { clarity: 8 }, v2: { measures: { intent: 8 } } },
       rewards: { xp: 50, gold: 30, xpBoost: { pct: 10, minutes: 60 } },
     },
     {
       id: "pinpoint",
       title: "Pinpoint",
-      description: "Write 3 prompts with specificity 8 or more today.",
+      description: "Write 3 prompts that point at exactly what they're about (8 or more) today.",
       cadence: "daily",
-      goal: { kind: "fact", fact: "prompt.graded", count: 3, scores: { specificity: 8 } },
+      goal: {
+        kind: "fact",
+        fact: "prompt.graded",
+        count: 3,
+        scores: { specificity: 8 },
+        v2: { measures: { grounding: 8 } },
+      },
       rewards: { xp: 40, gold: 25 },
     },
     {
       id: "finish-line",
       title: "Finish Line",
-      description: "Write 3 prompts that say how to know the work is done (done criteria 7 or more).",
+      description: "Write 3 prompts that say what done looks like (7 or more) today.",
       cadence: "daily",
-      goal: { kind: "fact", fact: "prompt.graded", count: 3, scores: { doneCriteria: 7 } },
+      goal: {
+        kind: "fact",
+        fact: "prompt.graded",
+        count: 3,
+        scores: { doneCriteria: 7 },
+        v2: { measures: { successShape: 7 } },
+      },
       rewards: { xp: 40, gold: 25 },
     },
     {
       id: "steady-voice",
       title: "Steady Voice",
-      description: "Get 8 prompts graded 6 or more today.",
+      description: "Get 8 prompts graded well today.",
       cadence: "daily",
-      goal: { kind: "fact", fact: "prompt.graded", count: 8, grade: 6 },
+      goal: { kind: "fact", fact: "prompt.graded", count: 8, grade: 6, v2: { grade: 7 } },
       rewards: { xp: 60, gold: 35 },
     },
     {
@@ -104,9 +121,9 @@ export const starterQuestPack: QuestPack = {
     {
       id: "wordsmith-week",
       title: "Wordsmith's Week",
-      description: "Get 25 prompts graded 8 or more this week.",
+      description: "Get 25 prompts graded very well this week.",
       cadence: "weekly",
-      goal: { kind: "fact", fact: "prompt.graded", count: 25, grade: 8 },
+      goal: { kind: "fact", fact: "prompt.graded", count: 25, grade: 8, v2: { grade: 8.5 } },
       rewards: { xp: 300, gold: 150, xpBoost: { pct: 15, minutes: 120 }, loot: { rarity: "epic" } },
     },
     {
@@ -120,25 +137,25 @@ export const starterQuestPack: QuestPack = {
     {
       id: "two-minds",
       title: "Two Minds",
-      description: "Get a prompt graded 7 or more in each of 2 sessions within 20 minutes, 3 times this week.",
+      description: "Get a well-graded prompt in each of 2 sessions within 20 minutes, 3 times this week.",
       cadence: "weekly",
-      goal: { kind: "parallel", sessions: 2, grade: 7, withinMinutes: 20, count: 3 },
+      goal: { kind: "parallel", sessions: 2, grade: 7, v2: { grade: 7.5 }, withinMinutes: 20, count: 3 },
       rewards: { xp: 150, gold: 80 },
     },
     {
       id: "juggler",
       title: "Juggler",
-      description: "Get a prompt graded 7 or more in each of 3 sessions within 20 minutes, once this week.",
+      description: "Get a well-graded prompt in each of 3 sessions within 20 minutes, once this week.",
       cadence: "weekly",
-      goal: { kind: "parallel", sessions: 3, grade: 7, withinMinutes: 20, count: 1 },
+      goal: { kind: "parallel", sessions: 3, grade: 7, v2: { grade: 7.5 }, withinMinutes: 20, count: 1 },
       rewards: { xp: 200, gold: 100 },
     },
     {
       id: "conductor",
       title: "Conductor",
-      description: "Get a prompt graded 8 or more in each of 3 sessions within 20 minutes, twice this week.",
+      description: "Get a very well graded prompt in each of 3 sessions within 20 minutes, twice this week.",
       cadence: "weekly",
-      goal: { kind: "parallel", sessions: 3, grade: 8, withinMinutes: 20, count: 2 },
+      goal: { kind: "parallel", sessions: 3, grade: 8, v2: { grade: 8.5 }, withinMinutes: 20, count: 2 },
       rewards: { xp: 300, gold: 150, loot: { rarity: "rare" } },
     },
   ],

@@ -1,5 +1,6 @@
 import type { PlayerState } from "@pathofdev/schema"
 import { localDay } from "./days.ts"
+import { noPrompts } from "./stats.ts"
 
 /** A new player: level 0, no pet, nothing owned. */
 export const initialState = (options: { characterName: string; timezone: string; now: string }): PlayerState => ({
@@ -26,13 +27,8 @@ export const initialState = (options: { characterName: string; timezone: string;
       compactions: { manual: 0, auto: 0 },
       commands: {},
       context: { crossed: { pct50: 0, pct75: 0, pct100: 0 }, sessions: 0, peakSum: 0, recent: [] },
-      prompts: {
-        graded: 0,
-        scoreSum: 0,
-        regretted: 0,
-        best: 0,
-        dimensions: { clarity: 0, grammar: 0, specificity: 0, instructive: 0, context: 0, doneCriteria: 0, focus: 0 },
-      },
+      // Rubric 1's until the first rubric 2 prompt, which starts them afresh.
+      prompts: noPrompts(1),
     },
   },
   holdings: {

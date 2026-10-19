@@ -21,7 +21,8 @@ import { goldenContext, goldenEntries, goldenId, goldenPlayer, goldenStart } fro
 // turns, two or three sessions open together with prompts close enough to make parallel moments, the daily and
 // weekly missions, a sigil worn and swapped, and XP food eaten.
 
-if (engineVersion !== 14) throw new Error(`the golden v1 log is engine 14's; this is engine ${engineVersion}`)
+const written: number = 14
+if (engineVersion !== written) throw new Error(`the golden v1 log is engine 14's; this is engine ${engineVersion}`)
 
 /** mulberry32: the same numbers from the same seed, on every machine. */
 const random = (seed: number) => () => {

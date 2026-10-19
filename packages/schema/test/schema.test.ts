@@ -110,6 +110,45 @@ describe("ClientEvent: prompts and stats", () => {
     expect(decodeEvent({ ...prompt, data: { ...prompt.data, scores: noRegret } })._tag).toBe("Failure")
   })
 
+  const measures = { intent: 8, grounding: 7, why: null, successShape: 6, scope: 9, forward: 7, craft: 6, tone: 5 }
+  const v2 = {
+    ...base,
+    type: "prompt.graded",
+    data: { rubricVersion: 2, kind: "steer", measures, spelledClean: true, words: 14, grader: "haiku" },
+  }
+
+  it("decodes a rubric 2 prompt: its kind, the measures, whether it is spelled clean, never the words misspelled", () => {
+    expect(Schema.decodeUnknownSync(ClientEvent)(v2)).toEqual(v2)
+    const leaky = Schema.decodeUnknownSync(ClientEvent)({ ...v2, data: { ...v2.data, misspelled: ["teh"] } })
+    expect(leaky.data).toEqual(v2.data)
+  })
+
+  it("takes only rubrics 1 and 2, each in its own shape", () => {
+    const rubric = (rubricVersion: number, data: object) => decodeEvent({ ...prompt, data: { ...data, rubricVersion } })
+    expect(rubric(3, prompt.data)._tag).toBe("Failure")
+    expect(rubric(0, prompt.data)._tag).toBe("Failure")
+    // A rubric 2 grade shaped like rubric 1's, and the other way round.
+    expect(rubric(2, prompt.data)._tag).toBe("Failure")
+    expect(rubric(1, v2.data)._tag).toBe("Failure")
+    // A key either shape doesn't name is dropped, as on every event.
+    expect(rubric(2, { ...v2.data, scores })._tag).toBe("Success")
+  })
+
+  it("holds a rubric 2 grade to the four kinds, a boolean spelling and whole measures 0-10, null only where needless", () => {
+    const withData = (changed: object) => decodeEvent({ ...v2, data: { ...v2.data, ...changed } })
+    const withMeasures = (changed: object) => withData({ measures: { ...measures, ...changed } })
+    expect(withData({ kind: "chat" })._tag).toBe("Failure")
+    expect(withData({ spelledClean: "yes" })._tag).toBe("Failure")
+    expect(withData({ spelledClean: 1 })._tag).toBe("Failure")
+    expect(withMeasures({ intent: 11 })._tag).toBe("Failure")
+    expect(withMeasures({ tone: -1 })._tag).toBe("Failure")
+    expect(withMeasures({ craft: 6.5 })._tag).toBe("Failure")
+    expect(withMeasures({ intent: null })._tag).toBe("Failure")
+    expect(withMeasures({ successShape: null })._tag).toBe("Success")
+    const { why: _why, ...noWhy } = measures
+    expect(withData({ measures: noWhy })._tag).toBe("Failure")
+  })
+
   it("decodes the stats events", () => {
     const events = [
       { ...base, type: "session.cleared", data: {} },
@@ -150,12 +189,38 @@ describe("PromptRules", () => {
       epic: [2, 2.2],
       legendary: [2.3, 2.5],
     },
+    v2: {
+      maxXp: 15,
+      weights: { intent: 1.5, grounding: 1, why: 1, successShape: 1, scope: 1, forward: 1.5 },
+      craft: { from: 6, span: 4, max: 0.5 },
+      spelling: { fullAtWords: 60, max: 0.4 },
+      tone: { upFrom: 6, upPer: 0.075, downFrom: 4, downPer: 0.6 },
+      caps: { hostile: { toneAtMost: 2, grade: 3.5 }, steer: { grade: 8 } },
+      loot: { chanceAtTen: 0.175, greatAt: 9 },
+    },
   }
   const valid = Schema.is(PromptRules)
 
   it("accepts the starter's bands and weights", () => {
     expect(valid(rules)).toBe(true)
     expect(valid({ ...rules, perDay: [{ upTo: 5, pct: 100 }] })).toBe(true)
+  })
+
+  it("needs rubric 2's numbers, with one of the measures that are never null counting", () => {
+    const { v2: _v2, ...v1Only } = rules
+    expect(valid(v1Only)).toBe(false)
+    const weights = { intent: 0, grounding: 0, why: 3, successShape: 3, scope: 0, forward: 0 }
+    expect(valid({ ...rules, v2: { ...rules.v2, weights } })).toBe(false)
+    expect(valid({ ...rules, v2: { ...rules.v2, weights: { ...weights, scope: 0.5 } } })).toBe(true)
+    expect(valid({ ...rules, v2: { ...rules.v2, weights: { ...rules.v2.weights, why: -1 } } })).toBe(false)
+  })
+
+  it("refuses rubric 2 numbers off their scales: a craft span of 0, a tone whose cost ends above its lift", () => {
+    expect(valid({ ...rules, v2: { ...rules.v2, craft: { ...rules.v2.craft, span: 0 } } })).toBe(false)
+    expect(valid({ ...rules, v2: { ...rules.v2, spelling: { ...rules.v2.spelling, fullAtWords: 0 } } })).toBe(false)
+    expect(valid({ ...rules, v2: { ...rules.v2, tone: { ...rules.v2.tone, downFrom: 7 } } })).toBe(false)
+    expect(valid({ ...rules, v2: { ...rules.v2, caps: { ...rules.v2.caps, steer: { grade: 11 } } } })).toBe(false)
+    expect(valid({ ...rules, v2: { ...rules.v2, loot: { ...rules.v2.loot, chanceAtTen: 1.5 } } })).toBe(false)
   })
 
   it("needs a regret threshold on the score's 0-10 scale", () => {

@@ -6,7 +6,7 @@ import type {
   CommandRefusal,
   Context,
   DevCommand,
-  GradeDimension,
+  Graded,
   Input,
   InventoryEntry,
   ItemDef,
@@ -43,6 +43,7 @@ import {
   isNewWindow,
   joinParallel,
   measureMission,
+  parallelGrade,
   meets,
   missionCadences,
   offerFor,
@@ -53,7 +54,7 @@ import {
 } from "./quests.ts"
 import { ulids } from "./random.ts"
 import { boughtToday, buysXp, isFood, isXpFood, listPrice, offerParts, waresOf } from "./shop.ts"
-import { addScores, bandPct, commandKey, contextThresholds, gradeOf, measureContext, statsOf } from "./stats.ts"
+import { bandPct, commandKey, contextThresholds, countPrompt, measureContext, priceOf, statsOf } from "./stats.ts"
 import { streakAsOf } from "./streak.ts"
 
 // This version covers the proof of concept: reported XP with daily caps, XP for graded prompts (times the equipped
@@ -197,7 +198,7 @@ const applyClient = (state: PlayerState, event: ClientEvent, context: Context): 
       roll(run, "turn", context.rules.loot.chancePerTurn)
       break
     case "prompt.graded":
-      joinQuests(run, event.sessionId, event.occurredAt, gradePrompt(run, event.data.scores, day), day)
+      joinQuests(run, event.sessionId, event.occurredAt, gradePrompt(run, event.data, day), day)
       break
     case "session.cleared":
       setStats(run, { clears: run.state.progress.stats.clears + 1 })
@@ -275,35 +276,32 @@ const statsChanged = (run: Run, pick: (stats: PlayerStats) => Partial<PlayerStat
 }
 
 /**
- * A graded prompt: XP from its weighted quality grade, tapered by how many the day has seen already, times the sigil
- * equipped now, a loot roll whose chance rises with the grade (a great grade also raises the rare-and-better weights),
- * and the prompt stats. The grade is priced whatever rubric version made it, and the sigil at the multiplier the
- * catalogue in force gives it; the grade is returned, for the parallel missions.
+ * A graded prompt: XP from its grade, tapered by how many the day has seen already, times the sigil equipped now, a
+ * loot roll whose chance rises with the grade (a great grade also raises the rare-and-better weights), and the prompt
+ * stats. Each prompt is graded and priced by the rubric it names, under the rules in force: rubric 1's frozen numbers
+ * or `prompt.v2`, so a rubric 1 prompt in the log replays as it was priced. The sigil counts at the multiplier the
+ * catalogue in force gives it. The prompt is returned, for the parallel missions.
  */
-const gradePrompt = (run: Run, scores: Readonly<Record<GradeDimension, number>>, day: string): number => {
+const gradePrompt = (run: Run, graded: Graded, day: string): PromptSignal => {
   const { rules } = run.context
-  const grade = gradeOf(rules.prompt, scores)
+  const price = priceOf(rules, graded)
+  const { grade } = price
   const nth = (run.state.progress.tallies.find((t) => t.day === day)?.counts["prompt.graded"] ?? 0) + 1
   const sigil = equippedSigil(run.state, run.context)
   // maxXp * grade / 10 * pct / 100 * sigil, to the thousandth so float error never costs a point; the flat boosts and
   // the one rounding down come in `grant`.
-  const xp = Math.round(rules.prompt.maxXp * grade * bandPct(rules.prompt, nth) * sigil) / 1000
-  grant(run, "prompt.graded", day, { xp, prompt: { scores, grade }, ...(sigil > 1 ? { sigil } : {}) })
-  const prompts = run.state.progress.stats.prompts
-  setStats(run, {
-    prompts: {
-      graded: prompts.graded + 1,
-      scoreSum: prompts.scoreSum + grade,
-      regretted: prompts.regretted + (scores.regret >= rules.prompt.regretAt ? 1 : 0),
-      best: Math.max(prompts.best, grade),
-      dimensions: addScores(prompts.dimensions, scores),
-    },
-  })
+  const xp = Math.round(price.maxXp * grade * bandPct(rules.prompt, nth) * sigil) / 1000
+  const prompt: PromptSignal =
+    graded.rubricVersion === 1
+      ? { rubric: 1, scores: graded.scores, grade }
+      : { rubric: 2, measures: graded.measures, kind: graded.kind, grade }
+  grant(run, "prompt.graded", day, { xp, prompt, ...(sigil > 1 ? { sigil } : {}) })
+  setStats(run, { prompts: countPrompt(run.state.progress.stats.prompts, graded, grade, rules.prompt) })
   const { loot } = rules
-  const weights = grade >= loot.promptGreatAt ? raiseRare(loot.weights, loot.promptGreatRareFactor) : loot.weights
-  roll(run, "prompt", (loot.promptChanceAtTen * grade) / 10, { weights })
+  const weights = grade >= price.greatAt ? raiseRare(loot.weights, loot.promptGreatRareFactor) : loot.weights
+  roll(run, "prompt", (price.chanceAtTen * grade) / 10, { weights })
   statsChanged(run, (stats) => ({ prompts: stats.prompts, grades: stats.grades }))
-  return grade
+  return prompt
 }
 
 const applyCommand = (state: PlayerState, command: Command, context: Context): Step => {
@@ -574,15 +572,22 @@ const measureQuests = (run: Run, sessionId: string, pct: number, day: string): v
 }
 
 /**
- * A graded prompt on `day`, for the running parallel missions of its window whose grade it reaches: it counts only if
- * its session was open as it was made, and makes a moment with the waiting prompts of other sessions open with it.
+ * A graded prompt on `day`, for the running parallel missions of its window whose grade it reaches, on its rubric's
+ * scale: it counts only if its session was open as it was made, and makes a moment with the waiting prompts of other
+ * sessions open with it.
  */
-const joinQuests = (run: Run, sessionId: string, at: string, grade: number, day: string): void => {
+const joinQuests = (
+  run: Run,
+  sessionId: string,
+  at: string,
+  graded: Pick<PromptSignal, "rubric" | "grade">,
+  day: string,
+): void => {
   const span = spanAt(run.state.progress.presence, sessionId, at)
   if (span === undefined) return
   const prompt = { sessionId, at, openedAt: span.openedAt }
   for (const { mission, def } of running(run, day)) {
-    if (def.goal.kind !== "parallel" || grade < def.goal.grade) continue
+    if (def.goal.kind !== "parallel" || graded.grade < parallelGrade(def.goal, graded.rubric)) continue
     const joined = joinParallel(mission, def.goal, prompt, run.state.progress.presence)
     if (joined.moment) progressTo(run, { ...joined.mission, progress: mission.progress + 1 }, def)
     else setMission(run, joined.mission)
@@ -1295,12 +1300,12 @@ const runDev = (state: PlayerState, command: DevCommand, context: Context): Step
       break
     }
     case "dev.fakeSession": {
-      // Open for a while from now, with a prompt graded 10 made as it opened.
+      // Open for a while from now, with a rubric 2 prompt graded 10 made as it opened.
       const sessionId = run.newId()
       const closedAt = new Date(Date.parse(context.now) + fakeSessionMs).toISOString()
       const span = { sessionId, openedAt: context.now, closedAt }
       setProgress(run, { presence: prunePresence([...state.progress.presence, span], context.now) })
-      joinQuests(run, sessionId, context.now, 10, localDay(context.now, state.timezone))
+      joinQuests(run, sessionId, context.now, { rubric: 2, grade: 10 }, localDay(context.now, state.timezone))
       break
     }
   }
