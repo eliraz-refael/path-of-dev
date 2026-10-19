@@ -1,6 +1,16 @@
 import { Schema } from "effect"
 import { CommandName } from "./client-events.ts"
-import { Count, Goal, IsoDateTime, ItemCategory, Percent, QualityDimension, Rarity, Score } from "./primitives.ts"
+import {
+  ContentMeasure,
+  Count,
+  Goal,
+  IsoDateTime,
+  ItemCategory,
+  Percent,
+  QualityDimension,
+  Rarity,
+  Score,
+} from "./primitives.ts"
 import { ScoringFact } from "./rules.ts"
 
 // Quest packs are plain JSON the server loads: from a folder on a local server, from the quest board on the public
@@ -12,15 +22,31 @@ export const FactGoal = Schema.Struct({
   kind: Schema.Literal("fact"),
   fact: ScoringFact,
   count: Goal,
-  /** prompt.graded only: the least each named quality score must reach, as clarity 8 or more. */
+  /** prompt.graded only: the least each named rubric 1 quality score must reach, as clarity 8 or more. */
   scores: Schema.optionalKey(Schema.Record(QualityDimension, Schema.optionalKey(Score))),
-  /** prompt.graded only: the least the weighted grade must reach. */
+  /**
+   * prompt.graded only: the least a rubric 1 grade must reach, and a rubric 2 one too when the goal has no `v2`. A
+   * `v2` replaces it whole, so a `v2` that names no grade holds a rubric 2 prompt to none.
+   */
   grade: Schema.optionalKey(Score),
+  /**
+   * prompt.graded only: what a rubric 2 prompt must reach instead, as intent 8 or more; without it, a rubric 2 prompt
+   * meets the goal on `grade` alone, unless the goal names rubric 1 `scores`, which it has none of.
+   */
+  v2: Schema.optionalKey(
+    Schema.Struct({
+      measures: Schema.optionalKey(Schema.Record(ContentMeasure, Schema.optionalKey(Score))),
+      grade: Schema.optionalKey(Score),
+    }),
+  ),
 }).check(
   Schema.makeFilter(
     (goal) =>
       goal.fact === "prompt.graded" ||
-      (goal.scores === undefined && goal.grade === undefined) || { path: ["fact"], issue: "only a prompt has scores" },
+      (goal.scores === undefined && goal.grade === undefined && goal.v2 === undefined) || {
+        path: ["fact"],
+        issue: "only a prompt has scores",
+      },
   ),
 )
 export interface FactGoal extends Schema.Schema.Type<typeof FactGoal> {}
@@ -46,7 +72,10 @@ export const ContextGoal = Schema.Struct({ kind: Schema.Literal("context"), unde
 export const ParallelGoal = Schema.Struct({
   kind: Schema.Literal("parallel"),
   sessions: Count.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(2))),
+  /** The least a rubric 1 prompt's grade must reach, and a rubric 2 one's when `v2` names none. */
   grade: Score,
+  /** The least a rubric 2 prompt's grade must reach: its own scale. */
+  v2: Schema.optionalKey(Schema.Struct({ grade: Score })),
   withinMinutes: Goal,
   count: Goal,
 })

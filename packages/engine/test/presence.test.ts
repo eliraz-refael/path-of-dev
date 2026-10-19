@@ -366,24 +366,24 @@ describe("the starter pack", () => {
       [
         "two-minds",
         "weekly",
-        { kind: "parallel", sessions: 2, grade: 7, withinMinutes: 20, count: 3 },
+        { kind: "parallel", sessions: 2, grade: 7, v2: { grade: 7.5 }, withinMinutes: 20, count: 3 },
         { xp: 150, gold: 80 },
       ],
       [
         "juggler",
         "weekly",
-        { kind: "parallel", sessions: 3, grade: 7, withinMinutes: 20, count: 1 },
+        { kind: "parallel", sessions: 3, grade: 7, v2: { grade: 7.5 }, withinMinutes: 20, count: 1 },
         { xp: 200, gold: 100 },
       ],
       [
         "conductor",
         "weekly",
-        { kind: "parallel", sessions: 3, grade: 8, withinMinutes: 20, count: 2 },
+        { kind: "parallel", sessions: 3, grade: 8, v2: { grade: 8.5 }, withinMinutes: 20, count: 2 },
         { xp: 300, gold: 150, loot: { rarity: "rare" } },
       ],
     ])
     expect(Schema.decodeUnknownSync(QuestPackSchema)(starterQuestPack)).toEqual(starterQuestPack)
-    expect(starterQuestPack.version).toBe(3)
+    expect(starterQuestPack.version).toBe(4)
   })
 
   it("refuses a parallel goal of fewer than two sessions", () => {

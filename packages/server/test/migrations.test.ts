@@ -6,6 +6,7 @@ import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
 import { carriedXp, catalog, migrate, migrations, runMigrations } from "../src/index.ts"
+import { golden, goldenContext, goldenPlayer } from "../../engine/test/golden.ts"
 import { commit, hatch, minutesLater, nextId, profile, prompt, start, testSql } from "./fixtures.ts"
 
 // Each test starts a fresh PGlite and runs every migration: the first cold start can take seconds on a CI runner.
@@ -183,6 +184,7 @@ describe("migrations", () => {
       const states = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ state: PlayerState })))(stored)
       const [quiet, old, kept] = states.map((row) => row.state.progress)
       expect(old?.stats.prompts).toEqual({
+        ...fresh.progress.stats.prompts,
         graded: 2,
         scoreSum: 0,
         regretted: 0,
@@ -276,8 +278,8 @@ describe("migrations", () => {
       )(stored)
       // The welcome's and the achievements' migrations after it mark them engine 14, rules 12.
       expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
-        ["egg", 14, 12],
-        ["pet", 14, 12],
+        ["egg", 15, 13],
+        ["pet", 15, 13],
       ])
       expect(rows[1]?.state).toEqual(replayed)
       expect(rows[1]?.state.holdings.pet?.petted).toEqual([])
@@ -341,8 +343,8 @@ describe("migrations", () => {
         ),
       )(stored)
       expect(rows.map((row) => [row.player_id, row.log_seq, row.engine_version, row.rules_version])).toEqual([
-        ["egg", 2, 14, 12],
-        ["pet", 2, 14, 12],
+        ["egg", 2, 15, 13],
+        ["pet", 2, 15, 13],
       ])
       // Where a replay of the log ends: XP, the pet and everything else as they were, the welcome not done yet.
       expect(rows[1]?.state).toEqual(replayed)
@@ -406,10 +408,10 @@ describe("migrations", () => {
         ),
       )(stored)
       // Every row reads as what its state now is, carried or not, so nothing keyed on the versions carries it again;
-      // the shop's, the welcome's and the achievements' migrations after it mark them engine 14, rules 12.
+      // the migrations after it, up to grading v2's, mark them engine 15, rules 13.
       expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
-        ["mid", 14, 12],
-        ["new", 14, 12],
+        ["mid", 15, 13],
+        ["new", 15, 13],
       ])
       const [carried, untouched] = rows
       expect(carried?.state.progress.xp.reported).toBe(5000 + carriedXp(5000))
@@ -486,14 +488,79 @@ describe("migrations", () => {
         ),
       )(stored)
       expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
-        ["old", 14, 12],
-        ["new", 14, 12],
+        ["old", 15, 13],
+        ["new", 15, 13],
       ])
       // No badge unlocks here: the player's next accepted step unlocks what their counts earn.
       expect(rows[0]?.state).toEqual(played)
       expect(rows[1]?.state).toEqual(counted)
       expect(yield* sql`SELECT * FROM event_log`).toEqual([])
       expect(yield* sql`SELECT * FROM server_events`).toEqual([])
+    }).pipe(Effect.provide(testSql)),
+    coldStart,
+  )
+
+  it.effect("give a save written by engine 14 rubric 1 counts and no measures, as a replay of its log ends, once", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient
+      const before = Object.fromEntries(Object.entries(migrations).filter(([name]) => name < "0015"))
+      yield* runMigrations(before)
+      // The golden log's end, as engine 14 saved it, and a player saved after grading v2 with rubric 2 counts.
+      const replayed = golden.steps.reduce((state: PlayerState, row, i) => {
+        const recorded = { rolls: row.rolls, refusal: row.refusal }
+        return step(state, row.input, goldenContext(i + 1, row.now, { kind: "replay", recorded })).state
+      }, goldenPlayer())
+      const fresh = initialState({ ...profile, now: start })
+      const counted: PlayerState = {
+        ...fresh,
+        progress: {
+          ...fresh.progress,
+          stats: { ...fresh.progress.stats, prompts: { ...fresh.progress.stats.prompts, rubric: 2, graded: 3 } },
+        },
+      }
+      const players: Array<[string, unknown, number, number]> = [
+        ["golden", golden.end, 14, 12],
+        ["new", counted, 15, 13],
+      ]
+      for (const [id, state, engineVersion, rulesVersion] of players) {
+        yield* sql`
+          INSERT INTO players (id, github_user_id, github_login, display_name, roll_seed, created_at)
+          VALUES (${id}, NULL, NULL, 'Player', 'seed', ${start})
+        `
+        yield* sql`
+          INSERT INTO player_state (player_id, state, log_seq, server_seq, stream_epoch, engine_version, rules_version)
+          VALUES (${id}, ${JSON.stringify(state)}::jsonb, ${golden.steps.length}, 0, 1, ${engineVersion}, ${rulesVersion})
+        `
+      }
+      yield* migrate
+      const read = Effect.gen(function* () {
+        const stored = yield* sql`
+          SELECT player_id, state, engine_version, rules_version FROM player_state ORDER BY player_id
+        `
+        return yield* Schema.decodeUnknownEffect(
+          Schema.Array(
+            Schema.Struct({
+              player_id: Schema.String,
+              state: PlayerState,
+              engine_version: Schema.Number,
+              rules_version: Schema.Number,
+            }),
+          ),
+        )(stored)
+      })
+      const rows = yield* read
+      expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
+        ["golden", 15, 13],
+        ["new", 15, 13],
+      ])
+      // Where a replay of its log under this engine ends: the counts rubric 1's, no measure scored yet.
+      expect(rows[0]?.state).toEqual(replayed)
+      expect(rows[0]?.state.progress.stats.prompts.rubric).toBe(1)
+      expect(rows[1]?.state).toEqual(counted)
+      // Run again, it changes nothing.
+      yield* migrations["0015_grading_v2"]
+      expect(yield* read).toEqual(rows)
+      expect(yield* sql`SELECT * FROM event_log`).toEqual([])
     }).pipe(Effect.provide(testSql)),
     coldStart,
   )

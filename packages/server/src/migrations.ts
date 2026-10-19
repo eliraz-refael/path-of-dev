@@ -446,6 +446,40 @@ const achievements = Effect.gen(function* () {
   yield* sql`UPDATE player_state SET engine_version = 14, rules_version = 12 WHERE engine_version < 14`
 })
 
+// Grading v2 (engine 15, rules 13): the prompt stats count one rubric's prompts, and gained rubric 2's measures, each
+// with its sum and how many prompts gave it a score. A player saved before it has graded only rubric 1 prompts, since
+// no server took a rubric 2 one before, so their counts are rubric 1's and no measure has a score yet, as a replay of
+// their log ends. Written out here, so this migration means the same thing whatever the engine later becomes. The
+// first rubric 2 prompt starts the counts afresh, in the engine, so a replay does just the same. The rows then read
+// as engine 15 and rules 13, which their state now is.
+const gradingV2 = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  const none = { sum: 0, count: 0 }
+  const measures = {
+    intent: none,
+    grounding: none,
+    why: none,
+    successShape: none,
+    scope: none,
+    forward: none,
+    craft: none,
+    tone: none,
+  }
+  yield* sql`
+    UPDATE player_state
+    SET state = jsonb_set(state, '{progress,stats,prompts,measures}', ${JSON.stringify(measures)}::jsonb)
+    WHERE jsonb_typeof(state -> 'progress' -> 'stats' -> 'prompts') = 'object'
+      AND state -> 'progress' -> 'stats' -> 'prompts' -> 'measures' IS NULL
+  `
+  yield* sql`
+    UPDATE player_state
+    SET state = jsonb_set(state, '{progress,stats,prompts,rubric}', '1'::jsonb)
+    WHERE jsonb_typeof(state -> 'progress' -> 'stats' -> 'prompts') = 'object'
+      AND state -> 'progress' -> 'stats' -> 'prompts' -> 'rubric' IS NULL
+  `
+  yield* sql`UPDATE player_state SET engine_version = 15, rules_version = 13 WHERE engine_version < 15`
+})
+
 /** Every migration, by the name the migrator records it under. */
 export const migrations = {
   "0001_initial": initial,
@@ -462,6 +496,7 @@ export const migrations = {
   "0012_accounts": accounts,
   "0013_beta": beta,
   "0014_achievements": achievements,
+  "0015_grading_v2": gradingV2,
 }
 
 /** A migration: what it needs past the database is the server's randomness, for the ids of the inputs it logs. */

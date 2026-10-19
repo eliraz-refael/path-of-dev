@@ -7,7 +7,7 @@ import type {
   PromptGraded,
   TurnCompleted,
 } from "@pathofdev/schema"
-import type { Player as PlayerType, ServerEvent } from "@pathofdev/schema"
+import type { GradedV1, Player as PlayerType, ServerEvent } from "@pathofdev/schema"
 import { PgClient } from "@effect/sql-pg"
 import { PathOfDevApi } from "@pathofdev/schema"
 import type { Scope } from "effect"
@@ -99,8 +99,8 @@ export const turn = (id = nextId()): typeof TurnCompleted.Type => ({
   data: { durationMs: 1000, toolCalls: 2 },
 })
 
-/** A prompt graded `score` on every dimension, regret included. */
-export const prompt = (score: number, id = nextId()): typeof PromptGraded.Type => ({
+/** A rubric 1 prompt with `score` on every score, regret included. */
+export const prompt = (score: number, id = nextId()): typeof PromptGraded.Type & { readonly data: GradedV1 } => ({
   id,
   type: "prompt.graded",
   occurredAt: start,

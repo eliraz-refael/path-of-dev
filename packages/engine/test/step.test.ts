@@ -155,7 +155,7 @@ describe("the starter loot odds", () => {
 const graded = (scores: Record<GradeDimension, number>, minutes = 0): Input => {
   const input = client("prompt.graded", minutes)
   if (input.kind !== "client" || input.event.type !== "prompt.graded") throw new Error("not a graded prompt")
-  return { kind: "client", event: { ...input.event, data: { ...input.event.data, scores } } }
+  return { kind: "client", event: { ...input.event, data: { scores, rubricVersion: 1, words: 12, grader: "haiku" } } }
 }
 
 /** The XP each graded prompt earned, in order. */

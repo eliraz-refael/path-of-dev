@@ -2,11 +2,13 @@ import type {
   Context,
   FactGoal,
   GradeDimension,
+  GradedV2,
   Mission,
   MissionCadence,
   ParallelGoal,
   ParallelPrompt,
   PlayerState,
+  PromptKind,
   QuestDef,
   QuestGoal,
   QuestPack,
@@ -16,7 +18,7 @@ import type {
 } from "@pathofdev/schema"
 import { addDays, isLater, localDay, startOfDay, weekOf } from "./days.ts"
 import { draws } from "./random.ts"
-import { qualityDimensions } from "./stats.ts"
+import { contentMeasures, qualityDimensions } from "./stats.ts"
 
 // Missions are the daily and weekly quests. Each local day the engine offers the rules' number of dailies, which run
 // at once, and each local week (Monday to Sunday) a set of weeklies the player picks from. The sets are drawn from the
@@ -130,11 +132,18 @@ export const questStatesOf = (
     return def === undefined ? [] : [questStateOf(mission, def, timeZone, now)]
   })
 
-/** A graded prompt's scores and weighted grade, which a goal may filter on. */
-export interface PromptSignal {
-  readonly scores: Readonly<Record<GradeDimension, number>>
-  readonly grade: number
-}
+/**
+ * A graded prompt as a goal may filter on it, by the rubric it was graded with: rubric 1's scores, or rubric 2's
+ * measures and kind, and its grade on that rubric's scale.
+ */
+export type PromptSignal =
+  | { readonly rubric: 1; readonly scores: Readonly<Record<GradeDimension, number>>; readonly grade: number }
+  | {
+      readonly rubric: 2
+      readonly measures: GradedV2["measures"]
+      readonly kind: PromptKind
+      readonly grade: number
+    }
 
 /** Something that happened which a mission goal may count: a scoring fact, or a stats event. */
 export type QuestSignal =
@@ -143,17 +152,39 @@ export type QuestSignal =
   | { readonly kind: "compactions"; readonly trigger: "manual" | "auto" }
   | { readonly kind: "command"; readonly command: string }
 
+/**
+ * Whether a graded prompt meets a fact goal's filters. A rubric 1 prompt is held to `scores` and `grade`. A rubric 2
+ * prompt is held to `v2` alone when the goal has one, never to `grade`, and otherwise to `grade` alone, unless the goal
+ * names rubric 1 scores, which it has none of. A null measure never meets a least.
+ */
 const promptMeets = (goal: FactGoal, signal: Extract<QuestSignal, { kind: "fact" }>): boolean => {
-  if (goal.scores === undefined && goal.grade === undefined) return true
+  if (goal.scores === undefined && goal.grade === undefined && goal.v2 === undefined) return true
   const prompt = signal.prompt
   if (prompt === undefined) return false
-  if (goal.grade !== undefined && prompt.grade < goal.grade) return false
-  const scores = goal.scores ?? {}
-  return qualityDimensions.every((dimension) => {
-    const least = scores[dimension]
-    return least === undefined || prompt.scores[dimension] >= least
+  if (prompt.rubric === 1) {
+    if (goal.grade !== undefined && prompt.grade < goal.grade) return false
+    const scores = goal.scores ?? {}
+    return qualityDimensions.every((dimension) => {
+      const least = scores[dimension]
+      return least === undefined || prompt.scores[dimension] >= least
+    })
+  }
+  if (goal.v2 === undefined) {
+    const namesScores = Object.values(goal.scores ?? {}).some((least) => least !== undefined)
+    return !namesScores && (goal.grade === undefined || prompt.grade >= goal.grade)
+  }
+  if (goal.v2.grade !== undefined && prompt.grade < goal.v2.grade) return false
+  const measures = goal.v2.measures ?? {}
+  return contentMeasures.every((measure) => {
+    const least = measures[measure]
+    const score = prompt.measures[measure]
+    return least === undefined || (score !== null && score >= least)
   })
 }
+
+/** The least grade a prompt of its rubric needs for a parallel goal: rubric 2's when the goal names one. */
+export const parallelGrade = (goal: ParallelGoal, rubric: PromptSignal["rubric"]): number =>
+  rubric === 2 ? (goal.v2?.grade ?? goal.grade) : goal.grade
 
 /**
  * Whether a signal counts toward a goal. Context goals count sessions, through `measureMission`, and parallel goals

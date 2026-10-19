@@ -60,7 +60,7 @@ export const starterAchievements: ReadonlyArray<AchievementDef> = [
     "Sharp prompter",
     "epic",
     "🧠",
-    "Keep a lifetime average grade of 8 or more over at least 100 graded prompts.",
+    "Keep an average grade of 8 or more over at least 100 graded prompts.",
     { kind: "average", of: "promptGrade", atLeast: 8, over: 100 },
   ),
   badge(
@@ -101,8 +101,8 @@ export const starterAchievements: ReadonlyArray<AchievementDef> = [
 ]
 
 export const starterRules: RulesConfig = {
-  version: 12,
-  schemaVersion: 9,
+  version: 13,
+  schemaVersion: 10,
   appliesFrom: null,
   // Steeper than the 1.6 before sigils: a player wearing the sigil typical of their stage reaches each level about
   // when one without sigils did, on the doc's steady day of 400 XP of work and 200 of prompts. Level 1 stays 100 XP.
@@ -137,7 +137,8 @@ export const starterRules: RulesConfig = {
   },
   loot: {
     chancePerTurn: 0.12,
-    // 12% at an average grade of 5, the turn's chance; 24% at 10. A grade of 9 or more doubles rare and better.
+    // 12% at an average grade of 5, the turn's chance; 24% at 10. A grade of 9 or more doubles rare and better. Rubric
+    // 1's, and frozen: rubric 2's are `prompt.v2.loot`.
     promptChanceAtTen: 0.24,
     promptGreatAt: 9,
     promptGreatRareFactor: 2,
@@ -190,7 +191,9 @@ export const starterRules: RulesConfig = {
   },
   streak: { xpPerDay: 10, maxXp: 70, restDaysPerWeek: 1 },
   prompt: {
-    rubricVersion: 1,
+    rubricVersion: 2,
+    // Rubric 1's, frozen from rules 13 on so its prompts in the log replay as they were priced: the weights, maxXp,
+    // regretAt and the loot's promptChanceAtTen and promptGreatAt. Tuning goes to `v2`.
     // Equal weights: the plain average of the quality scores, so a perfect grade earns maxXp.
     weights: { clarity: 1, grammar: 1, specificity: 1, instructive: 1, context: 1, doneCriteria: 1, focus: 1 },
     maxXp: 20,
@@ -209,6 +212,24 @@ export const starterRules: RulesConfig = {
       rare: [1.7, 1.9],
       epic: [2, 2.2],
       legendary: [2.3, 2.5],
+    },
+    // Rubric 2 grades a prompt against what it needs, so real prompts grade higher than under rubric 1: a mean of 7.31
+    // where rubric 1 gave 5.35, in the grading experiment. maxXp 15 and a loot chance of 0.175 at 10 keep a typical
+    // prompt's XP and drops about where rubric 1 has them (20 * 5.35 / 7.31 = 14.6, 0.24 * 5.35 / 7.31 = 0.1756). A
+    // 9 still doubles rare and better: only prompts with substance reach it, as a steer is capped at 8.
+    v2: {
+      maxXp: 15,
+      // What the experiment's prompts most needed weighs most: knowing what is wanted, and moving the work forward.
+      weights: { intent: 1.5, grounding: 1, why: 1, successShape: 1, scope: 1, forward: 1.5 },
+      // Up to half a point for writing above plain (6), all of it at 10.
+      craft: { from: 6, span: 4, max: 0.5 },
+      // Up to 0.4 for a prompt spelled clean, all of it from 60 words on, so a short one gains little.
+      spelling: { fullAtWords: 60, max: 0.4 },
+      // Kindness lifts a little, 0.3 at most; a rough tone costs more, 1.8 at a tone of 1.
+      tone: { upFrom: 6, upPer: 0.075, downFrom: 4, downPer: 0.6 },
+      // A hostile prompt grades 3.5 at most, and a steer 8: a 9 takes substance.
+      caps: { hostile: { toneAtMost: 2, grade: 3.5 }, steer: { grade: 8 } },
+      loot: { chanceAtTen: 0.175, greatAt: 9 },
     },
   },
   catalogVersion: 6,

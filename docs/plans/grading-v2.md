@@ -434,27 +434,41 @@ whichever lands second renumbers.
 - **For it to review:**
   - The migration: the version columns, and replay equal to the migrated state.
   - Whether the profile page (`pages.ts`, `profile.ts`, its files) should show `grades.measures`. Until it does, the
-    `/u` stats section shows the v1 averages frozen at the switch.
+    `/u` stats section reads the counters, which reset at the switch (Open question 3): its average and best are v2's
+    from then on, and its v1 `dimensions` all read 0.
   - Achievements (#44): `perfect-prompt` (best grade 10) and `sharp-prompter` (an average of 8 over 100 prompts) read
-    grades from both rubrics. v2 lifts the average (the experiment's mean rose from 5.35 to 7.31), but steers are
-    capped at 8 and the best seen was 9.5, so both badges stay hard. Its call whether to re-tune them.
+    the prompt counters, which reset to v2 at the switch (Open question 3), so from then on they read v2 grades. v2
+    lifts the average (the experiment's mean rose from 5.35 to 7.31), but steers are capped at 8 and the best seen was
+    9.5, so both badges stay hard. Its call whether to re-tune them.
   - `docs/privacy.md` (PR B): what a graded prompt sends.
 
-## Open questions
+## Open questions (answered by the player, 2026-10-19)
 1. **Should the pet's "good prompt" line move for v2?**
    - `wellGradedAt` (7) drives the pet's hop and the coach's "good". Under v2, 11 of 13 real prompts reach 7, against
      0 under v1.
-   - *Recommend:* 8 for v2 grades, which 1–4 of 13 reach, and 7 for v1. The mod reads the grade's rubric from the
-     coach memory. This goes in PR B if agreed.
+   - **Answer: 8 for v2 grades**, which 1–4 of 13 reach, and 7 for v1. The mod reads the grade's rubric from the coach
+     memory. It is mod-only, so it goes in PR B.
 2. **When should the server stop taking v1 events from old mods?**
    - A good prompter earns about the same under either rubric. Forged scores are already possible in both, since
      grades are reported-tier.
-   - *Recommend:* keep taking v1 through the beta. A few weeks after PR B, raise `minClientVersion` to PR B's mod
-     version. v1 pricing stays forever: the log needs it.
-3. **What about the average and best grades on the stats tab and the profile?** They mix both rubrics, so the average
-   will step up after the switch.
-   - *Recommend:* keep one series with no reset, and say so in the PR B release note. A reset would also have to
-     touch the badges in question in "Coordination".
+   - **Answer: no long grace**, as the beta has two players. `minClientVersion` goes up to PR B's mod version right
+     after PR B ships. PR A still takes and prices v1 exactly, since the mod on main sends v1 until PR B lands, and v1
+     pricing stays forever: the log needs it.
+3. **What about the average and best grades on the stats tab and the profile?** Mixing both rubrics would step the
+   average up after the switch.
+   - **Answer: reset them at the switch**, rather than keep one mixed series (this reverses the plan's
+     recommendation). PR A does it in the engine, so a replay ends where the live run did:
+     - `stats.prompts` gains `rubric` (1 or 2): the rubric its counters hold. Every save and every new player starts
+       at 1. Migration 0015 writes `rubric: 1` and the zero `measures`, which is where a replay of any log from before
+       PR A ends, since no server took a v2 prompt before it.
+     - The first v2 `prompt.graded` starts the counters afresh at rubric 2: `graded`, `scoreSum`, `regretted`, `best`,
+       `dimensions` and `measures` all restart, and from then on hold v2 prompts only.
+     - A v1 prompt after that, from a mod still behind, is priced and counts toward the day, the totals and the
+       missions as always, but leaves the counters alone. `gradedToday` comes from the day's tally, so it counts both.
+     - Badges already unlocked stay unlocked. `perfect-prompt` and `sharp-prompter` read the counters, so from the
+       switch they read v2 grades only, and `sharp-prompter`'s 100 prompts count from the switch.
+     - `grades.measures` is in the player stats only once the counters are v2's, so a v1 player's `stats.changed`
+       reads as it always has. Under v2 the v1 `dimensions` read 0, so the profile should show `measures` then.
 
 ## Not in this plan
 1. The level curve slowdown: its own PR, after this one shows where the XP lands.

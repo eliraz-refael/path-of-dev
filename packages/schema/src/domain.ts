@@ -8,6 +8,7 @@ import {
   IsoDate,
   IsoDateTime,
   ItemCategory,
+  Measure,
   Multiplier,
   Name,
   Percent,
@@ -329,9 +330,9 @@ export const PlayerStats = Schema.Struct({
   /** Percent. `lastSession` is the latest measured session's peak; a low average = "keeps context low". */
   contextPeak: Schema.Struct({ lastSession: Percent, average: Percent }),
   /**
-   * `averageScore` is the weighted quality grade, 0-10, over every graded prompt. `regretted` counts the prompts that
-   * walked back or corrected the player's own previous ask (a regret score of at least the rules' `prompt.regretAt`);
-   * it earns no XP.
+   * `averageScore` is the grade, 0-10, over every graded prompt of the rubric counted now: the first rubric 2 prompt
+   * starts these afresh, so they never mix two scales. `regretted` counts the rubric 1 prompts that walked back or
+   * corrected the player's own previous ask (a regret score of at least the rules' `prompt.regretAt`); it earns no XP.
    */
   prompts: Schema.Struct({
     graded: Count,
@@ -342,9 +343,15 @@ export const PlayerStats = Schema.Struct({
   /**
    * The best weighted grade a prompt got, and the prompting profile: each quality score's average over every graded
    * prompt, 0-10, so a player sees what to work on. Apart from `prompts`, so a `stats.changed` stored before them
-   * still reads.
+   * still reads. `measures` is rubric 2's profile: each measure's average over the prompts that gave it a score, a
+   * key once one has. It is there once a rubric 2 prompt is graded, when the counts start afresh for rubric 2, and
+   * absent before, as in a `stats.changed` stored before it.
    */
-  grades: Schema.Struct({ best: Grade, dimensions: Schema.Record(QualityDimension, Grade) }),
+  grades: Schema.Struct({
+    best: Grade,
+    dimensions: Schema.Record(QualityDimension, Grade),
+    measures: Schema.optionalKey(Schema.Record(Measure, Schema.optionalKey(Grade))),
+  }),
 })
 export interface PlayerStats extends Schema.Schema.Type<typeof PlayerStats> {}
 

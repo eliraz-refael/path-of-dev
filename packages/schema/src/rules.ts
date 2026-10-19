@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 import {
   BandSlot,
+  ContentMeasure,
   Count,
   Glyph,
   Goal,
@@ -79,23 +80,72 @@ export const SigilRanges = Schema.Record(Rarity, MultiplierRange).check(
 )
 export type SigilRanges = typeof SigilRanges.Type
 
+const NonNegative = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+
 /**
- * How a graded prompt is priced: XP = maxXp * weighted average score / 10, then the day's band, then the equipped
- * sigil, then the flat boosts, rounded down once.
+ * How rubric 2 grades and prices a prompt. The grade is the weighted mean of the content measures the prompt needs
+ * (a null one is left out), then a bonus for the craft above `craft.from`, one for clean spelling that grows with the
+ * words up to `spelling.fullAtWords`, a nudge by the tone, a clamp to 0-10, the caps for a hostile prompt and a steer,
+ * and one decimal. XP = maxXp * grade / 10, then as rubric 1's: the day's band, the sigil, the flat boosts.
+ */
+export const PromptRulesV2 = Schema.Struct({
+  /** XP for a grade of 10. */
+  maxXp: Count,
+  weights: Schema.Record(ContentMeasure, NonNegative),
+  /** Up to `max` for the craft from `from` on, all of it `span` above. */
+  craft: Schema.Struct({ from: Score, span: Positive, max: NonNegative }),
+  /** Up to `max` for a prompt spelled clean, all of it from `fullAtWords` words on. */
+  spelling: Schema.Struct({ fullAtWords: Goal, max: NonNegative }),
+  /** `upPer` a point of tone above `upFrom`, and `downPer` taken a point below `downFrom`. */
+  tone: Schema.Struct({ upFrom: Score, upPer: NonNegative, downFrom: Score, downPer: NonNegative }),
+  caps: Schema.Struct({
+    /** A prompt whose tone is at most `toneAtMost` grades at most `grade`. */
+    hostile: Schema.Struct({ toneAtMost: Score, grade: Score }),
+    /** A steer grades at most `grade`: a 9 takes substance. */
+    steer: Schema.Struct({ grade: Score }),
+  }),
+  /** The prompt's loot roll: its chance at a grade of 10, and the grade from which the rare weights are raised. */
+  loot: Schema.Struct({ chanceAtTen: Probability, greatAt: Score }),
+}).check(
+  Schema.makeFilter(
+    (v2) =>
+      // Those four are never null, so the mean always has something to divide by.
+      [v2.weights.intent, v2.weights.grounding, v2.weights.scope, v2.weights.forward].some((weight) => weight > 0) || {
+        path: ["weights"],
+        issue: "intent, grounding, scope or forward must count",
+      },
+  ),
+  Schema.makeFilter(
+    (v2) =>
+      v2.tone.downFrom <= v2.tone.upFrom || {
+        path: ["tone"],
+        issue: "the tone's cost must end at or below where its lift starts",
+      },
+  ),
+)
+export interface PromptRulesV2 extends Schema.Schema.Type<typeof PromptRulesV2> {}
+
+/**
+ * How a graded prompt is priced, by the rubric it was graded with. Rubric 1: XP = maxXp * weighted average score /
+ * 10, then the day's band, then the equipped sigil, then the flat boosts, rounded down once. Rubric 2: as `v2` says,
+ * with the same bands and sigils. Rubric 1's numbers are frozen, so its prompts in the log replay as they were
+ * priced; tuning goes to `v2`.
  */
 export const PromptRules = Schema.Struct({
-  /** The rubric the mod grades against. */
+  /** The newest rubric this server prices; it prices every one from 1 up. */
   rubricVersion: Count,
-  /** How much each quality score counts toward XP; `regret` is a stat, never priced. */
-  weights: Schema.Record(QualityDimension, Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
-  /** XP for a perfect weighted grade. */
+  /** Rubric 1's: how much each quality score counts toward XP; `regret` is a stat, never priced. */
+  weights: Schema.Record(QualityDimension, NonNegative),
+  /** Rubric 1's: XP for a perfect weighted grade. */
   maxXp: Count,
   /** Diminishing returns over a local day, in order; past the last band a prompt earns nothing. */
   perDay: Schema.Array(PromptBand),
-  /** A prompt counts as regretted from this regret score on: the grader gives small regrets as noise. */
+  /** Rubric 1's: a prompt counts as regretted from this regret score on: the grader gives small regrets as noise. */
   regretAt: Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 10 }))),
   /** The range a sigil's multiplier sits in, by its rarity; the engine holds a sigil to it. */
   sigilMultiplier: SigilRanges,
+  /** Rubric 2's grading and price. A mod grades with rubric 2 only against a server that sends it. */
+  v2: PromptRulesV2,
 }).check(
   Schema.makeFilter(
     (prompt) =>
@@ -285,11 +335,14 @@ export const RulesConfig = Schema.Struct({
   loot: Schema.Struct({
     /** Per finished turn. */
     chancePerTurn: Probability,
-    /** Per graded prompt, at a perfect weighted grade; the chance falls in a line to 0 at a grade of 0. */
+    /**
+     * Per rubric 1 prompt, at a perfect weighted grade; the chance falls in a line to 0 at a grade of 0. Frozen, as
+     * rubric 1's numbers are: rubric 2's is `prompt.v2.loot`.
+     */
     promptChanceAtTen: Probability,
-    /** A prompt graded at least this well rolls with the rare-and-better weights raised. */
+    /** A rubric 1 prompt graded at least this well rolls with the rare-and-better weights raised. Frozen too. */
     promptGreatAt: Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 10 }))),
-    /** What those weights are multiplied by. */
+    /** What those weights are multiplied by, for a great prompt of either rubric. */
     promptGreatRareFactor: Positive,
     chanceOnVerified: Probability,
     weights: Schema.Record(Rarity, Count),

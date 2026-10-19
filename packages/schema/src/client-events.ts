@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Count, GradeDimension, IsoDateTime, Percent, storable, Ulid } from "./primitives.ts"
+import { Count, GradeDimension, IsoDateTime, Percent, PromptKind, storable, Ulid } from "./primitives.ts"
 import { CheckoutRef, CommitRef, RepoRef, WorkRef } from "./subjects.ts"
 
 // Client events are observations of work, never scores: the server decides what each one is worth. The one
@@ -10,7 +10,8 @@ import { CheckoutRef, CommitRef, RepoRef, WorkRef } from "./subjects.ts"
 /** Null outside a repo. */
 const TestRun = Schema.Struct({ checkout: Schema.NullOr(CheckoutRef), runner: Schema.String })
 
-const clientEvent = <Type extends string, Data extends Schema.Struct.Fields>(type: Type, data: Data) =>
+/** A client event whose data is `data`, a schema of its own: a union, say. */
+const clientEventOf = <Type extends string, Data extends Schema.Top>(type: Type, data: Data) =>
   Schema.Struct({
     /** ULID made by the mod; the idempotency key. */
     id: Ulid,
@@ -19,8 +20,12 @@ const clientEvent = <Type extends string, Data extends Schema.Struct.Fields>(typ
     occurredAt: IsoDateTime,
     /** A ULID the mod mints, so events queued offline carry one too. */
     sessionId: Ulid,
-    data: Schema.Struct(data),
+    data,
   })
+
+/** A client event whose data is a struct of `fields`. */
+const clientEvent = <Type extends string, Fields extends Schema.Struct.Fields>(type: Type, fields: Fields) =>
+  clientEventOf(type, Schema.Struct(fields))
 
 /** An agent turn finishes. Reported; drives the loot roll. */
 export const TurnCompleted = clientEvent("turn.completed", { durationMs: Count, toolCalls: Count })
@@ -47,19 +52,56 @@ export const RepoExplored = clientEvent("repo.explored", { repo: Schema.NullOr(R
 /** One score from the grader's strict JSON. */
 export const GradeScore = Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 10 })))
 
+/** Word count of the submitted prompt, pasted text included. */
+const words = Count
+/** Which grader made it. */
+const grader = Schema.Literals(["haiku", "jev"])
+
+/** A grade made with rubric 1: seven quality scores and a regret. */
+export const GradedV1 = Schema.Struct({
+  scores: Schema.Record(GradeDimension, GradeScore),
+  /** The rubric the grade was made with. */
+  rubricVersion: Schema.Literal(1),
+  words,
+  grader,
+})
+export interface GradedV1 extends Schema.Schema.Type<typeof GradedV1> {}
+
+/**
+ * A grade made with rubric 2: what kind of prompt it is, the measures against what it needs, and whether the grader
+ * found it spelled clean. The words the grader listed as misspelled stay in the mod; only the answer leaves.
+ */
+export const GradedV2 = Schema.Struct({
+  rubricVersion: Schema.Literal(2),
+  kind: PromptKind,
+  measures: Schema.Struct({
+    intent: GradeScore,
+    grounding: GradeScore,
+    /** Null when the prompt needs no reasons, as in "go ahead". */
+    why: Schema.NullOr(GradeScore),
+    /** Null when the conversation already makes plain what done looks like. */
+    successShape: Schema.NullOr(GradeScore),
+    scope: GradeScore,
+    forward: GradeScore,
+    craft: GradeScore,
+    tone: GradeScore,
+  }),
+  /** No misspelled word the mod could find in the prompt. */
+  spelledClean: Schema.Boolean,
+  words,
+  grader,
+})
+export interface GradedV2 extends Schema.Schema.Type<typeof GradedV2> {}
+
+/** A grade by either rubric, told apart by its `rubricVersion`: each is priced by its own formula. */
+export const Graded = Schema.Union([GradedV1, GradedV2])
+export type Graded = typeof Graded.Type
+
 /**
  * The grader scored a prompt the player typed at the prompt box (6+ words by default, the mod's `minWords`).
  * Reported. Scores only: the prompt text and the grader's note stay in the mod.
  */
-export const PromptGraded = clientEvent("prompt.graded", {
-  scores: Schema.Record(GradeDimension, GradeScore),
-  /** The rubric the grade was made with. */
-  rubricVersion: Count,
-  /** Word count of the submitted prompt, pasted text included. */
-  words: Count,
-  /** Which grader made it. */
-  grader: Schema.Literals(["haiku", "jev"]),
-})
+export const PromptGraded = clientEventOf("prompt.graded", Graded)
 
 /**
  * A slash command by name, never its arguments: `/code-review`, or `/plugin:command`. The player's own commands go

@@ -105,7 +105,7 @@ export type ItemCategory = typeof ItemCategory.Type
 export const XpTier = Schema.Literals(["verified", "reported"])
 export type XpTier = typeof XpTier.Type
 
-/** The scores that make a prompt's quality, and so its XP, each 0-10 against what the prompt needs. */
+/** Rubric 1's scores that make a prompt's quality, and so its XP, each 0-10 against what the prompt needs. */
 export const QualityDimension = Schema.Literals([
   "clarity",
   "grammar",
@@ -117,6 +117,21 @@ export const QualityDimension = Schema.Literals([
 ])
 export type QualityDimension = typeof QualityDimension.Type
 
-/** Everything the prompt grader scores: the quality, plus `regret`, which only the player stats count. */
+/** Everything rubric 1 scores: the quality, plus `regret`, which only the player stats count. */
 export const GradeDimension = Schema.Literals([...QualityDimension.literals, "regret"])
 export type GradeDimension = typeof GradeDimension.Type
+
+/**
+ * Rubric 2's content measures, each 0-10 against what the prompt needs at that point in the conversation; `why` and
+ * `successShape` are null when it doesn't need them.
+ */
+export const ContentMeasure = Schema.Literals(["intent", "grounding", "why", "successShape", "scope", "forward"])
+export type ContentMeasure = typeof ContentMeasure.Type
+
+/** Everything rubric 2 scores: the content, plus `craft` (the writing) and `tone`, which only nudge the grade. */
+export const Measure = Schema.Literals([...ContentMeasure.literals, "craft", "tone"])
+export type Measure = typeof Measure.Type
+
+/** What a prompt is, as rubric 2 reads it: a steer is a short reply to the assistant's last message. */
+export const PromptKind = Schema.Literals(["task", "question", "discussion", "steer"])
+export type PromptKind = typeof PromptKind.Type
