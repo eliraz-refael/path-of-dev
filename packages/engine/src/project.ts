@@ -77,7 +77,7 @@ export const project = (
         days: streak.days,
         restDaysLeftThisWeek: streak.restDaysLeftThisWeek,
         lastDay: progress.activeDays[progress.activeDays.length - 1] ?? today,
-        best: bestStreakOf(state, rules, now),
+        best: bestStreakOf(progress.bestStreak, streak.days),
       },
       equipped: slotsOf(holdings.equipped, characterSlots),
     },

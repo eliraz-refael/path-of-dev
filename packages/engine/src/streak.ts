@@ -42,11 +42,14 @@ export const streakAsOf = (activeDays: ReadonlyArray<string>, today: string, res
 }
 
 /**
- * The longest streak reached, as of `now`: a save from before the best was kept starts it at 0, and the current streak
- * stands in until it passes it.
+ * The longest streak reached, given the current one: a save from before the best was kept starts it at 0, and the
+ * current streak stands in until it passes it.
  */
-export const bestStreakOf = (state: PlayerState, rules: RulesConfig, now: string): number =>
-  Math.max(
+export const bestStreakOf = (best: number, currentDays: number): number => Math.max(best, currentDays)
+
+/** The longest streak reached, as of `now`. */
+export const bestStreakAsOf = (state: PlayerState, rules: RulesConfig, now: string): number =>
+  bestStreakOf(
     state.progress.bestStreak,
     streakAsOf(state.progress.activeDays, localDay(now, state.timezone), rules.streak.restDaysPerWeek).days,
   )

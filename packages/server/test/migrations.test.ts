@@ -436,17 +436,24 @@ describe("migrations", () => {
     coldStart,
   )
 
-  it.effect("start the missions count of a player saved before achievements at 0, nothing else changed", () =>
+  it.effect("start the missions count of a player saved before achievements at the completions it holds, nothing else changed", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const before = Object.fromEntries(Object.entries(migrations).filter(([name]) => name < "0014"))
       yield* runMigrations(before)
-      // A player who hatched their pet and leveled up before the count, and one saved after it with three missions.
+      // A player who leveled up and completed two missions this week before the count, and one saved after it with
+      // three missions.
       const fresh = initialState({ ...profile, now: start })
+      const done = (questId: string) => ({ questId, packId: "starter", window: "2026-10-05", completedAt: start })
       const played: PlayerState = {
         ...fresh,
-        progress: { ...fresh.progress, xp: { verified: 0, reported: 5000 }, totals: { "commit.made": 40 } },
-        holdings: { ...fresh.holdings, peakLevel: 11 },
+        progress: {
+          ...fresh.progress,
+          xp: { verified: 0, reported: 5000 },
+          totals: { "commit.made": 40 },
+          missionsCompleted: 2,
+        },
+        holdings: { ...fresh.holdings, peakLevel: 11, completedQuests: [done("ship-it"), done("tidy-up")] },
       }
       const { missionsCompleted: _missionsCompleted, ...uncounted } = played.progress
       const counted: PlayerState = { ...fresh, progress: { ...fresh.progress, missionsCompleted: 3 } }

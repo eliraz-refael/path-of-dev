@@ -56,20 +56,24 @@ export const celebrationOf = (event: ServerEvent, glyph: string): Celebration | 
       return { kind: 'quest', tier: tierOf(tier), title: named, rewards: rewardsText(rewards ?? {}), more: 0 }
     }
     case 'achievement.unlocked': {
-      const { title, tier, glyph } = event.data
-      return {
-        kind: 'badge',
-        // Read with care, as a newer server's badge may name what this mod doesn't know.
-        tier: typeof tier === 'string' ? tierOf(tier) : 'common',
-        title: typeof title === 'string' && title !== '' ? title : 'Badge',
-        glyph: typeof glyph === 'string' && glyph !== '' ? glyph : '🏅',
-        more: 0,
-      }
+      const { tier } = event.data
+      // Read with care, as a newer server's badge may name what this mod doesn't know.
+      return { kind: 'badge', tier: typeof tier === 'string' ? tierOf(tier) : 'common', ...badgeOf(event.data), more: 0 }
     }
     default:
       return null
   }
 }
+
+/** A badge's name and glyph from the wire, read with care: a newer server's may lack either. */
+export const badgeOf = (data: { readonly title?: unknown; readonly glyph?: unknown }) => ({
+  title: typeof data.title === 'string' && data.title !== '' ? data.title : 'Badge',
+  glyph: typeof data.glyph === 'string' && data.glyph !== '' ? data.glyph : '🏅',
+})
+
+/** A badge as the band, its line and the toast all name it: its glyph, then its name. */
+export const badgeLabel = (badge: { readonly title: string; readonly glyph: string }): string =>
+  `${badge.glyph} ${badge.title}`
 
 /** What a mission promised, in words: `+50 XP · +30 gold · +10% XP for 1h · rare drop`. */
 export const rewardsText = (rewards: QuestRewards): string =>
@@ -105,9 +109,16 @@ const moreOf = (celebration: Celebration): number => (hasMore(celebration) ? cel
 const withMore = (celebration: Celebration, more: number): Celebration =>
   hasMore(celebration) ? { ...celebration, more } : celebration
 
-/** Which of two small ones a collapse keeps: the bigger, a mission or a badge over a drop of its size, else the newer. */
+/** Among small ones of a size, what a collapse prefers to keep: a mission or a badge, then a level-up, then a drop. */
+const keepRank = (celebration: Celebration): number =>
+  celebration.kind === 'quest' || celebration.kind === 'badge' ? 2 : celebration.kind === 'level' ? 1 : 0
+
+/**
+ * Which of two small ones a collapse keeps: the bigger, a mission or a badge over a level-up or a drop of its size
+ * and a level-up over a drop, else the newer.
+ */
 const keptOf = (older: Celebration, newer: Celebration): Celebration =>
-  rankOf(older) > rankOf(newer) || (rankOf(older) === rankOf(newer) && older.kind !== 'loot' && newer.kind === 'loot')
+  rankOf(older) > rankOf(newer) || (rankOf(older) === rankOf(newer) && keepRank(older) > keepRank(newer))
     ? older
     : newer
 

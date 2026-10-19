@@ -2,7 +2,7 @@ import type { PlayerStats, RulesConfig, ScoringFact, ServerEvent, Snapshot } fro
 import type { PluginOptions } from 'claude-code'
 import type { BandView, GainLine, OwnedItem, StatsView, Wardrobe } from '../types'
 import { heartsFor, knowsCareOf } from './care'
-import { boostText, foodOf, tierOf } from './celebrate'
+import { badgeLabel, badgeOf, boostText, foodOf, tierOf } from './celebrate'
 import { faceOf, shownGrade } from './pet-motion'
 import { knowsSigilsOf, multiplierText, sigilOf, wornSigil } from './sigils'
 
@@ -257,7 +257,7 @@ export const gainOf = (event: ServerEvent, pet = somePet): GainLine | null => {
     case 'quest.completed':
       return { text: `${event.data.title || 'Mission'} · mission complete`, tone: 'quest' }
     case 'achievement.unlocked':
-      return { text: `${badgeName(event.data)} · badge unlocked`, tone: 'badge' }
+      return { text: `${badgeLabel(badgeOf(event.data))} · badge unlocked`, tone: 'badge' }
     case 'quest.offered': {
       // A new day's dailies, or a new week's weeklies to pick from; an empty set only clears the old ones.
       const count = event.data.quests.length
@@ -318,15 +318,9 @@ const sigilNote = (sigil: number, isAll: boolean): string =>
 /** Drops a toast names one by one; past them it counts the rest. */
 const toastItems = 3
 
-/** A badge as the lines name it: its glyph and name, read with care, as a newer server's may lack either. */
-const badgeName = (data: { readonly title?: unknown; readonly glyph?: unknown }): string => {
-  const title = typeof data.title === 'string' && data.title !== '' ? data.title : 'Badge'
-  return typeof data.glyph === 'string' && data.glyph !== '' ? `${data.glyph} ${title}` : title
-}
-
 /** The badges a batch unlocked, for its toast: `Badges unlocked: 📝 First commit, 💯 Committed and 3 more`. */
 export const badgePart = (events: ReadonlyArray<ServerEvent>): Array<string> => {
-  const names = events.flatMap((event) => (event.type === 'achievement.unlocked' ? [badgeName(event.data)] : []))
+  const names = events.flatMap((event) => (event.type === 'achievement.unlocked' ? [badgeLabel(badgeOf(event.data))] : []))
   if (names.length === 0) return []
   if (names.length === 1) return [`Badge unlocked: ${names[0]}`]
   const shown = names.length > toastItems ? names.slice(0, toastItems - 1) : names.slice(0, -1)

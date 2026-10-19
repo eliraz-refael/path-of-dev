@@ -13,7 +13,7 @@ import type {
 } from "@pathofdev/schema"
 import { levelOf } from "./derive.ts"
 import { averageOf, settledContext } from "./stats.ts"
-import { bestStreakOf } from "./streak.ts"
+import { bestStreakAsOf } from "./streak.ts"
 
 // Achievements: after an accepted step, every badge the rules define and the player doesn't hold yet is checked
 // against what the state counts, and those earned unlock, for good. A badge is never taken back, so a count that
@@ -77,7 +77,7 @@ export const ledgerOf = (state: PlayerState, context: Pick<Context, "rules" | "c
   const settled = settledContext(progress.stats.context)
   return {
     totals: progress.totals,
-    streak: bestStreakOf(state, context.rules, context.now),
+    streak: bestStreakAsOf(state, context.rules, context.now),
     level: levelOf(state, context.rules).level,
     missions: progress.missionsCompleted,
     hatched: holdings.pet === null ? 0 : 1,

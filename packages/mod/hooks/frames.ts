@@ -1,6 +1,6 @@
 import type { BandLook, BandView, Celebration, Loop, Stage, Tier } from '../types'
 import { barCells } from './band'
-import { hasMore, isSmall, scriptOf } from './celebrate'
+import { badgeLabel, hasMore, isSmall, scriptOf } from './celebrate'
 import type { Cell, Row, Run, Style } from './cells'
 import { cellsOf, glyphSlot, glyphsOf, isWide, runsOf } from './cells'
 
@@ -209,7 +209,7 @@ const nameOf = (celebration: Celebration): string => {
     case 'quest':
       return celebration.title || 'Mission'
     case 'badge':
-      return `${celebration.glyph} ${celebration.title}`
+      return badgeLabel(celebration)
     case 'xp':
     case 'level':
       return ''
@@ -271,10 +271,12 @@ export const slotRow = (stage: Stage, hasRows: boolean): Row | null => {
   if (celebration.tier === 'common') {
     const { glyphs, sparks, colors } = looks.common
     const landed = !full || tick === ticksOf(stage) - 1
-    const coin = landed ? cycle(sparks, 0, '◈') : cycle(glyphs, tick, '◐')
+    // A drop's coin spins and lands; a badge's own glyph stands in its place, so it is never drawn beside a coin.
+    const isBadge = celebration.kind === 'badge'
+    const coin = isBadge ? celebration.glyph : landed ? cycle(sparks, 0, '◈') : cycle(glyphs, tick, '◐')
     return [
       { text: coin, color: landed ? gold : cycle(colors, tick, gold), bold: true },
-      { text: ` ${nameOf(celebration)}`, color, bold: landed || tick >= 2 },
+      { text: ` ${isBadge ? celebration.title : nameOf(celebration)}`, color, bold: landed || tick >= 2 },
       label,
       ...extras(celebration),
     ]

@@ -417,13 +417,20 @@ There are no critical gaps. The faked-counts row is a recorded, accepted risk, b
   use it, so a badge's average is the one the player sees.
 - **The level metric** reads the current level (`levelOf`). Prestige doesn't exist yet, and a held badge is never
   taken back.
-- **Migration 0014** also sets `rules_version = 12`, as 0010 and 0011 did for their rules.
+- **Migration 0014** starts `missionsCompleted` at the completions the save still holds, those of the current windows
+  in `holdings.completedQuests`, instead of 0. A player who finished a mission this week gets the first-mission
+  badge on their next step (from the review of #44). It also sets `rules_version = 12`, as 0010 and 0011 did for
+  their rules.
 - **The rules-decode property** lives in `engine/test/achievements.test.ts`, which has the starter rules. Schema tests
   have no full rules fixture.
 - **The mod:**
   - The toast reads `Badges unlocked: 📝 First commit, 💯 Committed and 3 more`.
   - The gain line is `<glyph> <name> · badge unlocked`, in the level's colour.
-  - A badge with no glyph shows 🏅, and one with no name shows "Badge".
+  - A badge with no glyph shows 🏅, and one with no name shows "Badge". One `badgeOf` / `badgeLabel` pair in
+    `celebrate.ts` names a badge for the band, the line and the toast.
+  - A common badge in the band's own line shows its glyph where a drop's coin spins.
+  - Among small celebrations of the same rarity, a collapse keeps a mission or badge over a level-up, and a level-up
+    over a drop. Before the review of #44, a level-up could replace a waiting badge and lose its count.
   - Badge names are drawn as the server sends them, like mission titles, without the ASCII-only `printable`. That
     would strip the glyphs, and the names come from the server's own rules.
 - **Plugin 0.4.0** also covers #41 and #42, which shipped as 0.3.1.
