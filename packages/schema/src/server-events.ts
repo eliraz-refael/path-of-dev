@@ -77,10 +77,12 @@ export const QuestCompleted = serverEvent("quest.completed", {
   tier,
   rewards: QuestRewards,
 })
-/** Achievement banner. */
+/** A badge earned: the banner, at the badge's rarity, names it and shows its glyph. */
 export const AchievementUnlocked = serverEvent("achievement.unlocked", {
   achievementId: Schema.String,
   title: Schema.String,
+  tier,
+  glyph: Glyph,
 })
 /** The egg hatches: the sprite appears. */
 export const PetHatched = serverEvent("pet.hatched", Pet.fields)

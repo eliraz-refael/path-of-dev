@@ -4,7 +4,7 @@ import { glyphFor, levelOf, moodNow, titleFor, totalXp } from "./derive.ts"
 import { questStatesOf } from "./quests.ts"
 import { craftable, shopOffers } from "./shop.ts"
 import { statsOf } from "./stats.ts"
-import { streakAsOf } from "./streak.ts"
+import { bestStreakOf, streakAsOf } from "./streak.ts"
 
 export const characterSlots: ReadonlyArray<CharacterSlot> = [
   "levelUpEffect",
@@ -77,8 +77,7 @@ export const project = (
         days: streak.days,
         restDaysLeftThisWeek: streak.restDaysLeftThisWeek,
         lastDay: progress.activeDays[progress.activeDays.length - 1] ?? today,
-        // A save from before the best was kept starts it at 0, and the current streak stands in until it passes it.
-        best: Math.max(progress.bestStreak, streak.days),
+        best: bestStreakOf(state, rules, now),
       },
       equipped: slotsOf(holdings.equipped, characterSlots),
     },

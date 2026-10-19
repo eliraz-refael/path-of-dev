@@ -3,7 +3,7 @@ import { CommandRefusal } from "./commands.ts"
 import { ClaimKind, ItemDef, Pity } from "./domain.ts"
 import { Count, IsoDateTime, Probability, Rarity, Ulid } from "./primitives.ts"
 import { QuestPack } from "./quests.ts"
-import { RulesConfig, type SigilRanges } from "./rules.ts"
+import { type AchievementDef, type Metric, RulesConfig, type SigilRanges } from "./rules.ts"
 import { ServerEventDraft } from "./server-events.ts"
 import { PlayerState } from "./state.ts"
 import { GitHubWork } from "./subjects.ts"
@@ -72,6 +72,38 @@ export const catalogIssue = (ranges: SigilRanges, catalog: ReadonlyArray<ItemDef
     const [min, max] = ranges[item.rarity]
     const { multiplier } = item.sigil
     if (multiplier < min || multiplier > max) return `${item.id}: ×${multiplier} is outside ${item.rarity}'s ×${min}-${max}`
+  }
+  return undefined
+}
+
+/** How many the catalogue lets a player own toward a metric that counts items, or undefined for one that doesn't. */
+const mostOwnable = (metric: Metric, catalog: ReadonlyArray<ItemDef>): number | undefined => {
+  switch (metric.kind) {
+    case "owned":
+      return catalog.filter((item) => item.rarity === metric.rarity).length
+    case "bandSlots": {
+      const styled = new Set(catalog.flatMap((item) => (item.category === "bandStyle" ? [item.slot] : [])))
+      return new Set(metric.slots.filter((slot) => styled.has(slot))).size
+    }
+    default:
+      return undefined
+  }
+}
+
+/**
+ * What is wrong with the badges under a catalogue, if anything: one that counts items asking for more than the
+ * catalogue holds, which would never unlock. Checked with the catalogue, by the server as it starts on them.
+ */
+export const achievementsIssue = (
+  defs: ReadonlyArray<AchievementDef>,
+  catalog: ReadonlyArray<ItemDef>,
+): string | undefined => {
+  for (const def of defs) {
+    if (def.criterion.kind !== "count") continue
+    const most = mostOwnable(def.criterion.of, catalog)
+    if (most !== undefined && most < def.criterion.atLeast) {
+      return `${def.id} asks for ${def.criterion.atLeast}, and the catalogue has ${most}`
+    }
   }
   return undefined
 }

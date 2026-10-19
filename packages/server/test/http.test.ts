@@ -32,7 +32,7 @@ describe("POST /v1/sessions", () => {
         expect(opened.snapshot.character).toMatchObject({ name: "Player", level: 0, gold: 0 })
         expect(opened.snapshot.pet).toBeNull()
         expect(opened.snapshot.serverId).toBe(`local-${opened.snapshot.player.id}`)
-        expect(opened.rules.version).toBe(11)
+        expect(opened.rules.version).toBe(12)
         expect(opened.acceptedEventTypes).toEqual(clientEventTypes)
       }),
     ),
@@ -54,6 +54,7 @@ describe("POST /v1/events", () => {
           "xp.granted",
           "streak.changed",
           "xp.granted",
+          "achievement.unlocked",
         ])
         const opened = yield* api.openSession({ payload: { sessionId: session } })
         expect(opened.snapshot.cursor).toBe(response.events.length)
@@ -109,7 +110,7 @@ describe("POST /v1/commands", () => {
         })
         yield* api.sendEvents({ payload: { events: [merged(1)] } })
         const hatched = yield* api.runCommand({ payload: hatch() })
-        expect(hatched.status === "ok" && hatched.events.map((event) => event.type)).toEqual(["pet.hatched"])
+        expect(hatched.status === "ok" && hatched.events.map((event) => event.type)).toEqual(["pet.hatched", "achievement.unlocked"])
         const opened = yield* api.openSession({ payload: { sessionId: session } })
         expect(opened.snapshot.pet).toMatchObject({ species: "fox", name: "Pixel", form: 0 })
       }),

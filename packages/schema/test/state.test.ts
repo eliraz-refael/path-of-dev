@@ -13,6 +13,7 @@ const fresh = {
   progress: {
     xp: { verified: 0, reported: 0 },
     totals: {},
+    missionsCompleted: 0,
     prestige: 0,
     prestigeXp: 0,
     tallies: [],
@@ -67,6 +68,7 @@ describe("PlayerState", () => {
         ...fresh.progress,
         xp: { verified: 250, reported: 43 },
         totals: { "commit.made": 31, "change.merged": 2 },
+        missionsCompleted: 4,
         tallies: [{ day: "2026-10-08", counts: { "commit.made": 4, "change.merged": 1 } }],
         activeDays: ["2026-10-07", "2026-10-08"],
         tests: { armed: [{ sessionId: ulid, checkout: { type: "private", repo: "cd".repeat(32), key: "ab".repeat(32) } }] },

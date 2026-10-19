@@ -1,14 +1,19 @@
 import { Schema } from "effect"
 import {
+  BandSlot,
   Count,
   Glyph,
+  Goal,
   IsoDateTime,
   ItemCategory,
   Multiplier,
   Name,
+  Percent,
   Probability,
   QualityDimension,
   Rarity,
+  Score,
+  storable,
   XpTier,
 } from "./primitives.ts"
 
@@ -210,6 +215,59 @@ export const PetRules = Schema.Struct({
 )
 export interface PetRules extends Schema.Schema.Type<typeof PetRules> {}
 
+// Achievements: badges a player earns from what the engine already counts, kept for good once earned. Each criterion
+// reads plain numbers off the state, so the engine can say what a locked badge still needs.
+//
+//   Criterion ─┬─ count   of a Metric, at least `atLeast`
+//              │          fact · streak · level · missions · hatched · bestGrade · owned · bandSlots · calmSessions
+//              └─ average of the prompt grades (at least) or the context peaks (below), over at least `over`
+
+/** A context fill a session can cross, under the names the stats give them. */
+export const ContextFill = Schema.Literals(["pct50", "pct75", "pct100"])
+export type ContextFill = typeof ContextFill.Type
+
+/** Something the engine counts, with what it needs to count it. */
+export const Metric = Schema.Union([
+  /** A scoring fact's lifetime total. */
+  Schema.Struct({ kind: Schema.Literal("fact"), fact: ScoringFact }),
+  /** The best streak, in days. */
+  Schema.Struct({ kind: Schema.Literal("streak") }),
+  Schema.Struct({ kind: Schema.Literal("level") }),
+  /** Missions completed, lifetime. */
+  Schema.Struct({ kind: Schema.Literal("missions") }),
+  /** 1 once the pet hatched. */
+  Schema.Struct({ kind: Schema.Literal("hatched") }),
+  /** The best grade a prompt got. */
+  Schema.Struct({ kind: Schema.Literal("bestGrade") }),
+  /** Catalogue items of this rarity owned, each item once. */
+  Schema.Struct({ kind: Schema.Literal("owned"), rarity: Rarity }),
+  /** Of these band slots, those the player owns a style for. */
+  Schema.Struct({ kind: Schema.Literal("bandSlots"), slots: Schema.NonEmptyArray(BandSlot) }),
+  /** Finished sessions whose context never reached the fill. */
+  Schema.Struct({ kind: Schema.Literal("calmSessions"), under: ContextFill }),
+])
+export type Metric = typeof Metric.Type
+
+/** What earns a badge: a count reaching its goal, or a lifetime average past its mark over enough of them. */
+export const Criterion = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("count"), of: Metric, atLeast: Goal }),
+  Schema.Struct({ kind: Schema.Literal("average"), of: Schema.Literal("promptGrade"), atLeast: Score, over: Goal }),
+  Schema.Struct({ kind: Schema.Literal("average"), of: Schema.Literal("contextPeak"), below: Percent, over: Goal }),
+])
+export type Criterion = typeof Criterion.Type
+
+/** A badge: its id, kept for good (renaming one would unlock it again), how it looks, and what earns it. */
+export const AchievementDef = Schema.Struct({
+  id: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/u))),
+  name: Name,
+  /** What earns it, in words the player reads. */
+  about: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
+  rarity: Rarity,
+  glyph: Glyph,
+  criterion: Criterion,
+}).check(storable)
+export interface AchievementDef extends Schema.Schema.Type<typeof AchievementDef> {}
+
 /** The game's tuning. The mod never hard-codes a number from it. */
 export const RulesConfig = Schema.Struct({
   /** Tuning version. */
@@ -259,5 +317,24 @@ export const RulesConfig = Schema.Struct({
   missions: MissionRules,
   /** Active pack ids. */
   questPacks: Schema.Array(Schema.String),
-})
+  /** The badges a player can earn, in the order the profile shows them. */
+  achievements: Schema.Array(AchievementDef),
+}).check(
+  Schema.makeFilter((rules) => {
+    const ids = rules.achievements.map((def) => def.id)
+    const unique = new Set(ids).size === ids.length
+    return unique || { path: ["achievements"], issue: "each achievement needs an id of its own" }
+  }),
+  Schema.makeFilter((rules) => {
+    // A verified fact counts only once the verifier confirms it, and nothing does yet: a badge on one is never earned.
+    const verified = rules.achievements.find(
+      ({ criterion }) =>
+        criterion.kind === "count" &&
+        criterion.of.kind === "fact" &&
+        criterion.of.fact !== "prompt.graded" &&
+        rules.xp[criterion.of.fact].tier === "verified",
+    )
+    return verified === undefined || { path: ["achievements"], issue: `${verified.id} counts a verified fact` }
+  }),
+)
 export interface RulesConfig extends Schema.Schema.Type<typeof RulesConfig> {}

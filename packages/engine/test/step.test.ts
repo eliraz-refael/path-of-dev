@@ -52,7 +52,7 @@ describe("step: XP", () => {
   it("grants a commit's reported XP, and the day's first event starts the streak", () => {
     const { state, events } = play([client("commit.made")])
     expect(state.progress.xp).toEqual({ verified: 0, reported: 13 })
-    expect(events.map((e) => e.type)).toEqual(["xp.granted", "streak.changed", "xp.granted"])
+    expect(events.map((e) => e.type)).toEqual(["xp.granted", "streak.changed", "xp.granted", "achievement.unlocked"])
     expect(events[2]).toEqual({ type: "xp.granted", data: { amount: 3, tier: "reported", reason: "commit.made", totalAfter: 13 } })
   })
 
@@ -420,7 +420,10 @@ describe("step: level-up loot", () => {
       "level.up",
       "loot.dropped",
       "gold.changed",
+      "achievement.unlocked",
+      "achievement.unlocked",
     ])
+    expect(state.holdings.achievements.map((a) => a.id)).toEqual(["first-merge", "legendary-find"])
     expect(state.holdings.inventory).toHaveLength(1)
     const recorded = steps.map((s) => ({ rolls: s.rolls, refusal: s.refusal }))
     // The starter's level-up odds rarely give a legendary: the recorded roll, not today's odds, decides the replay.
@@ -498,6 +501,7 @@ describe("step: pet", () => {
     const { state, steps } = play([client("change.merged"), hatch, hatch])
     expect(steps[1]?.events).toEqual([
       { type: "pet.hatched", data: { species: "fox", name: "Ember", form: 0, mood: 100, equipped: {} } },
+      { type: "achievement.unlocked", data: { achievementId: "hatched", title: "Hatchling", tier: "common", glyph: "🥚" } },
     ])
     expect(steps[2]?.refusal?.code).toBe("not_allowed")
     expect(state.holdings.pet?.name).toBe("Ember")

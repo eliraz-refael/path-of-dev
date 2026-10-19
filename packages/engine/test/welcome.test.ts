@@ -217,6 +217,7 @@ describe("pet.hatch", () => {
     expect(state.holdings.egg).toBeNull()
     expect(steps[1]?.events).toEqual([
       { type: "pet.hatched", data: { species: "owl", name: "Hoot", form: 0, mood: 100, equipped: {} } },
+      { type: "achievement.unlocked", data: { achievementId: "hatched", title: "Hatchling", tier: "common", glyph: "🥚" } },
     ])
   })
 

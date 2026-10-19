@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import { step } from "@pathofdev/engine"
-import { Input as InputSchema } from "@pathofdev/schema"
+import { Input as InputSchema, PlayerState, ServerEvent } from "@pathofdev/schema"
 import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
@@ -125,7 +125,7 @@ describe("PlayerWriter.apply", () => {
         const egg = command(hatch())
         const [hatched] = yield* apply([egg])
         expect(hatched?.refusal).toBeNull()
-        expect(hatched?.events.map((event) => event.type)).toEqual(["pet.hatched"])
+        expect(hatched?.events.map((event) => event.type)).toEqual(["pet.hatched", "achievement.unlocked"])
         expect(yield* apply([egg])).toEqual([hatched])
       }),
     ),
@@ -151,6 +151,34 @@ describe("PlayerWriter.apply", () => {
         const rows = yield* sql`SELECT input FROM event_log`
         const [row] = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ input: InputSchema })))(rows)
         expect(row?.input).toEqual(event.input)
+      }),
+    ),
+  )
+
+  it.effect("unlocks the badges a saved player's counts already earn on their next event, and stores them", () =>
+    withServer(
+      Effect.gen(function* () {
+        yield* apply([admitted(turn())])
+        // A save from before the badges: a hundred commits counted, no badge held.
+        const sql = yield* SqlClient.SqlClient
+        yield* sql`UPDATE player_state SET state = jsonb_set(state, '{progress,totals}', '{"commit.made": 100}'::jsonb)`
+        const [next] = yield* apply([admitted(turn())])
+        const unlocked = next?.events.filter((event) => event.type === "achievement.unlocked") ?? []
+        expect(unlocked.map((event) => event.data)).toEqual([
+          { achievementId: "first-commit", title: "First commit", tier: "common", glyph: "📝" },
+          { achievementId: "commits-100", title: "Committed", tier: "uncommon", glyph: "💯" },
+        ])
+        const rows = yield* sql`SELECT seq, at, cause, type, data FROM server_events WHERE type = 'achievement.unlocked'`
+        expect(yield* Schema.decodeUnknownEffect(Schema.Array(ServerEvent))(rows)).toEqual(unlocked)
+        const [saved] = yield* sql`SELECT state FROM player_state`
+        const { state } = yield* Schema.decodeUnknownEffect(Schema.Struct({ state: PlayerState }))(saved)
+        expect(state.holdings.achievements).toEqual([
+          { id: "first-commit", unlockedAt: start },
+          { id: "commits-100", unlockedAt: start },
+        ])
+        // Held now: the next event unlocks nothing again.
+        const [after] = yield* apply([admitted(turn())])
+        expect(after?.events.some((event) => event.type === "achievement.unlocked")).toBe(false)
       }),
     ),
   )

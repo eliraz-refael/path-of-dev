@@ -1,4 +1,5 @@
-import { addDays, weekOf } from "./days.ts"
+import type { PlayerState, RulesConfig } from "@pathofdev/schema"
+import { addDays, localDay, weekOf } from "./days.ts"
 
 export interface StreakView {
   /** Active days in the streak. */
@@ -39,3 +40,13 @@ export const streakAsOf = (activeDays: ReadonlyArray<string>, today: string, res
   const restDaysLeftThisWeek = Math.max(0, restDaysPerWeek - (rests.get(weekOf(today)) ?? 0))
   return { days, restDaysLeftThisWeek, start }
 }
+
+/**
+ * The longest streak reached, as of `now`: a save from before the best was kept starts it at 0, and the current streak
+ * stands in until it passes it.
+ */
+export const bestStreakOf = (state: PlayerState, rules: RulesConfig, now: string): number =>
+  Math.max(
+    state.progress.bestStreak,
+    streakAsOf(state.progress.activeDays, localDay(now, state.timezone), rules.streak.restDaysPerWeek).days,
+  )

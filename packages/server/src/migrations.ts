@@ -424,6 +424,20 @@ const beta = Effect.gen(function* () {
   yield* sql`CREATE UNIQUE INDEX beta_logins_login ON beta_logins (lower(login))`
 })
 
+// Achievements (engine 14, rules 12): the state counts the missions completed, lifetime, which the first-mission badge
+// reads. A player saved before it starts the count at 0: their past completions stay in the log, and a rebalance that
+// replays it counts them. The badges themselves need nothing here: a player's next accepted step unlocks what their
+// counts already earn. The rows then read as engine 14 and rules 12, which their state now is.
+const achievements = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`
+    UPDATE player_state
+    SET state = jsonb_set(state, '{progress,missionsCompleted}', '0'::jsonb)
+    WHERE jsonb_typeof(state -> 'progress') = 'object' AND state -> 'progress' -> 'missionsCompleted' IS NULL
+  `
+  yield* sql`UPDATE player_state SET engine_version = 14, rules_version = 12 WHERE engine_version < 14`
+})
+
 /** Every migration, by the name the migrator records it under. */
 export const migrations = {
   "0001_initial": initial,
@@ -439,6 +453,7 @@ export const migrations = {
   "0011_welcome": welcome,
   "0012_accounts": accounts,
   "0013_beta": beta,
+  "0014_achievements": achievements,
 }
 
 /** A migration: what it needs past the database is the server's randomness, for the ids of the inputs it logs. */

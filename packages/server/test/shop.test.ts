@@ -16,7 +16,7 @@ describe("the shop and pet care, end to end", () => {
         const api = yield* client
         // The level-up drops something with its gold, so the gold is set after it.
         yield* api.runCommand({ payload: { id: nextId(), type: "dev.grantXp", data: { amount: 150 } } })
-        expect(typesOf(yield* api.runCommand({ payload: hatch() }))).toEqual(["pet.hatched"])
+        expect(typesOf(yield* api.runCommand({ payload: hatch() }))).toEqual(["pet.hatched", "achievement.unlocked"])
         yield* api.runCommand({ payload: { id: nextId(), type: "dev.setGold", data: { gold: 1000 } } })
         const opened = yield* api.openSession({ payload: { sessionId: session } })
         const { shop, items } = opened.snapshot

@@ -448,6 +448,7 @@ describe("sigils: drops only", () => {
     expect(result.state.holdings.inventory).toMatchObject([{ itemId: "wyrm-sigil", source: { kind: "dev" } }])
     expect(result.events).toMatchObject([
       { type: "loot.dropped", data: { item: { id: "wyrm-sigil" }, tier: "legendary" } },
+      { type: "achievement.unlocked", data: { achievementId: "legendary-find" } },
     ])
   })
 })

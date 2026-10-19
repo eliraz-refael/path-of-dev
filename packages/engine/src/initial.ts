@@ -9,6 +9,7 @@ export const initialState = (options: { characterName: string; timezone: string;
   progress: {
     xp: { verified: 0, reported: 0 },
     totals: {},
+    missionsCompleted: 0,
     prestige: 0,
     prestigeXp: 0,
     tallies: [],
