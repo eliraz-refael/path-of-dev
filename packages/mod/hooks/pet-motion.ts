@@ -51,10 +51,13 @@ export const wanderingPet: PetDisplay = { hidden: false, still: false }
 export const displayOf = (stored: unknown): PetDisplay =>
   isRecord(stored) ? { hidden: stored['hidden'] === true, still: stored['still'] === true } : wanderingPet
 
-/** What `/pathofdev pet …` asks: where the pet stands, or to make it still, wander, hide or come back. */
-export type PetAsk = { readonly kind: 'view' | 'still' | 'move' | 'hide' | 'show' }
+/**
+ * What `/pathofdev pet …` asks: where the pet stands, to make it still, wander, hide or come back, or its tip about
+ * the last graded prompt.
+ */
+export type PetAsk = { readonly kind: 'view' | 'still' | 'move' | 'hide' | 'show' | 'tip' }
 
-export const petUsage = 'The pet on the band: /pathofdev pet | still | move | hide | show.'
+export const petUsage = 'The pet on the band: /pathofdev pet | still | move | hide | show | tip.'
 
 /** What `/pathofdev <args>` asks of the pet: null when the args are not `pet …`, the usage when they don't parse. */
 export const petAskOf = (args: string): PetAsk | string | null => {
@@ -62,13 +65,16 @@ export const petAskOf = (args: string): PetAsk | string | null => {
   if (head !== 'pet') return null
   if (rest.length > 0) return petUsage
   if (what === undefined) return { kind: 'view' }
-  return what === 'still' || what === 'move' || what === 'hide' || what === 'show' ? { kind: what } : petUsage
+  return what === 'still' || what === 'move' || what === 'hide' || what === 'show' || what === 'tip'
+    ? { kind: what }
+    : petUsage
 }
 
 /** The choice after an ask: still and move put the pet on the band too; show brings it back as it was. */
 export const displayAfter = (ask: PetAsk, display: PetDisplay): PetDisplay => {
   switch (ask.kind) {
     case 'view':
+    case 'tip':
       return display
     case 'still':
       return { hidden: false, still: true }
@@ -117,9 +123,10 @@ export const modeOf = (motion: Motion, display: PetDisplay): PetMode => ({
 
 /**
  * What a step goes by: the mode; whether the band is free for the pet (no main-loop turn, no celebration playing or
- * waiting); whether its mood is low, which makes it rest longer; and how far from its place its lane lets it go.
+ * waiting); whether its mood is low, which makes it rest longer; how far from its place its lane lets it go; and
+ * whether it `holds` still where it stands, as it does while it speaks, its reactions still played first.
  */
-export type StepContext = PetMode & { free: boolean; sleepy: boolean; room: number }
+export type StepContext = PetMode & { free: boolean; sleepy: boolean; room: number; holds?: boolean }
 
 /** Something the pet does about a moment of play. */
 export type Reaction =
@@ -223,8 +230,10 @@ export const heldWalker = (walker: Walker): Walker => {
 export const roomNow = (drawn: number | null, walker: Walker): number => drawn ?? walker.away
 
 /** Whether the pet has a step to take now: a reaction to play, or a wander, once the band is free. */
-export const wantsStep = (walker: Walker, context: Pick<StepContext, 'free' | 'wanders'>): boolean =>
-  !walker.asleep && context.free && (walker.act !== null || walker.queue.length > 0 || context.wanders)
+export const wantsStep = (walker: Walker, context: Pick<StepContext, 'free' | 'wanders' | 'holds'>): boolean =>
+  !walker.asleep &&
+  context.free &&
+  (walker.act !== null || walker.queue.length > 0 || (context.wanders && context.holds !== true))
 
 /** How long one still frame of a reaction stands, when the player wants reduced motion or none. */
 const stillMs: Record<Reaction['kind'], number> = { hop: 2_000, eat: 2_000, pat: 1_500, cheer: 3_000, fetch: 2_500 }
@@ -237,10 +246,14 @@ export const stepWalker = (walker: Walker, context: StepContext): Step => {
   return placed.act === null ? nextStep(placed, context) : advance(placed, placed.act, context)
 }
 
-/** With nothing playing: the next reaction, else a step of the wander; a pet that doesn't wander sits in its place. */
+/**
+ * With nothing playing: the next reaction, else a step of the wander; a pet that doesn't wander sits in its place, and
+ * one that holds stays where it stands.
+ */
 const nextStep = (walker: Walker, context: StepContext): Step => {
   const [reaction, ...rest] = walker.queue
   if (reaction !== undefined) return begin({ ...walker, queue: rest, walkTo: null }, reaction, context)
+  if (context.holds === true) return { walker: { ...walker, walkTo: null }, waitMs: null }
   if (!context.wanders) return { walker: { ...walker, away: 0, facing: 'right', walkTo: null }, waitMs: null }
   return wander(walker, context)
 }
@@ -544,8 +557,8 @@ export const leadOf = (row: Row): { lead: Row; rest: Row } => {
 
 /**
  * Band row 2's pet: its lane, then its name and hearts; null when the player hid it. `room` is what the row's other
- * pieces leave it, the mission's chip taking what it leaves in turn; `beside` is a text to set beside the pet, the
- * seam for its speech bubble (none yet). The room it may wander in goes back to the walker.
+ * pieces leave it, the mission's chip taking what it leaves in turn; `beside` is a text to set beside the pet: its
+ * speech bubble (coach.ts), cut to the room. The room it may wander in goes back to the walker.
  */
 export const petRowOf = (
   pet: { species: string; form: number; name: string },

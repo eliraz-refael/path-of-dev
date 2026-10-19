@@ -68,8 +68,11 @@ const reply = (status: number, body: unknown) => ({
 
 type Sent = { path: string; body: unknown }
 
-/** The engine beneath the mod, and a local server that answers its routes and hands the stream the test's events. */
-const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: number }>) => {
+/**
+ * The engine beneath the mod, and a local server that answers its routes and hands the stream the test's events.
+ * Haiku answers `grader` when there is one.
+ */
+const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: number }>, grader: string | null) => {
   const sent: Array<Sent> = []
   on('ui.toast', () => ({ value: undefined }))
   on('ui.status', () => ({ value: undefined }))
@@ -86,9 +89,10 @@ const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: 
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
   on('audio.play', () => ({ value: undefined }))
-  // No grader: a prompt sent here goes ungraded, and the test hands the stream the grade itself.
+  // No grader unless the test brings one: a prompt sent here goes ungraded, and the test hands the stream the grade.
   on('model.complete', () => {
-    throw new Error('no model here')
+    if (grader === null) throw new Error('no model here')
+    return { value: { isAnswered: true, text: grader, usage } }
   })
   on('process.run', () => ({
     value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
@@ -122,6 +126,8 @@ const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: 
   return sent
 }
 
+const usage = { input_tokens: 812, output_tokens: 41, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+
 const start: SessionStartInput = { cwd: '/work/widgets', surface: 'terminal', isInteractive: true }
 const composer: PromptOrigin = { kind: 'composer' }
 const presentation = { isFullscreen: false, columns: 100 }
@@ -144,7 +150,8 @@ const until = async (clock: Clock, check: () => boolean | Promise<boolean>) => {
 
 /**
  * A session with the pet hatched and the stream open; `send` hands the mod events, `store` what it keeps. A test that
- * hatches the pet later puts it in `hatchery`, where the server's snapshots find it.
+ * hatches the pet later puts it in `hatchery`, where the server's snapshots find it; one that grades prompts brings
+ * Haiku's reply as `grader`.
  */
 const playing = async (
   $: Dollar,
@@ -152,12 +159,13 @@ const playing = async (
   store: Record<string, unknown> = {},
   pet: unknown = ember,
   hatchery: { pet: unknown } = { pet },
+  grader: string | null = null,
 ) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
   mock.store(on, { explored: ['acme/widgets'], ...store })
   mock.env(on, { HOME: '/home/player' })
   const stream: Array<{ seq: number }> = []
-  const sent = world(on, clock, () => hatchery.pet, stream)
+  const sent = world(on, clock, () => hatchery.pet, stream, grader)
   await $.session.start(start)
   await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
   await clock.settle()
@@ -471,7 +479,7 @@ describe('the player chooses', () => {
     expect(await run('pet hide')).toMatch(/off the band/)
     expect(await run('pet move')).toMatch(/^Ember wanders the band\./)
     expect((await changes($, clock, 20_000)).length).toBeGreaterThan(3)
-    expect(await run('pet dance')).toBe('The pet on the band: /pathofdev pet | still | move | hide | show.')
+    expect(await run('pet dance')).toBe('The pet on the band: /pathofdev pet | still | move | hide | show | tip.')
   })
 
   test('the choice is kept in the store, so a reload and a new session find it', async ($, on) => {
@@ -535,6 +543,253 @@ describe('reduced motion and none', () => {
     const { clock, send } = await playing($, on)
     await send(serverEvent('level.up', { from: 4, to: 5, tier: 'rare', glyph: '🗡️' }, 'l1'))
     expect((await changes($, clock, 4_000)).map((one) => one.text)).toEqual(['\\ᓚᘏᗢ/ Ember ♥♥♥', ' ᓚᘏᗢ  Ember ♥♥♥'])
+  })
+})
+
+// Haiku's replies: a good prompt that never says when it is done, its note the tip; and a weak one.
+const goodReply = JSON.stringify({
+  clarity: 9,
+  grammar: 9,
+  specificity: 9,
+  instructive: 8,
+  context: 8,
+  doneCriteria: 4,
+  focus: 9,
+  regret: 1,
+  note: 'Say which test should pass.',
+})
+const weakReply = JSON.stringify({
+  clarity: 4,
+  grammar: 8,
+  specificity: 3,
+  instructive: 4,
+  context: 2,
+  doneCriteria: 2,
+  focus: 6,
+  regret: 0,
+  note: 'Name the file and the error.',
+})
+const still = { petDisplay: { hidden: false, still: true } }
+const praised = '“Ember loves that you named the exact spot!”'
+const tipped = '“Say which test should pass.”'
+
+/** The ids of the prompt.graded events the mod sent: the cause the server names on the XP each earned. */
+const gradedIds = (sent: ReadonlyArray<Sent>): Array<string> =>
+  sent.flatMap((one) => {
+    const { body } = one
+    if (one.path !== '/v1/events' || typeof body !== 'object' || body === null || !('events' in body)) return []
+    const events: unknown = body.events
+    return Array.isArray(events)
+      ? events.flatMap((event: unknown) =>
+          typeof event === 'object' && event !== null && 'type' in event && event.type === 'prompt.graded' &&
+          'id' in event && typeof event.id === 'string'
+            ? [event.id]
+            : [],
+        )
+      : []
+  })
+
+/** A turn whose prompt Haiku graded; once the queue is sent, the stream brings the XP it earned, at `grade`. */
+const gradedTurn = async (
+  $: Dollar,
+  clock: Clock,
+  sent: ReadonlyArray<Sent>,
+  send: (...events: Array<{ seq: number }>) => Promise<void>,
+  grade: number,
+) => {
+  const before = gradedIds(sent).length
+  await turn($, clock)
+  await clock.advance(30_000)
+  await until(clock, () => gradedIds(sent).length > before)
+  await send(graded(grade, gradedIds(sent).at(-1) ?? ''))
+}
+
+const run = async ($: Dollar, args: string) =>
+  (await $.command.run({ command: 'pathofdev', args, origin: composer, presentation })).text
+
+describe('the pet coach', () => {
+  test('after a good prompt it hops first, then says praise and a tip beside itself, for about 8 s', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    const sitting = await petText($)
+    await gradedTurn($, clock, sent, send, 8)
+    const seen = await changes($, clock, 16_000)
+    const texts = seen.map((one) => one.text ?? '')
+    const hop = texts.findIndex((text) => text.includes('♪'))
+    const praise = texts.findIndex((text) => text.includes(praised))
+    expect(hop).toBeGreaterThanOrEqual(0)
+    expect(praise).toBeGreaterThan(hop)
+    expect(texts[praise]).toBe(` ${praised} ᓚᘏᗢ  Ember ♥♥♥`)
+    expect(texts[praise + 1]).toBe(` ${tipped} ᓚᘏᗢ  Ember ♥♥♥`)
+    expect(texts[praise + 2]).toBe(sitting)
+    const shown = (seen[praise + 2]?.at ?? 0) - (seen[praise]?.at ?? 0)
+    expect(shown).toBeGreaterThanOrEqual(7_750)
+    expect(shown).toBeLessThanOrEqual(8_250)
+  })
+
+  test('the gain line steps aside while the pet speaks, lending the bubble its room, and comes back', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    await gradedTurn($, clock, sent, send, 9)
+    const gainShown = async () => {
+      const ui = await mountBand($)
+      const texts = (await ui.findAll({ type: 'Text' })).map((one) => one.text)
+      await ui.unmount()
+      return texts.some((text) => text.includes('XP ·'))
+    }
+    expect(await gainShown()).toBe(true)
+    for (let round = 0; round < 40 && !((await petText($)) ?? '').includes('“'); round++) await clock.advance(250)
+    expect(await petText($)).toContain(praised)
+    expect(await gainShown()).toBe(false)
+    await clock.advance(8_000)
+    expect(await petText($)).not.toContain('“')
+    expect(await gainShown()).toBe(true)
+  })
+
+  test('a wandering pet holds still while it speaks, and wanders on after', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, {}, ember, { pet: ember }, goodReply)
+    await gradedTurn($, clock, sent, send, 9)
+    const seen = await changes($, clock, 20_000)
+    const speaking = seen.filter((one) => (one.text ?? '').includes('“'))
+    expect(speaking).toHaveLength(2)
+    expect(new Set(speaking.map((one) => faceAt(one.text?.replace(/“[^”]*”/, '') ?? null))).size).toBe(1)
+    // Once the bubble is down, it is up and about again: it turns or walks.
+    const after = seen.slice(seen.findLastIndex((one) => (one.text ?? '').includes('“')) + 1)
+    expect(after.length).toBeGreaterThan(1)
+  })
+
+  test('after a weak prompt it stays quiet by default, and is never drawn sad', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, weakReply)
+    const sitting = await petText($)
+    await gradedTurn($, clock, sent, send, 3.6)
+    expect((await changes($, clock, 15_000)).map((one) => one.text)).toEqual([sitting])
+  })
+
+  const always = { options: { coach: 'always' } }
+  test('coach always: after a weak prompt, a gentle tip and no praise', always, async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, weakReply)
+    await gradedTurn($, clock, sent, send, 3.6)
+    const texts = (await changes($, clock, 15_000)).map((one) => one.text ?? '')
+    expect(texts.filter((text) => text.includes('“'))).toEqual([' “Name the file and the error.” ᓚᘏᗢ  Ember ♥♥♥'])
+  })
+
+  const off = { options: { coach: 'off' } }
+  test('coach off: it says nothing unasked, and /pathofdev pet tip still shows the tip', off, async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    await gradedTurn($, clock, sent, send, 9)
+    const quiet = (await changes($, clock, 15_000)).map((one) => one.text ?? '')
+    expect(quiet.some((text) => text.includes('“'))).toBe(false)
+    expect(await run($, 'pet tip')).toBe('Ember says it beside itself on the band.')
+    const texts = (await changes($, clock, 10_000)).map((one) => one.text ?? '')
+    expect(texts.filter((text) => text.includes('“'))).toEqual([
+      ` ${praised} ᓚᘏᗢ  Ember ♥♥♥`,
+      ` ${tipped} ᓚᘏᗢ  Ember ♥♥♥`,
+    ])
+  })
+
+  test('says something unasked at most once in 3 graded prompts', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    const bubbles = async () =>
+      (await changes($, clock, 15_000)).filter((one) => (one.text ?? '').includes('“')).length
+    await gradedTurn($, clock, sent, send, 9)
+    expect(await bubbles()).toBe(2)
+    await gradedTurn($, clock, sent, send, 9)
+    expect(await bubbles()).toBe(0)
+  })
+
+  test('a bubble a new turn took down before it showed costs nothing: the next good prompt speaks', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    const bubbles = async () =>
+      (await changes($, clock, 15_000)).filter((one) => (one.text ?? '').includes('“')).length
+    await gradedTurn($, clock, sent, send, 9)
+    // The XP's shimmer still plays, and the hop waits: the player starts the next turn before the pet can speak.
+    await $.turn.start({ text: 'and the empty case', turnId: 't2' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1, isAborted: false, turnId: 't2', reason: 'answer' })
+    expect(await bubbles()).toBe(0)
+    await gradedTurn($, clock, sent, send, 9)
+    expect(await bubbles()).toBe(2)
+  })
+
+  test('with no room on the band for a bubble, it says nothing and counts nothing', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    const narrow = await $.ui.mount({
+      plugin: 'pathofdev',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { ...bandProps(), bodyColumns: 50 },
+    })
+    await gradedTurn($, clock, sent, send, 9)
+    for (let at = 0; at < 15_000; at += 250) {
+      expect((await narrow.findAll({ type: 'Text' })).some((one) => one.text.includes('“'))).toBe(false)
+      await clock.advance(250)
+    }
+    await narrow.unmount()
+    // Wide again, the next good prompt speaks: the one with no room cost nothing.
+    await petText($)
+    await gradedTurn($, clock, sent, send, 9)
+    const texts = (await changes($, clock, 15_000)).map((one) => one.text ?? '')
+    expect(texts.filter((text) => text.includes('“'))).toHaveLength(2)
+  })
+
+  test('pet tip answers here when the pet is hidden, still an egg, or nothing was graded yet', async ($, on) => {
+    const hatchery: { pet: unknown } = { pet: null }
+    const { clock, send, sent } = await playing($, on, {}, null, hatchery, goodReply)
+    expect(await run($, 'pet tip')).toBe('Your pet has no tip yet: ask again after a prompt you type is graded.')
+    await gradedTurn($, clock, sent, send, 9)
+    // An egg says nothing on the band: the tip is the reply.
+    expect(await run($, 'pet tip')).toBe('Your pet loves that you named the exact spot! Say which test should pass.')
+    expect(await petText($)).toBeNull()
+  })
+
+  test('pet tip answers here, whole, when the pet is off the band', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, weakReply)
+    await gradedTurn($, clock, sent, send, 3.6)
+    await run($, 'pet hide')
+    expect(await run($, 'pet tip')).toBe('Name the file and the error.')
+    expect(await petText($)).toBeNull()
+  })
+
+  test('a reaction takes the bubble down and plays at once; a new turn takes it down too', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReply)
+    await gradedTurn($, clock, sent, send, 3.6)
+    // The XP's shimmer plays first.
+    await clock.advance(5_000)
+    await run($, 'pet tip')
+    await clock.settle()
+    expect(await petText($)).toContain('“')
+    await send(serverEvent('pet.petted', { mood: 95, gained: 5 }, 'f1'))
+    expect(await petText($)).toMatch(/^ ᓚᘏᗢ[♥♡] Ember ♥♥♥$/)
+    await clock.advance(5_000)
+    await run($, 'pet tip')
+    await clock.settle()
+    expect(await petText($)).toContain('“')
+    await $.turn.start({ text: 'next', turnId: 't2' })
+    await clock.settle()
+    expect(await petText($)).not.toContain('“')
+  })
+
+  test('a reload takes the bubble down at its time', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, weakReply)
+    await gradedTurn($, clock, sent, send, 3.6)
+    await clock.advance(5_000)
+    await run($, 'pet tip')
+    await clock.settle()
+    await $.session.start(start)
+    await clock.settle()
+    expect(await petText($)).toContain('“')
+    await clock.advance(8_000)
+    expect(await petText($)).toBe(' ᓚᘏᗢ  Ember ♥♥♥')
+  })
+
+  const noMotion = { options: { animations: 'off' } }
+  test('with celebrations off, the bubble still shows, after one still hop', noMotion, async ($, on) => {
+    const { clock, send, sent } = await playing($, on, {}, ember, { pet: ember }, goodReply)
+    await gradedTurn($, clock, sent, send, 9)
+    const texts = (await changes($, clock, 15_000)).map((one) => one.text ?? '')
+    expect(texts).toEqual([
+      '✧ᓚᘏᗢ✧ Ember ♥♥♥',
+      ` ${praised} ᓚᘏᗢ  Ember ♥♥♥`,
+      ` ${tipped} ᓚᘏᗢ  Ember ♥♥♥`,
+      ' ᓚᘏᗢ  Ember ♥♥♥',
+    ])
   })
 })
 

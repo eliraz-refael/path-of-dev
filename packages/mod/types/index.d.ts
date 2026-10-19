@@ -297,6 +297,51 @@ export type PetDisplay = { hidden: boolean; still: boolean }
  */
 export type PetScene = { pose: PetPose; display: PetDisplay; activeAt: number }
 
+/** A score the grader gives a prompt, as the rubric names it: the seven qualities, and regret. */
+export type GradeScore =
+  | 'clarity'
+  | 'grammar'
+  | 'specificity'
+  | 'instructive'
+  | 'context'
+  | 'doneCriteria'
+  | 'focus'
+  | 'regret'
+
+/**
+ * What the pet coach says about one graded prompt: its lines in order (praise first, then a tip), each with `{name}`
+ * where the pet's name goes, and the score the bubble is about, which the next unasked one may not be about again.
+ */
+export type Said = { lines: ReadonlyArray<string>; topic: GradeScore }
+
+/**
+ * The last prompt the mod graded, kept on this machine only: the id of its `prompt.graded` event (the cause of the
+ * XP it earned), its scores, the grader's note, its grade (the server's once it arrives, else the scores' mean) and,
+ * once the pet has said something about it, what it said.
+ */
+export type Graded = {
+  id: string
+  scores: Readonly<Record<GradeScore, number>>
+  note: string | null
+  grade: number
+  said: Said | null
+}
+
+/**
+ * The pet coach's memory: the last graded prompt; the graded prompts since its last unasked bubble (null before its
+ * first), and that bubble's topic; and the last line it said of each kind and score, so it never says one twice in a
+ * row.
+ */
+export type CoachMemory = {
+  last: Graded | null
+  sinceBubble: number | null
+  lastTopic: GradeScore | null
+  lines: Readonly<Record<string, number>>
+}
+
+/** The pet's speech bubble on the band: the line on show, the pet's name in it, until clock ms `until`. */
+export type Bubble = { text: string; until: number }
+
 /** The `/pathofdev` pane's tabs; the last is the first-run welcome, which a player may open again. */
 export type PaneTab = 'inventory' | 'shop' | 'stats' | 'missions' | 'welcome'
 
@@ -379,6 +424,10 @@ declare module 'claude-code' {
       wizard: Wizard | null
       /** The pet on the band as last drawn, so a reload finds it where it stood; null until it is first drawn. */
       pet: PetScene | null
+      /** The pet coach's memory, which never leaves the machine: the note stays here with the scores. */
+      coach: CoachMemory | null
+      /** The pet's speech bubble while it shows. */
+      bubble: Bubble | null
     }
   }
 }
