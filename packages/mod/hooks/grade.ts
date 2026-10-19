@@ -19,6 +19,9 @@ export type Rubric = 1 | 2
  */
 export const rubricOf = (rules: Partial<RulesConfig>): Rubric => (isRecord(rules.prompt?.v2) ? 2 : 1)
 
+/** The rubric the store keeps for a server, as its last rules said: 2 only when it says so, else 1. */
+export const storedRubricOf = (stored: unknown): Rubric => (stored === 2 ? 2 : 1)
+
 /** Rubric 1: seven quality scores and a regret. */
 export const RUBRIC = `You grade one prompt a developer typed to an AI coding assistant. Score each from 0 to 10 against what
 this prompt needs, not against an ideal task prompt: a short follow-up or a question loses nothing for context it does not need.

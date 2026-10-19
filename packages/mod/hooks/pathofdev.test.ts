@@ -826,6 +826,41 @@ const MEASURES = { intent: 8, grounding: 6, why: null, successShape: 5, scope: 9
 const replyV2 = (more: Record<string, unknown> = {}) =>
   JSON.stringify({ kind: 'task', ...MEASURES, misspelled: [], note: 'Say which test should pass.', ...more })
 const byRubric2: ServerOptions = { rules: V2_RULES }
+/** The rules of a server that prices rubric 1 alone: no `prompt.v2`. */
+const V1_RULES = {
+  ...V2_RULES,
+  prompt: { rubricVersion: 1, maxXp: 20, perDay: V2_RULES.prompt.perDay, weights: V2_RULES.prompt.weights },
+}
+
+/** A store the test reads back, holding `seed` to start with. */
+const keptStore = (on: On, seed: Record<string, unknown>) => {
+  const kept = new Map<string, unknown>(Object.entries(seed))
+  on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+  on('store.set', ($, e) => {
+    kept.set(e.key, e.value)
+    return { value: undefined }
+  })
+  on('store.delete', ($, e) => {
+    kept.delete(e.key)
+    return { value: undefined }
+  })
+  return kept
+}
+
+/** Haiku answering in the shape of the rubric it was given; the rubric texts it was given, in order. */
+const answeringByRubric = (on: On) => {
+  const asked: Array<string | undefined> = []
+  on('model.complete', ($, e) => {
+    const rubric = e.systemBlocks?.[0]?.text
+    asked.push(rubric)
+    return { value: { isAnswered: true, text: rubric === RUBRIC_V2 ? replyV2() : REPLY, usage: USAGE } }
+  })
+  return asked
+}
+
+/** The rubric of each `prompt.graded` event in `sent`, in order. */
+const rubricsIn = (sent: ReadonlyArray<Sent>) =>
+  ofType(eventsOf(sent), 'prompt.graded').map((event) => (isRecord(event['data']) ? event['data']['rubricVersion'] : null))
 
 describe('grading prompts by rubric 2', () => {
   test('against a server whose rules price it: the kind, the measures and whether it is spelled clean, never the text', async ($, on) => {
@@ -882,6 +917,46 @@ describe('grading prompts by rubric 2', () => {
       expect(stored.join('\n')).not.toContain(canary)
     }
     expect(stored.some((value) => value.includes('prompt.graded'))).toBe(true)
+  })
+
+  test('review fix: a session that starts offline grades as the server last said, kept per server', async ($, on) => {
+    const asked = answeringByRubric(on)
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    // A save whose server said rubric 2 before this load: a reload, or a new session.
+    const kept = keptStore(on, { explored: ['acme/widgets'], rubric: 2 })
+    mock.env(on, { HOME: '/home/player' })
+    const server = { isDown: true, rules: V2_RULES }
+    const { sent, tried } = fakeServer(on, clock, server)
+    await $.session.start(start)
+    await until(clock, () => tried.includes('/v1/sessions'))
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    expect(asked).toEqual([RUBRIC_V2])
+    expect(sent).toEqual([])
+    server.isDown = false
+    await clock.advance(5_000)
+    await until(clock, () => rubricsIn(sent).length === 1)
+    expect(rubricsIn(sent)).toEqual([2])
+    expect(kept.get('rubric')).toBe(2)
+  })
+
+  test('review fix: a server whose rules drop prompt.v2 gets rubric 1 again, as it was, and the store says so', async ($, on) => {
+    const asked = answeringByRubric(on)
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    const kept = keptStore(on, { explored: ['acme/widgets'], rubric: 2 })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock, { rules: V1_RULES })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    expect(kept.get('rubric')).toBe(1)
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await until(clock, () => rubricsIn(sent).length === 1)
+    expect(asked).toEqual([RUBRIC])
+    const [graded] = ofType(eventsOf(sent), 'prompt.graded')
+    expect(Object.keys(graded?.['data'] ?? {})).toEqual(['scores', 'rubricVersion', 'words', 'grader'])
+    expect(rubricsIn(sent)).toEqual([1])
   })
 
   test('a word Haiku made up never costs the bonus', async ($, on) => {
@@ -4012,13 +4087,7 @@ describe('switching servers', () => {
 
   test('grades by rubric 1 again after a switch, until the new server says it prices rubric 2', async ($, on) => {
     settings(on)
-    // Haiku answers in the shape of the rubric it was given.
-    const asked: Array<string | undefined> = []
-    on('model.complete', ($, e) => {
-      const rubric = e.systemBlocks?.[0]?.text
-      asked.push(rubric)
-      return { value: { isAnswered: true, text: rubric === RUBRIC_V2 ? replyV2() : REPLY, usage: USAGE } }
-    })
+    const asked = answeringByRubric(on)
     const listensOn = { at: own }
     const { sent, clock } = await streaming($, on, ownedOf(), false, { rules: V2_RULES, listensOn })
     const rubricsOn = (socket: string) =>
@@ -4045,6 +4114,31 @@ describe('switching servers', () => {
     await until(clock, () => rubricsOn(sandbox).length === 2)
     expect(rubricsOn(sandbox)).toEqual([1, 2])
     expect(asked).toEqual([RUBRIC_V2, RUBRIC, RUBRIC_V2])
+  })
+
+  test("review fix: after a switch, the new server's own kept rubric, until it answers", async ($, on) => {
+    settings(on)
+    const asked = answeringByRubric(on)
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    // The sandbox said rubric 2 when the mod last played there; the player's own save never has.
+    const kept = keptStore(on, { explored: ['acme/widgets'], 'rubric@dev': 2 })
+    mock.env(on, { HOME: '/home/player' })
+    const listensOn = { at: own }
+    const { sent } = fakeServer(on, clock, { rules: V1_RULES, listensOn })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    // The sandbox is down: the prompt waits in its queue, graded as the sandbox last said.
+    await run($, 'server dev')
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    expect(asked).toEqual([RUBRIC, RUBRIC_V2])
+    expect(kept.get('rubric')).toBe(1)
+    const waiting = kept.get('queue@dev')
+    expect(Array.isArray(waiting) ? ofType(waiting, 'prompt.graded').map((event) => event['data']) : []).toMatchObject([
+      { rubricVersion: 2 },
+    ])
   })
 
   test("an event the last server's stream brings after a switch is not shown", async ($, on) => {

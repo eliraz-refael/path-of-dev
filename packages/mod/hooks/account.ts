@@ -48,10 +48,11 @@ export const deleteRouteOf = (login: string): Route => ({ path: '/v1/account/del
 
 /**
  * The keys the mod keeps for an online origin that a delete leaves nothing behind for: the token, the queue, the
- * repos explored, and which player it played as, so the next sign-in there is a first one.
+ * repos explored, which player it played as, so the next sign-in there is a first one, and the rubric its rules last
+ * said, which the next session's answer says again.
  */
 export const keysAfterDelete = (origin: string): ReadonlyArray<string> =>
-  ['token', 'queue', 'explored', 'player'].map((name) => `${name}@${origin}`)
+  ['token', 'queue', 'explored', 'player', 'rubric'].map((name) => `${name}@${origin}`)
 
 /** What the server made of a delete; `response` null: no answer at all, so it may have gone through. */
 export const deleteTextOf = (response: Pick<HttpResponse, 'ok' | 'status' | 'text'> | null, origin: string): string => {

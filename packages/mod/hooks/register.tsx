@@ -79,6 +79,7 @@ import {
   noteOf,
   rubricOf,
   rubrics,
+  storedRubricOf,
   scoresOf,
   spelledCleanOf,
   wordsOf,
@@ -300,10 +301,12 @@ let signingIn: SigningIn | null = null
 /** The `minWords` option, which the welcome's grading step says. */
 let gradeWords = 6
 /**
- * The rubric the mod grades with: 1, which every server takes, until the server's rules say it prices 2, and again
- * after a switch of server until the new one says so. The tone its rules call hostile, for the pet coach.
+ * The rubric the mod grades with, as the server's last rules said: 2 once they carry `prompt.v2`, 1 when they don't,
+ * and 1, which every server takes, before any server has said. The store keeps it per server (`rubric@<target>`), so
+ * a session that starts offline, or a reload, grades as that server last asked; null until it is read for the server
+ * the mod plays on. The tone its rules call hostile, for the pet coach.
  */
-let rubric: Rubric = 1
+let rubric: Rubric | null = null
 let hostileTone = hostileToneAt
 /** Takes the gain's line down once it has stood a minute. */
 let fadeTimer: Timer | null = null
@@ -751,7 +754,7 @@ const wakePet = async ($: EngineInterface) => {
 /** What a batch of the stream earned, the pet reacts to once the band is free; a reaction wakes it, as prompts do. */
 const petReact = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>) => {
   // A prompt hops at its own rubric's line: rubric 2's grades run higher.
-  const graded = heardRubricOf(await read($, coachMemory), events, rubric)
+  const graded = heardRubricOf(await read($, coachMemory), events, await rubricNow($))
   const reactions = reactionsOf(events, motion, wellGradedAt[graded])
   if (petDisplay.hidden || reactions.length === 0 || ((await read($, view))?.pet ?? null) === null) return
   // A bubble on show gives way: the reaction plays now.
@@ -891,6 +894,17 @@ const coachTip = async ($: EngineInterface): Promise<string> => {
   return isWhole ? `${name} says it beside itself on the band.` : text
 }
 
+/** The rubric to grade with on the server the mod plays on: as its last rules said, read from the store once. */
+const rubricNow = async ($: EngineInterface): Promise<Rubric> => {
+  if (rubric !== null) return rubric
+  const at = generation
+  const stored = storedRubricOf(await $.store.get(storeKey(target, 'rubric')))
+  // A switch meanwhile: the new server's, not this one's.
+  if (at !== generation) return rubricNow($)
+  rubric ??= stored
+  return rubric
+}
+
 /**
  * The player the online server answers for, kept as the queue's owner when none is: a mod from before owners signed in
  * without keeping one, and its next sign-in would take whatever is queued for anyone's.
@@ -907,11 +921,17 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
   const opened = await openSession($)
   // The last server's snapshot, after a switch: the band shows only the server the mod plays on now.
   if (at !== generation) return
+  // Rubric 2 only on a server whose rules price it; an older one carries no rules, and takes rubric 1. Kept for this
+  // server, under its key as it is now: a switch meanwhile leaves the new server's alone.
+  const priced = rubricOf(opened.rules ?? {})
+  const rubricKey = storeKey(target, 'rubric')
+  if (rubric !== priced) await $.store.set(rubricKey, priced)
+  if (at === generation) {
+    rubric = priced
+    hostileTone = hostileToneOf(opened.rules ?? {})
+  }
   await learnOwner($, opened.snapshot.character.playerId)
   if (fromScratch) cursor = opened.snapshot.cursor
-  // Rubric 2 only on a server whose rules price it; an older one carries no rules, and takes rubric 1.
-  rubric = rubricOf(opened.rules ?? {})
-  hostileTone = hostileToneOf(opened.rules ?? {})
   const next = viewOf(opened.snapshot)
   // An older server's answer carries no rules: it deals in no sigils, and the pane shows none.
   const owned = wardrobeOf(opened.snapshot, opened.rules ?? {})
@@ -1266,8 +1286,8 @@ const switchServer = async ($: EngineInterface, to: ServerName): Promise<string>
       return `The Server option stays as it is: ${written.deny}`
     }
     generation += 1
-    // Rubric 1 until the new server says it prices 2.
-    rubric = 1
+    // The new server's own rubric, as the store keeps it, until it answers.
+    rubric = null
     hostileTone = hostileToneAt
     // The stream held on the last server is let go: the new one's starts at once, not once that one answers.
     isPolling = false
@@ -1779,7 +1799,7 @@ const syncPaneClock = ($: EngineInterface) => {
  */
 const grade = async ($: EngineInterface, text: string, prompt: string, words: number) => {
   // Taken as the grading sets out: the rubric's text, its reader and its event go together.
-  const by = rubric
+  const by = await rubricNow($)
   const stamped = await stamp($)
   const result = await $.model.complete({
     model: 'haiku',
