@@ -434,10 +434,12 @@ whichever lands second renumbers.
 - **For it to review:**
   - The migration: the version columns, and replay equal to the migrated state.
   - Whether the profile page (`pages.ts`, `profile.ts`, its files) should show `grades.measures`. Until it does, the
-    `/u` stats section shows the v1 averages frozen at the switch.
+    `/u` stats section reads the counters, which reset at the switch (Open question 3): its average and best are v2's
+    from then on, and its v1 `dimensions` all read 0.
   - Achievements (#44): `perfect-prompt` (best grade 10) and `sharp-prompter` (an average of 8 over 100 prompts) read
-    the prompt counters, which reset to v2 at the switch (Open question 3), so from then on they read v2 grades. v2 lifts the average (the experiment's mean rose from 5.35 to 7.31), but steers are
-    capped at 8 and the best seen was 9.5, so both badges stay hard. Its call whether to re-tune them.
+    the prompt counters, which reset to v2 at the switch (Open question 3), so from then on they read v2 grades. v2
+    lifts the average (the experiment's mean rose from 5.35 to 7.31), but steers are capped at 8 and the best seen was
+    9.5, so both badges stay hard. Its call whether to re-tune them.
   - `docs/privacy.md` (PR B): what a graded prompt sends.
 
 ## Open questions (answered by the player, 2026-10-19)

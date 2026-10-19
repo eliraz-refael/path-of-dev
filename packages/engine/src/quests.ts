@@ -154,15 +154,14 @@ export type QuestSignal =
 
 /**
  * Whether a graded prompt meets a fact goal's filters. A rubric 1 prompt is held to `scores` and `grade`. A rubric 2
- * prompt is held to `v2` when the goal has one, and otherwise to `grade` alone, unless the goal names rubric 1 scores,
- * which it has none of. A null measure never meets a least.
+ * prompt is held to `v2` alone when the goal has one, never to `grade`, and otherwise to `grade` alone, unless the goal
+ * names rubric 1 scores, which it has none of. A null measure never meets a least.
  */
 const promptMeets = (goal: FactGoal, signal: Extract<QuestSignal, { kind: "fact" }>): boolean => {
   if (goal.scores === undefined && goal.grade === undefined && goal.v2 === undefined) return true
   const prompt = signal.prompt
   if (prompt === undefined) return false
   if (prompt.rubric === 1) {
-    if (goal.scores === undefined && goal.grade === undefined) return true
     if (goal.grade !== undefined && prompt.grade < goal.grade) return false
     const scores = goal.scores ?? {}
     return qualityDimensions.every((dimension) => {

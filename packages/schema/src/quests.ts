@@ -24,7 +24,10 @@ export const FactGoal = Schema.Struct({
   count: Goal,
   /** prompt.graded only: the least each named rubric 1 quality score must reach, as clarity 8 or more. */
   scores: Schema.optionalKey(Schema.Record(QualityDimension, Schema.optionalKey(Score))),
-  /** prompt.graded only: the least a rubric 1 grade must reach, and a rubric 2 one too when `v2` names none. */
+  /**
+   * prompt.graded only: the least a rubric 1 grade must reach, and a rubric 2 one too when the goal has no `v2`. A
+   * `v2` replaces it whole, so a `v2` that names no grade holds a rubric 2 prompt to none.
+   */
   grade: Schema.optionalKey(Score),
   /**
    * prompt.graded only: what a rubric 2 prompt must reach instead, as intent 8 or more; without it, a rubric 2 prompt

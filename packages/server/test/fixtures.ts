@@ -99,8 +99,7 @@ export const turn = (id = nextId()): typeof TurnCompleted.Type => ({
   data: { durationMs: 1000, toolCalls: 2 },
 })
 
-/** A prompt graded `score` on every dimension, regret included. */
-/** A rubric 1 prompt with `score` on every score. */
+/** A rubric 1 prompt with `score` on every score, regret included. */
 export const prompt = (score: number, id = nextId()): typeof PromptGraded.Type & { readonly data: GradedV1 } => ({
   id,
   type: "prompt.graded",

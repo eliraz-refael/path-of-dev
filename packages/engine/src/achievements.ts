@@ -35,7 +35,7 @@ export interface Ledger {
   readonly level: number
   readonly missions: number
   readonly hatched: number
-  /** The best grade, and below the average grade, of the prompt counters: one rubric's prompts, from its first on. */
+  /** The prompt counters' best grade: one rubric's prompts, from its first on, as `promptGrade` averages them. */
   readonly bestGrade: number
   /** Catalogue items owned at each rarity, each item once. */
   readonly owned: Readonly<Record<Rarity, number>>
