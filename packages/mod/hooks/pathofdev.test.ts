@@ -1,5 +1,5 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
-import type { TestBody } from 'claude-code/testing'
+import { describe, expect, mock, test as kitTest } from 'claude-code/testing'
+import type { TestBody, TestRest } from 'claude-code/testing'
 import type {
   CommandInfo,
   ConfigRow,
@@ -28,6 +28,12 @@ import { statsLayout, twoColumnsFrom } from './stats'
 import { statsViewOf } from './view'
 import { closeSetsAside, freshWizard, lootText, stepperRow, taperText, welcomeLayout, xpText } from './welcome'
 import { github as recorded } from '../test/github'
+
+/** The band as it always was, open at rest: these tests draw it so. collapse.test.ts plays it `auto` and `line`. */
+const test = (name: string, ...rest: TestRest) =>
+  rest.length === 1
+    ? kitTest(name, { options: { band: 'full' } }, rest[0])
+    : kitTest(name, { ...rest[0], options: { band: 'full', ...rest[0].options } }, rest[1])
 
 // A fake local server beneath the mod: it answers the four routes, records what the mod sends, and holds the
 // stream until the test's clock passes 25 seconds, as the real one does.

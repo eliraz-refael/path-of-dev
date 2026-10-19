@@ -126,6 +126,10 @@ export const bandMissionOf = (missions: MissionsView | null): MissionView | null
       return ahead > 0 || (ahead === 0 && one.cadence === 'daily' && best.cadence !== 'daily') ? one : best
     }, null)
 
+/** How many missions run as of clock `now`, for the status line: none from a server older than missions. */
+export const runningCount = (missions: MissionsView | null, now: number): number =>
+  missions === null || !missions.isKnown ? 0 : missionsAt(missions, now).quests.filter(isRunning).length
+
 /** The band's bar for a mission: a few cells of the band's own glyphs. */
 const chipBar = 5
 /** The fewest cells of a cut title worth showing, its space and ellipsis included. */

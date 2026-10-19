@@ -366,6 +366,9 @@ export type CoachMemory = {
 /** The pet's speech bubble on the band: the line on show, the pet's name in it, until clock ms `until`. */
 export type Bubble = { text: string; until: number }
 
+/** The band open in `auto` for a moment: held while it lasts (`until` null), then until clock ms `until`. */
+export type Opening = { until: number | null }
+
 /** The `/pathofdev` pane's tabs; the last is the first-run welcome, which a player may open again. */
 export type PaneTab = 'inventory' | 'shop' | 'stats' | 'missions' | 'welcome'
 
@@ -454,6 +457,10 @@ declare module 'claude-code' {
       coach: CoachMemory | null
       /** The pet's speech bubble while it shows. */
       bubble: Bubble | null
+      /** The band open in `auto`; null while it is shut. */
+      open: Opening | null
+      /** The grade the server gave the last prompt it priced, for the status line; null before one. */
+      grade: number | null
     }
   }
 }
