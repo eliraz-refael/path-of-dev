@@ -250,7 +250,7 @@ export const stepWalker = (walker: Walker, context: StepContext): Step => {
  * The walker inside a room that may have shrunk since its last step: where it stands, where it walks to and where its
  * reaction began, each pulled back into the room, so no step taken from them can leave it.
  */
-const placedIn = (walker: Walker, room: number): Walker => {
+export const placedIn = (walker: Walker, room: number): Walker => {
   const inside = (cell: number) => Math.max(0, Math.min(cell, room))
   const { act, walkTo } = walker
   return {
