@@ -405,6 +405,53 @@ There are no critical gaps. The faked-counts row is a recorded, accepted risk, b
   - rotation is periodic;
   - an older snapshot shows no showcase.
 
+## As built (7a)
+7a follows the plan, with these differences:
+- **`Goal` and `Score`** moved into `schema/src/primitives.ts`, and `quests.ts` imports them from there. Exporting
+  them from `quests.ts` would have made `rules.ts` import `quests.ts`, which already imports `rules.ts`.
+- **The average criterion** is two union members, `{of: "promptGrade", atLeast}` and `{of: "contextPeak", below}`.
+  The schema has no optional fields and no "exactly one" filter, since each `of` carries only its own mark.
+- **`achievementsIssue(defs, catalog)`** sits next to `catalogIssue` in `schema/src/step.ts`. It names an `owned` or
+  `bandSlots` badge whose goal is above what the catalogue holds.
+- **`averageOf(sum, count, most)`** in `stats.ts` is the one rounding-and-clamp rule. `statsOf` and the ledger both
+  use it, so a badge's average is the one the player sees.
+- **The level metric** reads the current level (`levelOf`). Prestige doesn't exist yet, and a held badge is never
+  taken back.
+- **Migration 0014** also sets `rules_version = 12`, as 0010 and 0011 did for their rules.
+- **The rules-decode property** lives in `engine/test/achievements.test.ts`, which has the starter rules. Schema tests
+  have no full rules fixture.
+- **The mod:**
+  - The toast reads `Badges unlocked: 📝 First commit, 💯 Committed and 3 more`.
+  - The gain line is `<glyph> <name> · badge unlocked`, in the level's colour.
+  - A badge with no glyph shows 🏅, and one with no name shows "Badge".
+  - Badge names are drawn as the server sends them, like mission titles, without the ASCII-only `printable`. That
+    would strip the glyphs, and the names come from the server's own rules.
+- **Plugin 0.4.0** also covers #41 and #42, which shipped as 0.3.1.
+
+Tests:
+- `engine/test/achievements.test.ts` has 19 tests: the oracle over `Counts`, the frame property, the backlog, refused
+  and bookkeeping steps, defs added later, replay, the missions count, the starter list and its thresholds, and rules
+  decode.
+- The missions property runs on a busy script of mission work. The shared script rarely completes a mission, so it
+  passed even with the counter removed.
+- Each engine and mod property was checked to fail when the code under it was broken:
+  - `settledContext` counting the running session;
+  - `below` taken as `<=`;
+  - the held filter removed;
+  - the missions counter removed;
+  - unlocks on bookkeeping;
+  - `bandSlots` counting any style;
+  - `unlockedAt` wrong;
+  - the rules' `storable` check removed;
+  - the verified-fact filter removed;
+  - `badgeBurstOf` losing a count or keeping the wrong tier.
+- Server:
+  - migration 0014 is checked;
+  - a stored save's backlog unlocks on its next event, is stored and decodes as `ServerEvent`;
+  - a `checkedRules` property covers catalogues that drop a rarity or band slots.
+  - The suite passes on PGlite and on Postgres.
+- Mod: `test/celebrate.prop.ts`, plus one mounted check that a batch of three plays as its epic with "+2 more".
+
 ## NOT in scope
 - **Review badges:** nothing counts reviews until the verifier (TODO).
 - **Prestige badge:** prestige isn't implemented (TODO).
