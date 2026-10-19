@@ -72,6 +72,25 @@ describe('the walker', () => {
       }
     },
   )
+
+  prop.prop(
+    'stays inside a room that shrinks while it walks or plays a reaction, wherever it was going or began',
+    [Schema.Array(Step).check(Schema.isMaxLength(40)), Step, between(0, 3)],
+    ([steps, last, shrunk]) => {
+      // The band wide while it sets off, then narrow: a walk or a reaction under way meets a room that no longer holds it.
+      const wide = steps.reduce<Walker>((walker, step) => {
+        const ready = step.reaction === null ? walker : withReactions(walker, [reactionOf(step.reaction)])
+        return stepWalker(ready, { ...step, free: true, room: 14 }).walker
+      }, homeWalker)
+      const narrowed: StepContext = { ...last, free: true, wanders: true, room: shrunk }
+      // Long enough for any reaction to play out and come back to where it began.
+      Array.from({ length: 10 }).reduce<Walker>((walker) => {
+        const next = stepWalker(walker, narrowed).walker
+        expect(next.away).toBeLessThanOrEqual(shrunk)
+        return next
+      }, wide)
+    },
+  )
 })
 
 /** Moments that are not good ones: a prompt graded under the line or not graded, any other XP, gold, a capped day. */

@@ -162,6 +162,7 @@ import {
   petDisplayText,
   petDisplayWord,
   petRowOf,
+  placedIn,
   reactionsOf,
   roomNow,
   sameScene,
@@ -706,7 +707,7 @@ const syncPet = async ($: EngineInterface) => {
   }
   petStep?.cancel()
   petStep = null
-  if (!context.free) walker = heldWalker(walker)
+  if (!context.free) walker = heldWalker(placedIn(walker, context.room))
   await drawPet($)
   await speakWhenFree($)
 }

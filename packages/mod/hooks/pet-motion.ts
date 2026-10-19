@@ -241,9 +241,24 @@ const stillMs: Record<Reaction['kind'], number> = { hop: 2_000, eat: 2_000, pat:
 /** One step of the pet's life: a frame of the reaction playing, the next reaction, or a bit of wandering. */
 export const stepWalker = (walker: Walker, context: StepContext): Step => {
   if (walker.asleep) return { walker, waitMs: null }
-  const placed = { ...walker, away: Math.max(0, Math.min(walker.away, context.room)) }
+  const placed = placedIn(walker, context.room)
   if (!context.free) return { walker: heldWalker(placed), waitMs: null }
   return placed.act === null ? nextStep(placed, context) : advance(placed, placed.act, context)
+}
+
+/**
+ * The walker inside a room that may have shrunk since its last step: where it stands, where it walks to and where its
+ * reaction began, each pulled back into the room, so no step taken from them can leave it.
+ */
+export const placedIn = (walker: Walker, room: number): Walker => {
+  const inside = (cell: number) => Math.max(0, Math.min(cell, room))
+  const { act, walkTo } = walker
+  return {
+    ...walker,
+    away: inside(walker.away),
+    walkTo: walkTo === null ? null : inside(walkTo),
+    act: act === null ? null : { ...act, from: inside(act.from) },
+  }
 }
 
 /**
