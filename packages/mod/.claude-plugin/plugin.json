@@ -1,6 +1,6 @@
 {
   "name": "pathofdev",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Path of Dev: an RPG around your Claude Code work: XP, levels, loot and a pixel pet, drawn in a band above the prompt.",
   "types": "./types/index.d.ts",
   "author": { "name": "eliraz-refael" },
@@ -10,7 +10,7 @@
     "minWords": {
       "type": "number",
       "title": "Words to grade a prompt",
-      "description": "A prompt you type earns XP from Haiku's grade once it has this many words, pasted text included. Shorter ones, slash commands and prompts you didn't type go ungraded. Only the scores leave your machine, never the prompt.",
+      "description": "A prompt you type earns XP from Haiku's grade once it has this many words, pasted text included. Shorter ones, slash commands and prompts you didn't type go ungraded. Only the scores, and whether the prompt was spelled clean, leave your machine, never the prompt.",
       "default": 6
     },
     "animations": {
@@ -23,7 +23,7 @@
     "coach": {
       "type": "string",
       "title": "Pet coach",
-      "description": "When your pet says a short tip about your last prompt in a bubble beside it on the band: now and then after a prompt graded 7 or more (good, the default), also after weaker ones, gently (always), or only when you ask with /pathofdev pet tip (off). At most one tip every 3 graded prompts. The tip comes from Haiku's grade and stays on your machine.",
+      "description": "When your pet says a short tip about your last prompt in a bubble beside it on the band: now and then after a well-graded prompt, 7 or more, or 8 or more on a server that grades by rubric 2 (good, the default), also after weaker ones, gently (always), or only when you ask with /pathofdev pet tip (off). At most one tip every 3 graded prompts. The tip comes from Haiku's grade and stays on your machine.",
       "options": ["good", "always", "off"],
       "default": "good"
     },

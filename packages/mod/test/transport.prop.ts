@@ -1,10 +1,12 @@
 import { it as prop } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
-import { describe, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import manifest from '../.claude-plugin/plugin.json'
 import { checkoutRef, commitRef, repoIn, repoOf, repoRef, subjectFormOf, workRef } from '../hooks/observe'
 import type { Target } from '../hooks/server'
 import {
   answerOf,
+  clientVersion,
   failureOf,
   idOf,
   isEvents,
@@ -107,6 +109,13 @@ describe('requests', () => {
     if (origin === null) return
     const { init } = requestOf({ kind: 'online', origin }, { path: `/${rest}` }, { socketPath: '', token })
     expect(init.headers?.['authorization']).toBe(`Bearer ${token}`)
+  })
+
+  it("names the mod's version as plugin.json does, the one a server's minClientVersion compares", () => {
+    const { version } = manifest
+    expect(clientVersion).toBe(version)
+    const { init } = requestOf({ kind: 'local' }, { path: '/v1/stream' }, { socketPath: '', token: null })
+    expect(init.headers?.['pathofdev-client']).toBe(version)
   })
 })
 

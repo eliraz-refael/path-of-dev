@@ -15,6 +15,7 @@ import { celebrationOf, tierOf, tierRank } from './celebrate'
 import type { Row, Run } from './cells'
 import { blank, cellsOf, cellsOfRow } from './cells'
 import { hash, rarityColors } from './frames'
+import type { Rubric } from './grade'
 import { argsOf, isRecord } from './server'
 
 // The living pet: how it wanders band row 2, how it reacts to play, and how it is drawn in its lane. Everything here
@@ -27,8 +28,11 @@ import { argsOf, isRecord } from './server'
 // The pet only ever reacts to good things: a well-graded prompt, a drop, a meal, a pat, a celebration. A weak or
 // ungraded prompt changes nothing, and a low mood only makes it rest longer: it is never drawn sad.
 
-/** A prompt graded this or more, to one decimal as the band shows the grade, makes the pet hop. */
-export const wellGradedAt = 7
+/**
+ * A prompt graded this or more by its rubric, to one decimal as the band shows the grade, makes the pet hop: rubric
+ * 2's grades run higher, as it no longer marks a prompt down for what it doesn't need.
+ */
+export const wellGradedAt: Readonly<Record<Rubric, number>> = { 1: 7, 2: 8 }
 /** No prompt, pat or meal for this long, and the pet falls asleep. */
 export const napMs = 10 * 60_000
 /** A step of the walk, and a frame of a reaction: about 2 fps. A trot, fetching a drop, is twice as quick. */
@@ -431,16 +435,20 @@ export const sameScene = (a: PetScene | null, b: PetScene | null): boolean => JS
 
 // What the pet reacts to.
 
-/** A grade as the band shows it, to one decimal: a prompt the band says was graded 7 makes the pet hop. */
+/** A grade as the band shows it, to one decimal: a prompt the band says was graded 7 (rubric 1) makes the pet hop. */
 export const shownGrade = (grade: number): number => Math.round(grade * 10) / 10
 
 /**
  * What the pet does about a batch of the stream (what one cause earned): it fetches a drop a prompt earned, carrying
  * the best of them, else hops for a well-graded prompt; it eats a meal and enjoys a pat. With celebrations off, it
- * cheers a level-up or a rare drop in place of the celebration. A prompt graded below the line, or not graded at all,
- * earns nothing from it.
+ * cheers a level-up or a rare drop in place of the celebration. A prompt graded below the line (`wellAt`, the line of
+ * the rubric it was graded by), or not graded at all, earns nothing from it.
  */
-export const reactionsOf = (events: ReadonlyArray<ServerEvent>, motion: Motion): Array<Reaction> => {
+export const reactionsOf = (
+  events: ReadonlyArray<ServerEvent>,
+  motion: Motion,
+  wellAt: number = wellGradedAt[1],
+): Array<Reaction> => {
   let graded = false
   let isWell = false
   let best: Tier | null = null
@@ -448,7 +456,7 @@ export const reactionsOf = (events: ReadonlyArray<ServerEvent>, motion: Motion):
   for (const event of events) {
     if (event.type === 'xp.granted' && event.data.reason === 'prompt.graded') {
       graded = true
-      if (event.data.grade !== undefined && shownGrade(event.data.grade) >= wellGradedAt) isWell = true
+      if (event.data.grade !== undefined && shownGrade(event.data.grade) >= wellAt) isWell = true
     }
     if (event.type === 'loot.dropped') {
       const tier = tierOf(event.data.tier)

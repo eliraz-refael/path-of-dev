@@ -21,6 +21,7 @@ import {
   stepWalker,
   walkerOf,
   wanderLane,
+  wellGradedAt,
   withReactions,
 } from './pet-motion'
 
@@ -72,7 +73,14 @@ type Sent = { path: string; body: unknown }
  * The engine beneath the mod, and a local server that answers its routes and hands the stream the test's events.
  * Haiku answers `grader` when there is one.
  */
-const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: number }>, grader: string | null) => {
+const world = (
+  on: On,
+  clock: Clock,
+  petOf: () => unknown,
+  stream: Array<{ seq: number }>,
+  grader: string | null,
+  rules: Record<string, unknown>,
+) => {
   const sent: Array<Sent> = []
   on('ui.toast', () => ({ value: undefined }))
   on('ui.status', () => ({ value: undefined }))
@@ -105,7 +113,7 @@ const world = (on: On, clock: Clock, petOf: () => unknown, stream: Array<{ seq: 
     if (url.pathname === '/v1/sessions')
       return reply(200, {
         snapshot: snapshotOf(petOf()),
-        rules: careRules,
+        rules,
         minClientVersion: '0.0.0',
         acceptedEventTypes: [],
       })
@@ -160,12 +168,13 @@ const playing = async (
   pet: unknown = ember,
   hatchery: { pet: unknown } = { pet },
   grader: string | null = null,
+  rules: Record<string, unknown> = careRules,
 ) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
   mock.store(on, { explored: ['acme/widgets'], ...store })
   mock.env(on, { HOME: '/home/player' })
   const stream: Array<{ seq: number }> = []
-  const sent = world(on, clock, () => hatchery.pet, stream, grader)
+  const sent = world(on, clock, () => hatchery.pet, stream, grader, rules)
   await $.session.start(start)
   await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
   await clock.settle()
@@ -378,6 +387,14 @@ describe('the pet reacts', () => {
     expect(reactionsOf([commit], 'full')).toEqual([])
   })
 
+  test("a rubric 2 prompt hops at its own line, 8: its grades run higher than rubric 1's", () => {
+    const at = (grade: number) => reactionsOf([grant(grade)], 'full', wellGradedAt[2]).map((one) => one.kind)
+    expect(at(7.5)).toEqual([])
+    expect(at(7.94)).toEqual([])
+    expect(at(7.96)).toEqual(['hop'])
+    expect(reactionsOf([grant(7.5)], 'full', wellGradedAt[1]).map((one) => one.kind)).toEqual(['hop'])
+  })
+
   test('eats when fed, and enjoys a pat', async ($, on) => {
     const { clock, send } = await playing($, on, { petDisplay: { hidden: false, still: true } })
     const biscuit = { entryId: 'e', itemId: 'honey-biscuit', name: 'Honey Biscuit', mood: 100, gained: 30 }
@@ -569,6 +586,21 @@ const weakReply = JSON.stringify({
   regret: 0,
   note: 'Name the file and the error.',
 })
+// By rubric 2, against a server that prices it: a good prompt that never says what a good outcome looks like.
+const goodReplyV2 = JSON.stringify({
+  kind: 'task',
+  intent: 9,
+  grounding: 10,
+  why: 8,
+  successShape: 4,
+  scope: 9,
+  forward: 8,
+  craft: 7,
+  misspelled: [],
+  tone: 6,
+  note: 'Say which test should pass.',
+})
+const v2Rules = { ...careRules, prompt: { rubricVersion: 2, v2: { maxXp: 15 } } }
 const still = { petDisplay: { hidden: false, still: true } }
 const praised = '“Ember loves that you named the exact spot!”'
 const tipped = '“Say which test should pass.”'
@@ -624,6 +656,20 @@ describe('the pet coach', () => {
     const shown = (seen[praise + 2]?.at ?? 0) - (seen[praise]?.at ?? 0)
     expect(shown).toBeGreaterThanOrEqual(7_750)
     expect(shown).toBeLessThanOrEqual(8_250)
+  })
+
+  test('by rubric 2 it hops and speaks unasked from 8, and a 7.5 that would by rubric 1 earns nothing', async ($, on) => {
+    const { clock, send, sent } = await playing($, on, still, ember, { pet: ember }, goodReplyV2, v2Rules)
+    const sitting = await petText($)
+    await gradedTurn($, clock, sent, send, 7.5)
+    expect((await changes($, clock, 16_000)).map((one) => one.text)).toEqual([sitting])
+    await gradedTurn($, clock, sent, send, 8)
+    const texts = (await changes($, clock, 16_000)).map((one) => one.text ?? '')
+    const hop = texts.findIndex((text) => text.includes('♪'))
+    const praise = texts.findIndex((text) => text.includes('“Ember loves that you named the exact spot!”'))
+    expect(hop).toBeGreaterThanOrEqual(0)
+    expect(praise).toBeGreaterThan(hop)
+    expect(texts[praise + 1]).toBe(` ${tipped} ᓚᘏᗢ  Ember ♥♥♥`)
   })
 
   test('the gain line steps aside while the pet speaks, lending the bubble its room, and comes back', async ($, on) => {

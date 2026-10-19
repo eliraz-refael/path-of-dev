@@ -1,0 +1,100 @@
+[
+ {
+  "name": "a-fix-it-after-test",
+  "expect": "good steer: short but fully grounded by the answer",
+  "prompt": "fix it",
+  "previous": "run the parser tests and tell me what fails",
+  "answerTail": "I ran `npm test -- parser`. 41 pass, 1 fails:\n\n- `parser.test.ts > parses a quoted key with an escaped quote` expects `{ 'a\"b': 1 }` but gets a SyntaxError at column 4.\n\nThe cause is in `src/parser.ts`, `readString`: it stops at the first `\"` without checking for a preceding backslash. A one-line fix there (skip a quote after `\\`) should make it pass without touching the other cases. Want me to fix it?",
+  "replies": [
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":7,\"why\":null,\"successShape\":null,\"scope\":8,\"forward\":7,\"craft\":5,\"misspelled\":[],\"tone\":6,\"note\":\"Name the file or confirm the escaped-quote fix so the change is unambiguous.\"}",
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":7,\"why\":null,\"successShape\":null,\"scope\":8,\"forward\":7,\"craft\":6,\"misspelled\":[],\"tone\":6,\"note\":\"Say which file and test should pass, though the reply is already clear.\"}",
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":7,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":7,\"craft\":5,\"misspelled\":[],\"tone\":6,\"note\":\"Name the test or file to confirm, though 'fix it' is clear enough here.\"}",
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":8,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":7,\"craft\":5,\"misspelled\":[],\"tone\":6,\"note\":\"Good. Clear approval; the assistant already has the fix described, so nothing more is needed.\"}",
+   "{\"kind\":\"steer\",\"intent\":9,\"grounding\":9,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":8,\"craft\":7,\"misspelled\":[],\"tone\":6,\"note\":\"Good approval; naming the fixed test to re-run would confirm success.\"}"
+  ]
+ },
+ {
+  "name": "b-fix-it-no-context",
+  "expect": "bad: nothing to point at",
+  "prompt": "fix it",
+  "previous": "",
+  "answerTail": "",
+  "replies": [
+   "{\"kind\":\"task\",\"intent\":2,\"grounding\":1,\"why\":null,\"successShape\":null,\"scope\":5,\"forward\":2,\"craft\":3,\"misspelled\":[],\"tone\":5,\"note\":\"Say what 'it' refers to and what a working result looks like.\"}",
+   "{\"kind\":\"task\",\"intent\":2,\"grounding\":1,\"why\":null,\"successShape\":null,\"scope\":5,\"forward\":2,\"craft\":4,\"misspelled\":[],\"tone\":5,\"note\":\"Say what's broken and where, since there is no earlier context to act on.\"}",
+   "{\"kind\":\"task\",\"intent\":2,\"grounding\":1,\"why\":null,\"successShape\":1,\"scope\":5,\"forward\":2,\"craft\":3,\"misspelled\":[],\"tone\":5,\"note\":\"Say what 'it' is, which file or error, and how you'll know it's fixed.\"}",
+   "{\"kind\":\"task\",\"intent\":2,\"grounding\":1,\"why\":null,\"successShape\":null,\"scope\":5,\"forward\":2,\"craft\":3,\"misspelled\":[],\"tone\":5,\"note\":\"Name the file, error, or behavior you want fixed, and how to verify it.\"}",
+   "{\"kind\":\"task\",\"intent\":2,\"grounding\":1,\"why\":null,\"successShape\":1,\"scope\":5,\"forward\":2,\"craft\":3,\"misspelled\":[],\"tone\":5,\"note\":\"Say what 'it' is, which file or error, and how to know it's fixed.\"}"
+  ]
+ },
+ {
+  "name": "c-start-step-1",
+  "expect": "good steer: approves a laid-out plan",
+  "prompt": "yes, start step 1",
+  "previous": "plan how we move the session store from files to sqlite, don't change anything yet",
+  "answerTail": "Here's a plan in four steps:\n\n1. Add a `SessionStore` interface in `src/store/index.ts` and make the current file store implement it, with no behaviour change.\n2. Add `SqliteSessionStore` behind the same interface, with its own tests.\n3. Add a one-time migration that copies existing session files into the database on start.\n4. Switch the default to sqlite and keep the file store for one release behind a flag.\n\nEach step leaves the tests green and can ship alone. Shall I start with step 1?",
+  "replies": [
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":9,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":7,\"craft\":7,\"misspelled\":[],\"tone\":6,\"note\":\"Say what step 1 should include, like running tests before finishing.\"}",
+   "{\"kind\":\"task\",\"intent\":8,\"grounding\":8,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":7,\"craft\":7,\"misspelled\":[],\"tone\":6,\"note\":\"Name the expected outcome, like which tests stay green, so the start is checkable.\"}",
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":9,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":8,\"craft\":7,\"misspelled\":[],\"tone\":6,\"note\":\"Name the step 1 file and say whether to run tests afterward.\"}",
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":8,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":7,\"craft\":7,\"misspelled\":[],\"tone\":6,\"note\":\"Say whether to commit after step 1 or keep going, to fit the plan.\"}",
+   "{\"kind\":\"steer\",\"intent\":8,\"grounding\":9,\"why\":null,\"successShape\":null,\"scope\":9,\"forward\":7,\"craft\":7,\"misspelled\":[],\"tone\":6,\"note\":\"Good approval; you could name the files or tests step 1 should keep green.\"}"
+  ]
+ },
+ {
+  "name": "d-crisp-bug-report",
+  "expect": "very good task",
+  "prompt": "The CSV export in src/export/csv.ts drops the last row when the input doesn't end with a newline: exporting the 3-row fixture in test/fixtures/no-trailing-newline.csv gives 2 rows, and nothing is logged. It should export all 3 rows, the same as when the file ends with a newline. This matters because finance imports these files straight into the ledger, so a silently lost row means a wrong month-end total. Please fix it and add a test for that fixture; the existing csv tests should still pass.",
+  "previous": "what does the export module do?",
+  "answerTail": "`src/export/` turns query results into downloadable files. `csv.ts` streams rows through `toCsvLines`, splitting the raw input on newlines and buffering any partial line until the next chunk arrives; `xlsx.ts` builds a workbook in memory. Both are called from `routes/export.ts`, which picks the format from the `?format=` query parameter.",
+  "replies": [
+   "{\"kind\":\"task\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":7,\"note\":\"Solid prompt; consider naming the expected test location or assertion style.\"}",
+   "{\"kind\":\"task\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":7,\"note\":\"Consider naming the expected test location or assertion style for the new fixture test.\"}",
+   "{\"kind\":\"task\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":7,\"note\":\"Name the test file or runner to use for the new test, if there is a convention.\"}",
+   "{\"kind\":\"task\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":7,\"note\":\"Solid prompt; consider naming the expected fixture row count and test file location.\"}",
+   "{\"kind\":\"task\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":8,\"note\":\"Strong prompt; consider naming the expected test location or fixture-based assertion style.\"}"
+  ]
+ },
+ {
+  "name": "e-rambling-contradictory",
+  "expect": "bad: five unrelated asks, contradicts itself",
+  "prompt": "ok so can you rename the user model to account everywhere, and also the login page looks kind of off maybe make it blue, also why is the build slow, and add dark mode, oh and update the readme too, actually don't touch the user model, but do rename it, and make the build faster but don't change the webpack config",
+  "previous": "thanks, that works",
+  "answerTail": "Glad it works. The date-picker now respects the user's locale and the tests are green. Anything else?",
+  "replies": [
+   "{\"kind\":\"task\",\"intent\":5,\"grounding\":5,\"why\":3,\"successShape\":3,\"scope\":2,\"forward\":4,\"craft\":5,\"misspelled\":[],\"tone\":6,\"note\":\"Pick one clear task at a time; several contradictory asks here are confusing.\"}",
+   "{\"kind\":\"task\",\"intent\":4,\"grounding\":5,\"why\":3,\"successShape\":3,\"scope\":2,\"forward\":3,\"craft\":5,\"misspelled\":[],\"tone\":6,\"note\":\"Pick one clear plan: split the bundled asks and say which matter most first.\"}",
+   "{\"kind\":\"task\",\"intent\":4,\"grounding\":5,\"why\":5,\"successShape\":3,\"scope\":2,\"forward\":2,\"craft\":5,\"misspelled\":[],\"tone\":5,\"note\":\"Pick one clear rule for the user model, then split the other requests into separate prompts.\"}",
+   "{\"kind\":\"task\",\"intent\":6,\"grounding\":6,\"why\":6,\"successShape\":3,\"scope\":2,\"forward\":3,\"craft\":6,\"tone\":6,\"misspelled\":[],\"note\":\"Decide on the user model first, then split the five asks into separate requests.\"}",
+   "{\"kind\":\"task\",\"intent\":4,\"grounding\":5,\"why\":3,\"successShape\":3,\"scope\":2,\"forward\":3,\"craft\":5,\"misspelled\":[],\"tone\":6,\"note\":\"Split the conflicting asks, and say what 'faster build' should measure against.\"}"
+  ]
+ },
+ {
+  "name": "f-rude-curse",
+  "expect": "bad tone: should be penalized",
+  "prompt": "this is f***ing broken again, just fix the damn thing",
+  "previous": "the upload button does nothing when I click it",
+  "answerTail": "I found it: the click handler in `UploadButton.tsx` was attached to the wrapper `div`, but the hidden `<input type=\"file\">` sits on top of it and swallows the click. I moved the handler onto the input's `change` event and added a test that clicks the button and checks the file dialog opens. Can you try it again in the browser?",
+  "replies": [
+   "{\"kind\":\"steer\",\"intent\":6,\"grounding\":6,\"why\":3,\"successShape\":null,\"scope\":8,\"forward\":4,\"craft\":4,\"misspelled\":[],\"tone\":1,\"note\":\"Say what still fails in the browser so the fix can be checked, and drop the profanity.\"}",
+   "{\"kind\":\"steer\",\"intent\":6,\"grounding\":7,\"why\":3,\"successShape\":null,\"scope\":8,\"forward\":5,\"craft\":4,\"misspelled\":[],\"tone\":1,\"note\":\"Say what still fails after the fix, and ask for a specific check instead of cursing.\"}",
+   "{\"kind\":\"steer\",\"intent\":6,\"grounding\":6,\"why\":4,\"successShape\":null,\"scope\":8,\"forward\":5,\"craft\":5,\"misspelled\":[],\"tone\":2,\"note\":\"Tell me what happens now: an error, nothing, or the wrong file dialog?\"}",
+   "{\"kind\":\"steer\",\"intent\":6,\"grounding\":7,\"why\":3,\"successShape\":null,\"scope\":8,\"forward\":4,\"craft\":4,\"misspelled\":[],\"tone\":2,\"note\":\"Say whether the button works now, and what you saw when you clicked it, politely.\",\"}",
+   "{\"kind\":\"steer\",\"intent\":6,\"grounding\":6,\"why\":3,\"successShape\":5,\"scope\":8,\"forward\":6,\"craft\":5,\"misspelled\":[],\"tone\":2,\"note\":\"Say what happens on click now, and any console error.\"}"
+  ]
+ },
+ {
+  "name": "g-polished-kind-discussion",
+  "expect": "very good discussion, with craft and tone bonuses",
+  "prompt": "Thank you, that's a lucid breakdown. Before we commit to the cache, I'd value your candid opinion on the trade-off: an in-memory LRU is trivially simple, but it evaporates on every deploy, whereas Redis survives restarts at the cost of another moving part to operate. Given that our traffic is modest and spiky, which would you choose, and what would make you change your mind? A short recommendation with the one or two deciding factors would be ideal.",
+  "previous": "why is the product page slow?",
+  "answerTail": "Most of the time goes into `getRecommendations`, which calls the pricing service once per product, about 40 calls per page, each taking 60–90 ms. Caching the pricing responses for a few minutes would cut the page from about 2.4 s to under 300 ms on a warm cache. We could cache in memory in each instance, or in Redis shared across instances.",
+  "replies": [
+   "{\"kind\":\"discussion\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":9,\"note\":\"Strong prompt; consider naming current traffic numbers to sharpen the recommendation.\"}",
+   "{\"kind\":\"discussion\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":9,\"misspelled\":[],\"tone\":9,\"note\":\"Clear, well-grounded question; consider naming the trigger that would change your choice.\"}",
+   "{\"kind\":\"discussion\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":8,\"note\":\"Strong prompt; consider naming the traffic numbers or deploy frequency that would change the decision.\"}",
+   "{\"kind\":\"discussion\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":9,\"note\":\"Solid ask; say how many instances or what restart frequency would flip the choice.\"}",
+   "{\"kind\":\"discussion\",\"intent\":9,\"grounding\":9,\"why\":8,\"successShape\":8,\"scope\":9,\"forward\":8,\"craft\":8,\"misspelled\":[],\"tone\":9,\"note\":\"Clear and well-grounded; could name the traffic numbers you'd weigh against Redis operational cost.\"}"
+  ]
+ }
+]

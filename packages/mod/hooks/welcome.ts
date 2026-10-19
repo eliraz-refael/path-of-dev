@@ -2,7 +2,8 @@ import type { RulesConfig, Snapshot } from '@pathofdev/schema'
 import type { BandView, GradingView, PaneTab, SpeciesView, WelcomeStep, WelcomeView, Wizard } from '../types'
 import type { Row, Run } from './cells'
 import { blank, cellsOf, cellsOfRow, clip, dim } from './cells'
-import { dimensions } from './stats'
+import { rubricOf } from './grade'
+import { dimensions, measures } from './stats'
 import { sprite } from './view'
 
 // The first-run welcome, a tab of the pane: a hello, the character's name, the egg's species and name, how grading
@@ -14,28 +15,63 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const numberOr = (value: unknown): number | null => (typeof value === 'number' && Number.isFinite(value) ? value : null)
 
-/** What the grading step says, from the rules beside the session and the `minWords` option. */
+/**
+ * What the grading step says, from the rules beside the session and the `minWords` option: rubric 2's numbers from
+ * `prompt.v2` when the rules carry it, as the mod then grades with it.
+ */
 export const gradingOf = (rules: Partial<RulesConfig>, minWords: number): GradingView => {
   const prompt: Partial<RulesConfig['prompt']> = rules.prompt ?? {}
   const loot: Partial<RulesConfig['loot']> = rules.loot ?? {}
+  if (rubricOf(rules) === 2) return gradingV2Of(prompt, loot, minWords)
   const weights: Record<string, unknown> = isRecord(prompt.weights) ? prompt.weights : {}
-  const perDay = Array.isArray(prompt.perDay)
-    ? prompt.perDay.flatMap((band) =>
-        typeof band.pct === 'number' && (band.upTo === null || typeof band.upTo === 'number')
-          ? [{ upTo: band.upTo, pct: band.pct }]
-          : [],
-      )
-    : null
   return {
+    rubric: 1,
     minWords,
     maxXp: numberOr(prompt.maxXp),
-    perDay: perDay === null || perDay.length === 0 ? null : perDay,
+    perDay: perDayOf(prompt),
     // The scores that count toward XP; every one of them when the rules don't say.
     counted: dimensions
       .filter((one) => !isRecord(prompt.weights) || (numberOr(weights[one.id]) ?? 0) > 0)
       .map((one) => one.id),
     lootAtTen: numberOr(loot.promptChanceAtTen),
     greatAt: numberOr(loot.promptGreatAt),
+    greatFactor: numberOr(loot.promptGreatRareFactor),
+  }
+}
+
+/** How a day's prompts taper, shared by both rubrics; null when the rules don't say. */
+const perDayOf = (prompt: Partial<RulesConfig['prompt']>): GradingView['perDay'] => {
+  const perDay = Array.isArray(prompt.perDay)
+    ? prompt.perDay.flatMap((band) =>
+        typeof band.pct === 'number' && (band.upTo === null || typeof band.upTo === 'number')
+          ? [{ upTo: band.upTo, pct: band.pct }]
+          : [],
+      )
+    : []
+  return perDay.length === 0 ? null : perDay
+}
+
+/** Rubric 2's grading step: its own XP, loot chance and great grade, and the content measures that make the grade. */
+const gradingV2Of = (
+  prompt: Partial<RulesConfig['prompt']>,
+  loot: Partial<RulesConfig['loot']>,
+  minWords: number,
+): GradingView => {
+  const v2: Record<string, unknown> = isRecord(prompt.v2) ? prompt.v2 : {}
+  const weights: Record<string, unknown> = isRecord(v2['weights']) ? v2['weights'] : {}
+  const ownLoot: Record<string, unknown> = isRecord(v2['loot']) ? v2['loot'] : {}
+  return {
+    rubric: 2,
+    minWords,
+    maxXp: numberOr(v2['maxXp']),
+    perDay: perDayOf(prompt),
+    // The content measures that count toward the grade; every one of them when the rules don't say.
+    counted: measures
+      .filter((one) => one.isContent && (!isRecord(v2['weights']) || (numberOr(weights[one.id]) ?? 0) > 0))
+      .map((one) => one.id),
+    lootAtTen: numberOr(ownLoot['chanceAtTen']),
+    greatAt: numberOr(ownLoot['greatAt']),
+    // Shared by both rubrics.
     greatFactor: numberOr(loot.promptGreatRareFactor),
   }
 }
@@ -215,7 +251,8 @@ export const xpText = (maxXp: number | null): string =>
   maxXp === null
     ? 'The better the grade, the more XP the prompt earns.'
     : // As the engine rounds a grant: to the thousandth.
-      `A 10 earns ${maxXp} XP and a 7 earns ${Math.round(maxXp * 700) / 1000}, before your sigil and boosts.`
+      `A prompt earns up to ${maxXp} XP, at a 10, and ${Math.round(maxXp * 700) / 1000} at a 7, before your ` +
+      'sigil and boosts.'
 
 /** The loot a grade rolls for, in a sentence, from the rules' chance at a 10 and the great grade's lift. */
 export const lootText = (grading: Pick<GradingView, 'lootAtTen' | 'greatAt' | 'greatFactor'>): string => {
@@ -223,7 +260,7 @@ export const lootText = (grading: Pick<GradingView, 'lootAtTen' | 'greatAt' | 'g
   const chance =
     lootAtTen === null
       ? 'It also rolls for loot, likelier the better the grade'
-      : `It also rolls for loot: a ${Math.round(lootAtTen * 100)}% chance at a 10, less as the grade falls`
+      : `It also rolls for loot: a ${Math.round(lootAtTen * 1000) / 10}% chance at a 10, less as the grade falls`
   const lift =
     greatAt === null || greatFactor === null || greatFactor <= 1
       ? ''
@@ -241,9 +278,9 @@ const heading = (n: number, words: string): Row => [
   { text: words, bold: true },
 ]
 
-/** The quality scores that count, each with what raises it, the labels lined up. */
-const scoreRows = (counted: ReadonlyArray<string>, width: number): Array<Row> => {
-  const shown = dimensions.filter((one) => counted.includes(one.id))
+/** The scores that count, by the rubric's names, each with what raises it, the labels lined up. */
+const scoreRows = (counted: ReadonlyArray<string>, rubric: GradingView['rubric'], width: number): Array<Row> => {
+  const shown = (rubric === 2 ? measures : dimensions).filter((one) => counted.includes(one.id))
   const labels = Math.max(0, ...shown.map((one) => cellsOf(one.label)))
   return shown.map((one) =>
     clip(
@@ -275,8 +312,12 @@ export const gradingPoints = (grading: GradingView, width: number, online?: stri
     key: 'private',
     title: heading(2, 'Only the scores reach the game'),
     text: text(
-      `Haiku reads the prompt, as Claude does. The game server, ${serverWhere(online)}, gets its scores and a ` +
-        "word count: never the prompt, and never Haiku's note.",
+      grading.rubric === 2
+        ? `Haiku reads the prompt, as Claude does. The game server, ${serverWhere(online)}, gets its scores, its ` +
+            "kind, whether it is spelled clean and a word count: never the prompt, Haiku's note or the words it " +
+            'found misspelled.'
+        : `Haiku reads the prompt, as Claude does. The game server, ${serverWhere(online)}, gets its scores and a ` +
+            "word count: never the prompt, and never Haiku's note.",
     ),
     rows: [],
   },
@@ -292,15 +333,25 @@ export const gradingPoints = (grading: GradingView, width: number, online?: stri
     key: 'good',
     title: heading(4, 'What makes a well-graded prompt'),
     text: text(
-      'Each score is out of 10, against what the prompt needs: a short follow-up loses nothing for context it ' +
-        "doesn't need.",
+      grading.rubric === 2
+        ? 'Each score is out of 10, against what the prompt needs at that point: a short reply to a question loses ' +
+            "nothing for the files or tests it doesn't need."
+        : 'Each score is out of 10, against what the prompt needs: a short follow-up loses nothing for context it ' +
+            "doesn't need.",
     ),
-    rows: scoreRows(grading.counted, width),
+    rows: scoreRows(grading.counted, grading.rubric, width),
   },
   {
     key: 'rewards',
     title: heading(5, 'From grade to XP and loot'),
-    text: text(`The scores make the prompt's grade, from 0 to 10. ${xpText(grading.maxXp)} ${lootText(grading)}`),
+    text: text(
+      `${
+        grading.rubric === 2
+          ? "These make the prompt's grade, from 0 to 10, with a little more for clear writing, clean spelling and " +
+            'kind words.'
+          : "The scores make the prompt's grade, from 0 to 10."
+      } ${xpText(grading.maxXp)} ${lootText(grading)}`,
+    ),
     rows: [],
   },
   {

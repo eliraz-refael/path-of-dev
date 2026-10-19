@@ -45,6 +45,21 @@ export const dimensions: ReadonlyArray<{ id: string; label: string; tip: string 
   { id: 'focus', label: 'Focus', tip: 'one well-sized ask at a time' },
 ]
 
+/**
+ * Rubric 2's measures in its order, as the tab names them, with what raises each: the six content measures, which the
+ * grade is made of, then the writing's craft and its tone, which only nudge it.
+ */
+export const measures: ReadonlyArray<{ id: string; label: string; tip: string; isContent: boolean }> = [
+  { id: 'intent', label: 'Intent', tip: 'make clear what you want back', isContent: true },
+  { id: 'grounding', label: 'Grounding', tip: 'point at the files, errors, logs', isContent: true },
+  { id: 'why', label: 'Why', tip: 'share the reasons and limits', isContent: true },
+  { id: 'successShape', label: 'Success shape', tip: 'say what good looks like', isContent: true },
+  { id: 'scope', label: 'Scope', tip: 'one well-sized ask at a time', isContent: true },
+  { id: 'forward', label: 'Forward', tip: 'add a decision, a fact, a method', isContent: true },
+  { id: 'craft', label: 'Craft', tip: 'well-formed, well-composed sentences', isContent: false },
+  { id: 'tone', label: 'Tone', tip: 'kind words land best', isContent: false },
+]
+
 /** A grade's color, as loot's: the better the grade, the rarer it looks. */
 const gradeTier = (grade: number): Tier =>
   grade >= 9 ? 'legendary' : grade >= 8 ? 'epic' : grade >= 6.5 ? 'rare' : grade >= 5 ? 'uncommon' : 'common'
@@ -210,20 +225,27 @@ const promptsCard = (stats: StatsView, width: number): StatCard => {
       line([{ text: 'Graded' }], [{ text: counted(prompts.graded), bold: true }], width),
       line([{ text: 'Today' }], [{ text: counted(prompts.today) }], width),
       ...(prompts.graded === 0 ? [hint('Prompts you type are graded.', width)] : meters(grades, width)),
-      line([{ text: 'Regretted' }], [{ text: counted(prompts.regretted) }, dim(share)], width),
+      // Rubric 2 has no regret: its prompts never count one.
+      ...(stats.isMeasured === true
+        ? []
+        : [line([{ text: 'Regretted' }], [{ text: counted(prompts.regretted) }, dim(share)], width)]),
     ],
   }
 }
 
-/** The profile's dimensions in the rubric's order, then any the mod doesn't know yet, by the server's name. */
-const ordered = (profile: NonNullable<StatsView['profile']>) => {
-  const known = dimensions.flatMap((one) => {
+/**
+ * The profile's dimensions in the rubric's order, then any the mod doesn't know yet, by the server's name. Each says
+ * whether it is advice the tab may give: every rubric 1 score, and rubric 2's content measures, never craft or tone.
+ */
+const ordered = (profile: NonNullable<StatsView['profile']>, isMeasured: boolean) => {
+  const named = isMeasured ? measures : dimensions.map((one) => ({ ...one, isContent: true }))
+  const known = named.flatMap((one) => {
     const found = profile.find((entry) => entry.dimension === one.id)
     return found === undefined ? [] : [{ ...one, average: found.average }]
   })
   const others = profile
-    .filter((entry) => !dimensions.some((one) => one.id === entry.dimension))
-    .map((entry) => ({ id: entry.dimension, label: entry.dimension, tip: '', average: entry.average }))
+    .filter((entry) => !named.some((one) => one.id === entry.dimension))
+    .map((entry) => ({ id: entry.dimension, label: entry.dimension, tip: '', isContent: true, average: entry.average }))
   return [...known, ...others]
 }
 
@@ -233,12 +255,13 @@ const profileCard = (stats: StatsView, width: number): StatCard => {
   if (stats.prompts.graded === 0 || stats.profile.length === 0) {
     return card([hint('Fills in as your prompts are graded,', width), hint('one bar per quality score.', width)])
   }
-  const shown = ordered(stats.profile)
-  const top = Math.max(...shown.map((one) => one.average))
-  const low = Math.min(...shown.map((one) => one.average))
+  const shown = ordered(stats.profile, stats.isMeasured === true)
+  const advised = shown.filter((one) => one.isContent)
+  const top = Math.max(...advised.map((one) => one.average))
+  const low = Math.min(...advised.map((one) => one.average))
   // The first at the top and the first at the bottom, and only when the scores differ at all.
-  const strongest = top > low ? shown.find((one) => one.average === top) : undefined
-  const weakest = top > low ? shown.find((one) => one.average === low) : undefined
+  const strongest = top > low ? advised.find((one) => one.average === top) : undefined
+  const weakest = top > low ? advised.find((one) => one.average === low) : undefined
   const rows = meters(
     shown.map((one): Meter => {
       const isStrongest = one === strongest

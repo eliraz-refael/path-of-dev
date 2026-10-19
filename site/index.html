@@ -246,7 +246,7 @@
       <div>
         <p class="eyebrow">An RPG for your Claude Code sessions</p>
         <h1>Every prompt you write gets graded. <span class="lit">Good ones level you up.</span></h1>
-        <p class="lede">Path of Dev scores each prompt you send on clarity, specificity and five other qualities, and turns the grade into XP, loot and a pixel pet that grows with you. Shipping real work on GitHub pays the big bonuses.</p>
+        <p class="lede">Path of Dev grades each prompt you send against what it needs (a clear ask, the right pointers, a picture of done) and turns the grade into XP, loot and a pixel pet that grows with you. Shipping real work on GitHub pays the big bonuses.</p>
         <div class="cta-row">
           <a class="btn" href="https://github.com/eliraz-refael/path-of-dev" target="_blank" rel="noopener">
             <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -263,14 +263,14 @@
   <span class="t-you">Fix the offset math so the date tests pass</span>
   <span class="t-you">again, and don't touch the public API.</span>
 
-<span class="t-grade">✦ Graded 8.6</span><span class="t-dim">/10</span>                      <span class="t-xp">+17 XP</span>
-<span class="t-dim">  clarity 9 · specificity 9 · done 9 · focus 9</span>
+<span class="t-grade">✦ Graded 8.9</span><span class="t-dim">/10</span>                      <span class="t-xp">+13 XP</span>
+<span class="t-dim">  intent 9 · grounding 9 · done 9 · scope 9</span>
 <span class="t-dim">  “clear target, testable finish”</span>
 
 <span class="t-unc">✦ Loot: Knit Scarf</span> <span class="t-dim">[uncommon]</span></pre>
           <div class="band">
             <pre id="band"><span class="t-edge">╡</span> ⚔ <span class="t-title">Lv 7 · Apprentice</span> <span class="t-edge">╞════════════◇═══</span>
- <span class="t-full">█████████</span><span class="t-empty">░░░░░░░░░░░</span> <span class="t-dim">2,797 / 3,155</span>  <span class="t-gold">●</span> 412</pre>
+ <span class="t-full">█████████</span><span class="t-empty">░░░░░░░░░░░</span> <span class="t-dim">2,793 / 3,155</span>  <span class="t-gold">●</span> 412</pre>
             <canvas id="pet" width="14" height="12" role="img" aria-label="Pixel pet"></canvas>
           </div>
         </div>
@@ -280,19 +280,19 @@
     <section class="block" id="grading">
       <div class="sec-head">
         <h2>How a prompt is graded.</h2>
-        <p>A small model scores every prompt of six words or more on seven qualities, each from 0 to 10, against what that prompt actually needs. A quick follow-up question isn't marked down for skipping context it doesn't need.</p>
+        <p>A small model grades every prompt of six words or more against what that prompt actually needs: six measures of what it says, each from 0 to 10, and a little more for clear writing and a kind tone. A quick follow-up question isn't marked down for skipping a why it doesn't need.</p>
       </div>
       <div class="grade-grid">
         <div class="card">
           <p class="sample">parseDue fails on DST days in src/dates.ts. Fix the offset math so the date tests pass again, and don't touch the public API.</p>
           <div class="scores" id="scores"></div>
-          <div class="total"><span class="g">8.6<small> / 10</small></span><span class="x">+17 XP</span></div>
+          <div class="total"><span class="g">8.9<small> / 10</small></span><span class="x">+13 XP</span></div>
           <p class="note">Grader's note: “clear target, testable finish”</p>
         </div>
         <div class="rules">
           <div class="rule">
-            <h3>Up to 20 XP a prompt</h3>
-            <p>Your XP is your average grade times two, so a perfect 10 earns 20. Prompts are where the daily XP comes from.</p>
+            <h3>Up to 15 XP a prompt</h3>
+            <p>Your XP is your grade times one and a half, so a perfect 10 earns 15. Prompts are where the daily XP comes from.</p>
           </div>
           <div class="rule">
             <h3>Quality over volume</h3>
@@ -305,7 +305,7 @@
           </div>
           <div class="rule">
             <h3>The game never sees your prompts</h3>
-            <p>Grading runs inside your own Claude Code. The game server receives only the scores. Your prompt text and the grader's note never reach it.</p>
+            <p>Grading runs inside your own Claude Code. The game server receives only the scores, and whether the prompt was spelled clean. Your prompt text, the grader's note and any word it flagged never reach it.</p>
           </div>
         </div>
       </div>
@@ -320,7 +320,7 @@
         <table class="ledger">
           <thead><tr><th>What you did</th><th>Daily limit</th><th class="xp-h">XP</th></tr></thead>
           <tbody>
-            <tr class="daily"><td class="what">A graded prompt<small>your average grade × 2</small></td><td class="cap">tapers after 20</td><td class="xp">up to 20</td></tr>
+            <tr class="daily"><td class="what">A graded prompt<small>your grade × 1.5</small></td><td class="cap">tapers after 20</td><td class="xp">up to 15</td></tr>
             <tr><td class="what">First contribution to a repo <span class="gh">GitHub</span></td><td class="cap">none</td><td class="xp">300</td></tr>
             <tr><td class="what">Pull request merged<small>120 on your own repo</small></td><td class="cap">none</td><td class="xp">250</td></tr>
             <tr><td class="what">Bug fixed <span class="gh">GitHub</span></td><td class="cap">5 a day</td><td class="xp">150</td></tr>
@@ -340,7 +340,7 @@
     <section class="block" id="loot">
       <div class="sec-head">
         <h2>Better prompts, better loot.</h2>
-        <p>Each turn can drop an item: 12% of the time at an average grade of 5, rising to 24% at a perfect 10. A grade of 9 or more doubles the odds of rare and better. Every level-up drops one too.</p>
+        <p>Each turn can drop an item, 12% of the time, and each graded prompt rolls too: 17.5% of the time at a perfect 10, less as its grade falls. A grade of 9 or more doubles the odds of rare and better. Every level-up drops one too.</p>
       </div>
       <div class="odds" role="img" aria-label="Base drop odds: common 60.4%, uncommon 25.1%, rare 10.1%, epic 4%, legendary 0.4%">
         <span style="flex:604;background:var(--common)"></span><span style="flex:251;background:var(--uncommon)"></span><span style="flex:101;background:var(--rare)"></span><span style="flex:40;background:var(--epic)"></span><span style="flex:4;background:var(--legendary)"></span>
@@ -361,9 +361,9 @@
         <p>Three dailies every day. Each week, five weeklies are on offer and you run three of them.</p>
       </div>
       <div class="quests">
-        <article class="quest" style="--c:var(--uncommon)"><h3>Clear Thinker</h3><span class="cadence tag">Daily</span><p>Write 5 prompts with clarity 8 or more today.</p><div class="reward"><span>+50 XP</span><span class="g">● 30 gold</span></div></article>
-        <article class="quest" style="--c:var(--uncommon)"><h3>Finish Line</h3><span class="cadence tag">Daily</span><p>Write 3 prompts that say how to know the work is done.</p><div class="reward"><span>+40 XP</span><span class="g">● 25 gold</span></div></article>
-        <article class="quest" style="--c:var(--rare);--c2:var(--epic)"><h3>Wordsmith's Week</h3><span class="cadence tag">Weekly</span><p>Get 25 prompts graded 8 or more this week.</p><div class="reward"><span>+300 XP</span><span class="g">● 150 gold</span><span class="l">✦ epic loot</span></div></article>
+        <article class="quest" style="--c:var(--uncommon)"><h3>Clear Thinker</h3><span class="cadence tag">Daily</span><p>Write 5 prompts that make clear what you want (8 or more) today.</p><div class="reward"><span>+50 XP</span><span class="g">● 30 gold</span></div></article>
+        <article class="quest" style="--c:var(--uncommon)"><h3>Finish Line</h3><span class="cadence tag">Daily</span><p>Write 3 prompts that say what done looks like (7 or more) today.</p><div class="reward"><span>+40 XP</span><span class="g">● 25 gold</span></div></article>
+        <article class="quest" style="--c:var(--rare);--c2:var(--epic)"><h3>Wordsmith's Week</h3><span class="cadence tag">Weekly</span><p>Get 25 prompts graded very well this week.</p><div class="reward"><span>+300 XP</span><span class="g">● 150 gold</span><span class="l">✦ epic loot</span></div></article>
         <article class="quest" style="--c:var(--rare);--c2:var(--rare)"><h3>Ship It</h3><span class="cadence tag">Weekly</span><p>Get a pull request merged this week.</p><div class="reward"><span>+250 XP</span><span class="g">● 120 gold</span><span class="l">✦ rare wearable</span></div></article>
       </div>
       <p class="quest-note">Others ask you to turn a red test suite green, keep context under half for three sessions, or run a code review three times in a week.</p>
@@ -398,15 +398,16 @@
 
 <script>
 (() => {
-  // --- the rubric card: the grader's seven qualities for the sample prompt
+  // --- the rubric card: the grader's measures for the sample prompt, the six that make the grade and the two that nudge it
   const rubric = [
-    ["clarity", 9, "the ask is unambiguous and easy to follow"],
-    ["specificity", 9, "points at the files, errors or symbols involved"],
-    ["instructive", 9, "concrete direction: what, where, constraints"],
-    ["done criteria", 9, "says how to know it's finished"],
-    ["focus", 9, "one well-sized ask, not a sprawling list"],
-    ["grammar", 8, "spelling, grammar and punctuation"],
-    ["context", 7, "gives the why behind the ask"],
+    ["intent", 9, "clear about what it wants back"],
+    ["grounding", 9, "points at the files, errors or code involved"],
+    ["why", 7, "the reasons and limits behind the ask"],
+    ["success shape", 9, "says what done looks like"],
+    ["scope", 9, "one well-sized ask, not a sprawling list"],
+    ["forward", 8, "moves the work on: a decision, a fact, a method"],
+    ["craft", 8, "well-formed, well-composed writing"],
+    ["tone", 6, "plain and civil; kind words lift it a little"],
   ];
   document.getElementById("scores").innerHTML = rubric.map(([name, n, desc]) =>
     `<div class="score"><span class="name">${name}</span><span class="meter" aria-hidden="true">${
@@ -471,8 +472,8 @@
   const grading = `<span class="t-dim">  grading…</span>`;
   const grade = [
     ``,
-    `<span class="t-grade">✦ Graded 8.6</span><span class="t-dim">/10</span>                      <span class="t-xp">+17 XP</span>`,
-    `<span class="t-dim">  clarity 9 · specificity 9 · done 9 · focus 9</span>`,
+    `<span class="t-grade">✦ Graded 8.9</span><span class="t-dim">/10</span>                      <span class="t-xp">+13 XP</span>`,
+    `<span class="t-dim">  intent 9 · grounding 9 · done 9 · scope 9</span>`,
     `<span class="t-dim">  “clear target, testable finish”</span>`,
   ];
   const loot = [``, `<span class="t-unc">✦ Loot: Knit Scarf</span> <span class="t-dim">[uncommon]</span>`];
@@ -490,7 +491,7 @@
       band.innerHTML = bandAt(2780);
       for (let n = 1; n <= prompt.length; n++) { render(prompt.slice(0, n), 1); await sleep(520); }
       render([...prompt, "", grading], 1); await sleep(1100);
-      render([...prompt, ...grade], 3); await animateXp(2780, 2797); await sleep(1300);
+      render([...prompt, ...grade], 3); await animateXp(2780, 2793); await sleep(1300);
       render([...prompt, ...grade, ...loot], 1);
     }
   };

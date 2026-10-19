@@ -4,6 +4,7 @@ import type { BandView, GainLine, OwnedItem, StatsView, Wardrobe } from '../type
 import { heartsFor, knowsCareOf } from './care'
 import { badgeLabel, badgeOf, boostText, foodOf, tierOf } from './celebrate'
 import { faceOf, shownGrade } from './pet-motion'
+import { isRecord } from './server'
 import { knowsSigilsOf, multiplierText, sigilOf, wornSigil } from './sigils'
 
 // What the band draws, worked out from the server's snapshot and stream; no game rule is computed here.
@@ -84,6 +85,9 @@ export const statsViewOf = (
   const crossed: Partial<PlayerStats['contextCrossed']> = stats.contextCrossed ?? {}
   const compactions: Partial<PlayerStats['compactions']> = stats.compactions ?? {}
   const dimensions: Readonly<Record<string, unknown>> | null = stats.grades?.dimensions ?? null
+  // Once the counts are rubric 2's, its measures are the profile; rubric 1's scores all read 0 from then on.
+  const measures: unknown = stats.grades?.measures
+  const profile: Readonly<Record<string, unknown>> | null = isRecord(measures) ? measures : dimensions
   const streak: Partial<Snapshot['character']['streak']> = snapshot.character.streak ?? {}
   const xp: Partial<Snapshot['character']['xp']> = snapshot.character.xp ?? {}
   const commands = Object.entries(stats.commands ?? {})
@@ -104,9 +108,10 @@ export const statsViewOf = (
       regretted: numberOr(prompts.regretted, 0),
     },
     profile:
-      dimensions === null
+      profile === null
         ? null
-        : Object.entries(dimensions).map(([dimension, average]) => ({ dimension, average: numberOr(average, 0) })),
+        : Object.entries(profile).map(([dimension, average]) => ({ dimension, average: numberOr(average, 0) })),
+    isMeasured: isRecord(measures),
     context: {
       lastSession: numberOr(peak.lastSession, 0),
       average: numberOr(peak.average, 0),

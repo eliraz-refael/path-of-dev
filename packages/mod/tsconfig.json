@@ -4,7 +4,9 @@
   "compilerOptions": {
     "customConditions": ["@pathofdev/source"],
     "allowImportingTsExtensions": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": true,
+    // The properties read their fixtures, and the manifest, as JSON imports.
+    "resolveJsonModule": true
   },
   // The engine's tsconfig takes hooks/, types/ and tests/; the properties in test/ (run by vitest) too.
   "include": ["hooks", "types", "tests", "test"]
