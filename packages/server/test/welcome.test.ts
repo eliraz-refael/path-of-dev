@@ -86,7 +86,7 @@ describe("the welcome, end to end", () => {
         yield* api.runCommand({ payload: picked })
         yield* api.runCommand({ payload: { id: nextId(), type: "dev.grantXp", data: { amount: 150 } } })
         // The command names the fox Ember, as an older mod's does: the egg picked wins.
-        expect(typesOf(yield* api.runCommand({ payload: hatch() }))).toEqual(["pet.hatched"])
+        expect(typesOf(yield* api.runCommand({ payload: hatch() }))).toEqual(["pet.hatched", "achievement.unlocked"])
         const before = (yield* api.openSession({ payload: { sessionId: session } })).snapshot
         expect(before.pet).toMatchObject({ species: "robot", name: "Bolt" })
         expect(before.egg).toBeNull()

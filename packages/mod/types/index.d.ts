@@ -18,7 +18,7 @@ export type BandView = {
 }
 
 /** A line at the end of the band for what the stream brought. */
-export type GainLine = { text: string; tone: 'xp' | 'level' | 'loot' | 'gold' | 'quest' | 'pet' | 'quiet' }
+export type GainLine = { text: string; tone: 'xp' | 'level' | 'badge' | 'loot' | 'gold' | 'quest' | 'pet' | 'quiet' }
 
 /** The last line the stream brought, shown until the next one or until `until` (clock ms), when it fades. */
 export type Gain = GainLine & { until: number }
@@ -35,6 +35,7 @@ export type Celebration =
   | { kind: 'loot'; tier: Tier; name: string; gold: number; more: number }
   | { kind: 'level'; tier: Tier; from: number; to: number; glyph: string; title: string | null; evolved: boolean }
   | { kind: 'quest'; tier: Tier; title: string; rewards: string; more: number }
+  | { kind: 'badge'; tier: Tier; title: string; glyph: string; more: number }
 
 /** How the player wants celebrations: animated, as one still frame without the band growing, or not at all. */
 export type Motion = 'full' | 'reduced' | 'off'

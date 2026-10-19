@@ -20,6 +20,12 @@ export const GitSha = Schema.String.pipe(Schema.check(Schema.isPattern(/^(?:[0-9
 
 export const Count = Schema.Natural
 
+/** How many of something a mission or an achievement asks for: at least one. */
+export const Goal = Count.pipe(Schema.check(Schema.isGreaterThan(0)))
+
+/** A grade or a quality score, 0-10. */
+export const Score = Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 10 })))
+
 /** A factor on XP: 1 changes nothing, and nothing in the game lowers XP. */
 export const Multiplier = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)))
 

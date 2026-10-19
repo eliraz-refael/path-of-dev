@@ -1,14 +1,11 @@
 import { Schema } from "effect"
 import { CommandName } from "./client-events.ts"
-import { Count, IsoDateTime, ItemCategory, Percent, QualityDimension, Rarity } from "./primitives.ts"
+import { Count, Goal, IsoDateTime, ItemCategory, Percent, QualityDimension, Rarity, Score } from "./primitives.ts"
 import { ScoringFact } from "./rules.ts"
 
 // Quest packs are plain JSON the server loads: from a folder on a local server, from the quest board on the public
 // one. Packs hold data only, never code, so a community pack can't run anything on a player's machine. The daily and
 // weekly quests are called missions.
-
-const Goal = Count.pipe(Schema.check(Schema.isGreaterThan(0)))
-const Score = Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 10 })))
 
 /** A scoring fact counted `count` times in the mission's window, each piece of work once, capped or not. */
 export const FactGoal = Schema.Struct({

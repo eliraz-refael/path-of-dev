@@ -27,6 +27,7 @@ import type {
   SystemEvent,
   XpRule,
 } from "@pathofdev/schema"
+import { unlockAchievements } from "./achievements.ts"
 import { addDays, isLater, localDay } from "./days.ts"
 import { formFor, formsFor, glyphFor, happyBonusPct, levelOf, moodNow, titleFor, totalXp } from "./derive.ts"
 import type { RarityWeights } from "./loot.ts"
@@ -59,9 +60,9 @@ import { streakAsOf } from "./streak.ts"
 // sigil), levels, the streak, a loot roll per turn, per graded prompt (better odds for a better grade) and per
 // level-up, the player stats, the daily and weekly missions (parallel ones from the sessions the server says are open)
 // and their XP boosts, hatching the pet and caring for it (food and pats), equipping items, the shop, trading
-// duplicates in (a re-roll for gold, or shards that craft a chosen item), and the first-run welcome's choices (the
-// character's name, the egg's species and name, and the welcome done). Verified-tier facts wait for the verifier, and
-// other commands are refused for now.
+// duplicates in (a re-roll for gold, or shards that craft a chosen item), the first-run welcome's choices (the
+// character's name, the egg's species and name, and the welcome done), and the achievements an accepted step earns.
+// Verified-tier facts wait for the verifier, and other commands are refused for now.
 
 /** What one step builds up. It lives only inside `step`, so the function stays pure. */
 interface Run {
@@ -83,14 +84,23 @@ const bookkeeping: ReadonlyArray<SystemEvent["type"]> = ["xp.carried"]
 const isBookkeeping = (input: Input): boolean => input.kind === "system" && bookkeeping.includes(input.event.type)
 
 /**
- * Every step first rolls the missions of a local day or week begun since the last roll, then applies its input. A
- * refused command changes nothing, the roll included: the next step rolls instead. Bookkeeping rolls nothing.
+ * Every step first rolls the missions of a local day or week begun since the last roll, then applies its input, then
+ * unlocks the achievements the state now earns. A refused command changes nothing, the roll included: the next step
+ * rolls instead. Bookkeeping rolls nothing and unlocks nothing, as its migration did neither.
+ *
+ *   input ─▶ rollQuests ─▶ dispatch ─┬─ refused ──────▶ the state before, nothing else
+ *                                    ├─ bookkeeping ──▶ as dispatched
+ *                                    └─ else ─────────▶ unlockAchievements: its events last
  */
 export const step = (state: PlayerState, input: Input, context: Context): Step => {
-  const rolled = isBookkeeping(input) ? { state, events: [] } : rollQuests(state, context)
+  const bookkept = isBookkeeping(input)
+  const rolled = bookkept ? { state, events: [] } : rollQuests(state, context)
   const result = dispatch(rolled.state, input, context)
   if (result.refusal !== null) return refuse(state, result.refusal)
-  return rolled.events.length === 0 ? result : { ...result, events: [...rolled.events, ...result.events] }
+  const unlocked = bookkept ? { state: result.state, events: [] } : unlockAchievements(result.state, context)
+  return rolled.events.length === 0 && unlocked.events.length === 0
+    ? result
+    : { ...result, state: unlocked.state, events: [...rolled.events, ...result.events, ...unlocked.events] }
 }
 
 const dispatch = (state: PlayerState, input: Input, context: Context): Step => {
@@ -594,6 +604,7 @@ const complete = (run: Run, mission: Mission, def: QuestDef): void => {
   if (granted) return
   const done = { questId: mission.questId, packId: mission.packId, window: mission.window, completedAt: now }
   setHoldings(run, { completedQuests: [...holdings.completedQuests, done] })
+  setProgress(run, { missionsCompleted: run.state.progress.missionsCompleted + 1 })
   const { rewards } = def
   const tier = rules.missions[mission.cadence].tier
   run.events.push({ type: "quest.completed", data: { questId: def.id, title: def.title, tier, rewards } })

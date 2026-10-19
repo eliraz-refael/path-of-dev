@@ -1,12 +1,13 @@
 import { it } from "@effect/vitest"
 import type { DevGrantXp } from "@pathofdev/schema"
-import { Effect, Exit, Layer } from "effect"
+import { BandSlot, Rarity } from "@pathofdev/schema"
+import { Effect, Exit, Layer, Schema } from "effect"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it as test } from "vitest"
 import { starterCatalog, starterRules } from "@pathofdev/engine"
-import { catalog, checkedCatalog, claimHome, core, DevMode, isDevMode, localPaths, localServer, WrongHome } from "../src/index.ts"
+import { catalog, checkedRules, claimHome, core, DevMode, isDevMode, localPaths, localServer, WrongHome } from "../src/index.ts"
 import { client, freshDatabase, nextId, profile, prompt, session, unnamed, withEnv, withoutQuests, withServer } from "./fixtures.ts"
 
 // Dev mode: a sandbox save in a home of its own, the only place the dev commands run.
@@ -153,8 +154,28 @@ describe("the catalogue the server runs", () => {
         ? { ...item, sigil: { ...item.sigil, multiplier: 3 } }
         : item,
     )
-    expect(() => checkedCatalog(starterRules, off)).toThrow("wyrm-sigil: ×3 is outside legendary's ×2.3-2.5")
+    expect(() => checkedRules(starterRules, off)).toThrow("wyrm-sigil: ×3 is outside legendary's ×2.3-2.5")
   })
+
+  it.prop(
+    "stops the server when it lacks what a badge counts: a legendary to own, or a style for each band slot",
+    [Schema.Array(Rarity), Schema.Array(BandSlot)],
+    ([rarities, slots]) => {
+      const kept = starterCatalog.filter(
+        (item) =>
+          !rarities.includes(item.rarity) &&
+          !(item.category === "bandStyle" && slots.some((slot) => slot === item.slot)),
+      )
+      const styled = (slot: string) => kept.some((item) => item.category === "bandStyle" && item.slot === slot)
+      const short = [
+        ...(kept.some((item) => item.rarity === "legendary") ? [] : ["legendary-find"]),
+        ...(BandSlot.literals.every(styled) ? [] : ["full-band"]),
+      ]
+      const [first] = short
+      if (first === undefined) expect(checkedRules(starterRules, kept)).toBe(kept)
+      else expect(() => checkedRules(starterRules, kept)).toThrow(first)
+    },
+  )
 })
 
 describe("dev mode", () => {

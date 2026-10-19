@@ -1,11 +1,108 @@
-import type { BandFrame, BandLook, BandSlot, ItemDef, Rarity, RulesConfig } from "@pathofdev/schema"
+import type {
+  AchievementDef,
+  BandFrame,
+  BandLook,
+  BandSlot,
+  Criterion,
+  ItemDef,
+  Metric,
+  Rarity,
+  RulesConfig,
+  ScoringFact,
+} from "@pathofdev/schema"
 
 // The starter config and catalogue a fresh local server begins with: the design doc's numbers. One deviation for
 // the proof of concept: merges are reported XP until the verifier lands, so the loop has its big moment.
 
+const count = (of: Metric, atLeast: number): Criterion => ({ kind: "count", of, atLeast })
+const fact = (fact: ScoringFact, atLeast: number): Criterion => count({ kind: "fact", fact }, atLeast)
+const badge = (
+  id: string,
+  name: string,
+  rarity: Rarity,
+  glyph: string,
+  about: string,
+  criterion: Criterion,
+): AchievementDef => ({ id, name, about, rarity, glyph, criterion })
+
+/**
+ * The starter badges, built on what the engine already counts. Their ids are kept for good: a renamed one would unlock
+ * again. Reviews and prestige get theirs once something counts them.
+ */
+export const starterAchievements: ReadonlyArray<AchievementDef> = [
+  badge("first-commit", "First commit", "common", "📝", "Make your first commit.", fact("commit.made", 1)),
+  badge("first-merge", "First merge", "common", "🔀", "Get a change merged.", fact("change.merged", 1)),
+  badge("hatched", "Hatchling", "common", "🥚", "Hatch your pet.", count({ kind: "hatched" }, 1)),
+  badge(
+    "first-mission",
+    "Mission accomplished",
+    "common",
+    "🎯",
+    "Complete a mission.",
+    count({ kind: "missions" }, 1),
+  ),
+  badge("commits-100", "Committed", "uncommon", "💯", "Make 100 commits.", fact("commit.made", 100)),
+  badge("merges-50", "Merge train", "rare", "🚂", "Get 50 changes merged.", fact("change.merged", 50)),
+  badge("prompts-500", "Wordsmith", "rare", "🪶", "Have 500 prompts graded.", fact("prompt.graded", 500)),
+  badge("streak-7", "A week strong", "uncommon", "🔥", "Keep a streak for 7 days.", count({ kind: "streak" }, 7)),
+  badge("streak-30", "Habit formed", "epic", "📅", "Keep a streak for 30 days.", count({ kind: "streak" }, 30)),
+  badge("streak-100", "Unbroken", "legendary", "♾️", "Keep a streak for 100 days.", count({ kind: "streak" }, 100)),
+  badge(
+    "perfect-prompt",
+    "Perfect prompt",
+    "rare",
+    "💎",
+    "Write a prompt graded 10.",
+    count({ kind: "bestGrade" }, 10),
+  ),
+  badge(
+    "sharp-prompter",
+    "Sharp prompter",
+    "epic",
+    "🧠",
+    "Keep a lifetime average grade of 8 or more over at least 100 graded prompts.",
+    { kind: "average", of: "promptGrade", atLeast: 8, over: 100 },
+  ),
+  badge(
+    "light-context",
+    "Light touch",
+    "rare",
+    "🍃",
+    "Keep a lifetime average context peak under 50% over at least 30 sessions.",
+    { kind: "average", of: "contextPeak", below: 50, over: 30 },
+  ),
+  badge(
+    "calm-25",
+    "Never past 75",
+    "rare",
+    "🧘",
+    "Finish 25 sessions whose context never reached 75%.",
+    count({ kind: "calmSessions", under: "pct75" }, 25),
+  ),
+  badge("level-10", "Level 10", "common", "🌱", "Reach level 10.", count({ kind: "level" }, 10)),
+  badge("level-25", "Level 25", "rare", "🌳", "Reach level 25.", count({ kind: "level" }, 25)),
+  badge("level-50", "Level 50", "legendary", "🏔️", "Reach level 50.", count({ kind: "level" }, 50)),
+  badge(
+    "legendary-find",
+    "Legendary find",
+    "epic",
+    "🏆",
+    "Own a legendary item.",
+    count({ kind: "owned", rarity: "legendary" }, 1),
+  ),
+  badge(
+    "full-band",
+    "Full band",
+    "epic",
+    "🎨",
+    "Own a band style for each of the band's four slots.",
+    count({ kind: "bandSlots", slots: ["xpBar", "levelDisplay", "topEdge", "goldDisplay"] }, 4),
+  ),
+]
+
 export const starterRules: RulesConfig = {
-  version: 11,
-  schemaVersion: 8,
+  version: 12,
+  schemaVersion: 9,
   appliesFrom: null,
   // Steeper than the 1.6 before sigils: a player wearing the sigil typical of their stage reaches each level about
   // when one without sigils did, on the doc's steady day of 400 XP of work and 200 of prompts. Level 1 stays 100 XP.
@@ -121,6 +218,7 @@ export const starterRules: RulesConfig = {
     weekly: { offered: 5, active: 3, tier: "rare" },
   },
   questPacks: ["starter"],
+  achievements: starterAchievements,
 }
 
 const item = (def: Pick<ItemDef, "id" | "name" | "rarity" | "category" | "slot"> & Partial<ItemDef>): ItemDef => ({

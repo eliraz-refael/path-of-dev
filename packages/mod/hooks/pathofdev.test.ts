@@ -2385,6 +2385,29 @@ describe('a mission completed', () => {
   })
 })
 
+describe('a badge unlocked', () => {
+  const badge = (achievementId: string, title: string, tier: string, glyph: string) =>
+    serverEvent('achievement.unlocked', { achievementId, title, tier, glyph })
+
+  test('a batch of badges plays once, as its rarest counting the rest, and the toast names them', async ($, on) => {
+    const { clock, send, toasts } = await streaming($, on, ownedOf())
+    await send(
+      ...causedBy(
+        '01K6ZQ8W3J0000000000000C02',
+        badge('first-commit', 'First commit', 'common', '📝'),
+        badge('streak-30', 'Habit formed', 'epic', '📅'),
+        badge('hatched', 'Hatchling', 'common', '🥚'),
+      ),
+    )
+    expect(toasts).toEqual(['Badges unlocked: 📝 First commit, 📅 Habit formed and 🥚 Hatchling'])
+    const seen = await samples($, clock, 5_000, 100)
+    expect(seen.some((all) => all.includes('B A D G E   U N L O C K E D'))).toBe(true)
+    expect(seen.some((all) => all.includes('Habit formed') && all.includes('+2 more'))).toBe(true)
+    expect(seen.every((all) => !all.includes('First commit'))).toBe(true)
+    expect(await gainLine($)).toBe('🥚 Hatchling · badge unlocked')
+  })
+})
+
 describe('dev mode: missions', () => {
   const run = ($: Parameters<TestBody>[0], args: string) => $.command.run({ command: 'pathofdev', args, origin: composer, presentation })
   const commandsOf = (sent: ReadonlyArray<Sent>) => sent.filter((one) => one.path === '/v1/commands').map((one) => one.body)

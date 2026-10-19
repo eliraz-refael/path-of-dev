@@ -274,10 +274,10 @@ describe("migrations", () => {
           }),
         ),
       )(stored)
-      // The welcome's migration after it marks them engine 13, rules 11.
+      // The welcome's and the achievements' migrations after it mark them engine 14, rules 12.
       expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
-        ["egg", 13, 11],
-        ["pet", 13, 11],
+        ["egg", 14, 12],
+        ["pet", 14, 12],
       ])
       expect(rows[1]?.state).toEqual(replayed)
       expect(rows[1]?.state.holdings.pet?.petted).toEqual([])
@@ -341,8 +341,8 @@ describe("migrations", () => {
         ),
       )(stored)
       expect(rows.map((row) => [row.player_id, row.log_seq, row.engine_version, row.rules_version])).toEqual([
-        ["egg", 2, 13, 11],
-        ["pet", 2, 13, 11],
+        ["egg", 2, 14, 12],
+        ["pet", 2, 14, 12],
       ])
       // Where a replay of the log ends: XP, the pet and everything else as they were, the welcome not done yet.
       expect(rows[1]?.state).toEqual(replayed)
@@ -406,10 +406,10 @@ describe("migrations", () => {
         ),
       )(stored)
       // Every row reads as what its state now is, carried or not, so nothing keyed on the versions carries it again;
-      // the shop's and the welcome's migrations after it mark them engine 13, rules 11.
+      // the shop's, the welcome's and the achievements' migrations after it mark them engine 14, rules 12.
       expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
-        ["mid", 13, 11],
-        ["new", 13, 11],
+        ["mid", 14, 12],
+        ["new", 14, 12],
       ])
       const [carried, untouched] = rows
       expect(carried?.state.progress.xp.reported).toBe(5000 + carriedXp(5000))
@@ -432,6 +432,68 @@ describe("migrations", () => {
       const stepped = step(saved, input, { ...context, mode: replaying })
       expect(stepped.state).toEqual(carried?.state)
       expect(stepped.events).toEqual([])
+    }).pipe(Effect.provide(testSql)),
+    coldStart,
+  )
+
+  it.effect("start the missions count of a player saved before achievements at the completions it holds, nothing else changed", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient
+      const before = Object.fromEntries(Object.entries(migrations).filter(([name]) => name < "0014"))
+      yield* runMigrations(before)
+      // A player who leveled up and completed two missions this week before the count, and one saved after it with
+      // three missions.
+      const fresh = initialState({ ...profile, now: start })
+      const done = (questId: string) => ({ questId, packId: "starter", window: "2026-10-05", completedAt: start })
+      const played: PlayerState = {
+        ...fresh,
+        progress: {
+          ...fresh.progress,
+          xp: { verified: 0, reported: 5000 },
+          totals: { "commit.made": 40 },
+          missionsCompleted: 2,
+        },
+        holdings: { ...fresh.holdings, peakLevel: 11, completedQuests: [done("ship-it"), done("tidy-up")] },
+      }
+      const { missionsCompleted: _missionsCompleted, ...uncounted } = played.progress
+      const counted: PlayerState = { ...fresh, progress: { ...fresh.progress, missionsCompleted: 3 } }
+      const players: Array<[string, unknown, number, number]> = [
+        ["old", { ...played, progress: uncounted }, 13, 11],
+        ["new", counted, 14, 12],
+      ]
+      for (const [id, state, engineVersion, rulesVersion] of players) {
+        yield* sql`
+          INSERT INTO players (id, github_user_id, github_login, display_name, roll_seed, created_at)
+          VALUES (${id}, NULL, NULL, 'Player', 'seed', ${start})
+        `
+        yield* sql`
+          INSERT INTO player_state (player_id, state, log_seq, server_seq, stream_epoch, engine_version, rules_version)
+          VALUES (${id}, ${JSON.stringify(state)}::jsonb, 3, 0, 1, ${engineVersion}, ${rulesVersion})
+        `
+      }
+      yield* migrate
+      const stored = yield* sql`
+        SELECT player_id, state, engine_version, rules_version FROM player_state ORDER BY player_id DESC
+      `
+      const rows = yield* Schema.decodeUnknownEffect(
+        Schema.Array(
+          Schema.Struct({
+            player_id: Schema.String,
+            state: PlayerState,
+            engine_version: Schema.Number,
+            rules_version: Schema.Number,
+          }),
+        ),
+      )(stored)
+      expect(rows.map((row) => [row.player_id, row.engine_version, row.rules_version])).toEqual([
+        ["old", 14, 12],
+        ["new", 14, 12],
+      ])
+      // No badge unlocks here: the player's next accepted step unlocks what their counts earn.
+      expect(rows[0]?.state).toEqual(played)
+      expect(rows[1]?.state).toEqual(counted)
+      expect(yield* sql`SELECT * FROM event_log`).toEqual([])
+      expect(yield* sql`SELECT * FROM server_events`).toEqual([])
     }).pipe(Effect.provide(testSql)),
     coldStart,
   )

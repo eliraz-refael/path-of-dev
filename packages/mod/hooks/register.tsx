@@ -28,7 +28,18 @@ import type {
 } from '../types'
 import { happyLine, moodWord } from './care'
 import { goldRow, labelRun, edgeRow, levelRow } from './band'
-import { celebrationOf, chimeOf, chimeWav, gapMs, idleMs, joinQueue, motionOf, queueOf, scriptOf } from './celebrate'
+import {
+  badgeBurstOf,
+  celebrationOf,
+  chimeOf,
+  chimeWav,
+  gapMs,
+  idleMs,
+  joinQueue,
+  motionOf,
+  queueOf,
+  scriptOf,
+} from './celebrate'
 import type { Row } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
 import type { Coach, Saying } from './coach'
@@ -229,6 +240,7 @@ const ownRows = 4
 const toneColor: Record<Gain['tone'], 'text' | 'suggestion' | 'claude' | 'warning' | 'success' | 'error'> = {
   xp: 'text',
   level: 'claude',
+  badge: 'claude',
   loot: 'suggestion',
   gold: 'warning',
   quest: 'success',
@@ -472,7 +484,8 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   const toast = toasts ? toastOf(events, petName) : null
   if (toast !== null) $.ui.toast(toast)
   const glyph = shown?.glyph ?? ''
-  const celebrations = motion === 'off' ? [] : events.flatMap((event) => celebrationOf(event, glyph) ?? [])
+  // A batch's badges play as one, so a dozen at once never push each other out of the queue.
+  const celebrations = motion === 'off' ? [] : badgeBurstOf(events.flatMap((event) => celebrationOf(event, glyph) ?? []))
   if (celebrations.length > 0) {
     lineup = celebrations.reduce(joinQueue, lineup)
     await saveQueue($)

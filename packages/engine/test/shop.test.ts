@@ -343,6 +343,8 @@ describe("caring for the pet", () => {
           xpBoost: { pct: 10, minutes: 60 },
         },
       },
+      // The player came with a hatched pet, and its badge unlocks on their next step.
+      { type: "achievement.unlocked", data: { achievementId: "hatched", title: "Hatchling", tier: "common", glyph: "🥚" } },
     ])
   })
 

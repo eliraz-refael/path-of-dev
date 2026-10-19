@@ -113,8 +113,13 @@ export interface StatCounters extends Schema.Schema.Type<typeof StatCounters> {}
 export const Progress = Schema.Struct({
   /** Level and title are derived from the total. */
   xp: Schema.Struct({ verified: Count, reported: Count }),
-  /** Lifetime count per fact kind: each piece of work once, whatever its XP or cap. Profiles and achievements read it. */
+  /**
+   * Lifetime count per fact kind: each piece of work once, whatever its XP or cap. A verified-tier fact isn't counted
+   * until the verifier confirms it. Profiles and achievements read it.
+   */
   totals: Schema.Record(ScoringFact, Schema.optionalKey(Count)),
+  /** Missions completed, lifetime, each once per window; counted from engine 14 on, so older completions are missing. */
+  missionsCompleted: Count,
   prestige: Count,
   /** XP that no longer counts toward the level: level = levelForXp(verified + reported - prestigeXp). */
   prestigeXp: Count,

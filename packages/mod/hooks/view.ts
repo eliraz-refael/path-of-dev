@@ -2,7 +2,7 @@ import type { PlayerStats, RulesConfig, ScoringFact, ServerEvent, Snapshot } fro
 import type { PluginOptions } from 'claude-code'
 import type { BandView, GainLine, OwnedItem, StatsView, Wardrobe } from '../types'
 import { heartsFor, knowsCareOf } from './care'
-import { boostText, foodOf, tierOf } from './celebrate'
+import { badgeLabel, badgeOf, boostText, foodOf, tierOf } from './celebrate'
 import { faceOf, shownGrade } from './pet-motion'
 import { knowsSigilsOf, multiplierText, sigilOf, wornSigil } from './sigils'
 
@@ -256,6 +256,8 @@ export const gainOf = (event: ServerEvent, pet = somePet): GainLine | null => {
       return event.data.days > 1 ? { text: `${event.data.days}-day streak`, tone: 'xp' } : null
     case 'quest.completed':
       return { text: `${event.data.title || 'Mission'} · mission complete`, tone: 'quest' }
+    case 'achievement.unlocked':
+      return { text: `${badgeLabel(badgeOf(event.data))} · badge unlocked`, tone: 'badge' }
     case 'quest.offered': {
       // A new day's dailies, or a new week's weeklies to pick from; an empty set only clears the old ones.
       const count = event.data.quests.length
@@ -289,7 +291,8 @@ export const batchesOf = <E extends { cause: string | null }>(events: ReadonlyAr
 }
 
 const toneRank: Record<GainLine['tone'], number> = {
-  level: 5,
+  level: 6,
+  badge: 5,
   quest: 4,
   loot: 3,
   pet: 3,
@@ -299,8 +302,8 @@ const toneRank: Record<GainLine['tone'], number> = {
 }
 
 /**
- * A batch's line names its biggest moment: a level-up, else a mission done, else a drop, else XP, else gold; the
- * latest among equals.
+ * A batch's line names its biggest moment: a level-up, else a badge, else a mission done, else a drop, else XP, else
+ * gold; the latest among equals.
  */
 export const batchGainOf = (events: ReadonlyArray<ServerEvent>, pet = somePet): GainLine | null =>
   events.reduce<GainLine | null>((best, event) => {
@@ -315,9 +318,19 @@ const sigilNote = (sigil: number, isAll: boolean): string =>
 /** Drops a toast names one by one; past them it counts the rest. */
 const toastItems = 3
 
+/** The badges a batch unlocked, for its toast: `Badges unlocked: 📝 First commit, 💯 Committed and 3 more`. */
+export const badgePart = (events: ReadonlyArray<ServerEvent>): Array<string> => {
+  const names = events.flatMap((event) => (event.type === 'achievement.unlocked' ? [badgeLabel(badgeOf(event.data))] : []))
+  if (names.length === 0) return []
+  if (names.length === 1) return [`Badge unlocked: ${names[0]}`]
+  const shown = names.length > toastItems ? names.slice(0, toastItems - 1) : names.slice(0, -1)
+  const last = names.length > toastItems ? `${names.length - shown.length} more` : names[names.length - 1]
+  return [`Badges unlocked: ${shown.join(', ')} and ${last}`]
+}
+
 /**
- * One toast for everything one cause earned, as `Mission complete: Ship It · +259 XP · Level 2! · Knit Scarf (rare)
- * · +130 gold`; null when it earned nothing.
+ * One toast for everything one cause earned, as `Mission complete: Ship It · Badge unlocked: 🎯 Mission accomplished
+ * · +259 XP · Level 2! · Knit Scarf (rare) · +130 gold`; null when it earned nothing.
  */
 export const toastOf = (events: ReadonlyArray<ServerEvent>, pet = somePet): string | null => {
   let xp = 0
@@ -365,6 +378,7 @@ export const toastOf = (events: ReadonlyArray<ServerEvent>, pet = somePet): stri
   const more = items.length - toastItems
   const parts = [
     ...missions,
+    ...badgePart(events),
     ...deeds,
     // Grants run to the thousandth; their sum is rounded back, so float error never shows.
     ...(xp > 0 ? [`+${xp} XP${sigilNote(sigil, multiplied === xp)}`] : []),

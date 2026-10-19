@@ -55,10 +55,25 @@ export const celebrationOf = (event: ServerEvent, glyph: string): Celebration | 
       const named = typeof title === 'string' && title !== '' ? title : 'Mission'
       return { kind: 'quest', tier: tierOf(tier), title: named, rewards: rewardsText(rewards ?? {}), more: 0 }
     }
+    case 'achievement.unlocked': {
+      const { tier } = event.data
+      // Read with care, as a newer server's badge may name what this mod doesn't know.
+      return { kind: 'badge', tier: typeof tier === 'string' ? tierOf(tier) : 'common', ...badgeOf(event.data), more: 0 }
+    }
     default:
       return null
   }
 }
+
+/** A badge's name and glyph from the wire, read with care: a newer server's may lack either. */
+export const badgeOf = (data: { readonly title?: unknown; readonly glyph?: unknown }) => ({
+  title: typeof data.title === 'string' && data.title !== '' ? data.title : 'Badge',
+  glyph: typeof data.glyph === 'string' && data.glyph !== '' ? data.glyph : '🏅',
+})
+
+/** A badge as the band, its line and the toast all name it: its glyph, then its name. */
+export const badgeLabel = (badge: { readonly title: string; readonly glyph: string }): string =>
+  `${badge.glyph} ${badge.title}`
 
 /** What a mission promised, in words: `+50 XP · +30 gold · +10% XP for 1h · rare drop`. */
 export const rewardsText = (rewards: QuestRewards): string =>
@@ -85,17 +100,43 @@ export const isSmall = (celebration: Celebration): boolean => celebration.kind !
 /** Past this many rare-or-bigger celebrations waiting, the smallest of them give way. */
 export const maxBig = 3
 
-const moreOf = (celebration: Celebration): number =>
-  celebration.kind === 'loot' || celebration.kind === 'quest' ? celebration.more : 0
+/** A celebration that can stand for others collapsed into it: a drop, a mission or a badge. */
+export const hasMore = (celebration: Celebration): celebration is Extract<Celebration, { more: number }> =>
+  celebration.kind === 'loot' || celebration.kind === 'quest' || celebration.kind === 'badge'
+
+const moreOf = (celebration: Celebration): number => (hasMore(celebration) ? celebration.more : 0)
 
 const withMore = (celebration: Celebration, more: number): Celebration =>
-  celebration.kind === 'loot' || celebration.kind === 'quest' ? { ...celebration, more } : celebration
+  hasMore(celebration) ? { ...celebration, more } : celebration
 
-/** Which of two small ones a collapse keeps: the bigger, a mission over a drop of its size, else the newer. */
+/** Among small ones of a size, what a collapse prefers to keep: a mission or a badge, then a level-up, then a drop. */
+const keepRank = (celebration: Celebration): number =>
+  celebration.kind === 'quest' || celebration.kind === 'badge' ? 2 : celebration.kind === 'level' ? 1 : 0
+
+/**
+ * Which of two small ones a collapse keeps: the bigger, a mission or a badge over a level-up or a drop of its size
+ * and a level-up over a drop, else the newer.
+ */
 const keptOf = (older: Celebration, newer: Celebration): Celebration =>
-  rankOf(older) > rankOf(newer) || (rankOf(older) === rankOf(newer) && older.kind === 'quest' && newer.kind !== 'quest')
+  rankOf(older) > rankOf(newer) || (rankOf(older) === rankOf(newer) && keepRank(older) > keepRank(newer))
     ? older
     : newer
+
+/**
+ * A batch's badges as one celebration, before they join the queue: the rarest of them (the first among equals)
+ * counting the rest, where the first one stood. A player's first step after badges arrive can earn a dozen at once,
+ * and the queue keeps only `maxBig` big ones, so each would otherwise push out the others unseen.
+ *
+ *   [xp, badge(common), loot, badge(epic), badge(rare)] ─▶ [xp, badge(epic, more 2), loot]
+ */
+export const badgeBurstOf = (celebrations: ReadonlyArray<Celebration>): Array<Celebration> => {
+  const badges = celebrations.filter((one) => one.kind === 'badge')
+  const [first] = badges
+  if (first === undefined || badges.length === 1) return [...celebrations]
+  const rarest = badges.reduce((best, one) => (tierRank(one.tier) > tierRank(best.tier) ? one : best))
+  const burst = { ...rarest, more: badges.reduce((sum, one) => sum + one.more + 1, 0) - 1 }
+  return celebrations.flatMap<Celebration>((one) => (one === first ? [burst] : one.kind === 'badge' ? [] : [one]))
+}
 
 /**
  * The queue with one more celebration in it, smallest first so the biggest plays last; equals keep their order. A

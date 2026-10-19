@@ -9,7 +9,6 @@ import type {
   InventoryEntry,
   PlayerState,
   Rarity,
-  Recorded,
   RulesConfig,
   Slot,
   Step,
@@ -19,7 +18,6 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import {
   glyphFor,
-  initialState,
   levelOf,
   maxCommands,
   project,
@@ -31,101 +29,22 @@ import {
   totalXp,
   xpForLevel,
 } from "../src/index.ts"
-
-const start = "2026-10-09T08:00:00Z"
-const session = "01K6ZQ8W3J5V7XKQ2M4N6P8R9T"
-const repo: { type: "github"; repo: string; key: string } = { type: "github", repo: "acme/widgets", key: "ab".repeat(32) }
-
-const fresh = (): PlayerState => initialState({ characterName: "Player", timezone: "UTC", now: start })
-
-const minutesLater = (minutes: number): string => new Date(Date.parse(start) + minutes * 60_000).toISOString()
-
-let ids = 0
-/** ULIDs in order: the time part fixed, the counter in the random part. */
-const nextId = (): string => `01K6ZQ8W3J${String(ids++).padStart(16, "0")}`
-
-/** The same score on every dimension. */
-const flat = (score: number): Record<GradeDimension, number> => ({
-  clarity: score,
-  grammar: score,
-  specificity: score,
-  instructive: score,
-  context: score,
-  doneCriteria: score,
-  focus: score,
-  regret: score,
-})
-
-/** An event of `type`; `n`, 0-10, varies its data: a prompt's scores, a context fill of n * 10%, and so on. */
-const client = (type: ClientEvent["type"], minutes = 0, sessionId = session, n = 10): Input => {
-  const base = { id: nextId(), occurredAt: minutesLater(minutes), sessionId }
-  const event = ((): ClientEvent => {
-    switch (type) {
-      case "turn.completed":
-        return { ...base, type, data: { durationMs: 1000, toolCalls: 2 } }
-      case "commit.made":
-        return { ...base, type, data: { commit: { ...repo, sha: "a".repeat(40) } } }
-      case "change.opened":
-      case "change.merged":
-        return { ...base, type, data: { change: { ...repo, number: 7 } } }
-      case "review.submitted":
-        return { ...base, type, data: { change: { ...repo, number: 7 }, state: "approved" } }
-      case "issue.closed":
-        return { ...base, type, data: { issue: { ...repo, number: 9 } } }
-      case "tests.failed":
-      case "tests.passed":
-        return { ...base, type, data: { checkout: { ...repo, branch: "main", headSha: null }, runner: "vitest" } }
-      case "repo.explored":
-        return { ...base, type, data: { repo } }
-      case "prompt.graded":
-        return { ...base, type, data: { scores: flat(n), rubricVersion: 1, words: 12, grader: "haiku" } }
-      case "session.cleared":
-        return { ...base, type, data: {} }
-      case "session.compacted":
-        return { ...base, type, data: { trigger: n % 2 === 0 ? "manual" : "auto" } }
-      case "command.used":
-        return { ...base, type, data: { command: n % 2 === 0 ? "/code-review" : "/plugin:deploy" } }
-      case "context.measured":
-        return { ...base, type, data: { pct: n * 10 } }
-    }
-  })()
-  return { kind: "client", event }
-}
-
-const context = (logSeq: number, now: string, rules: RulesConfig = starterRules, mode?: Context["mode"]): Context => ({
-  now,
-  logSeq,
-  rollSeed: "secret-seed",
-  rules,
-  catalog: starterCatalog,
-  questPacks: [],
-  mode: mode ?? { kind: "live" },
-})
-
-const nowOf = (input: Input): string => (input.kind === "client" ? input.event.occurredAt : start)
-
-/** Runs inputs through `step` as the write path would, numbering log rows from 1. */
-const play = (inputs: ReadonlyArray<Input>, rules?: RulesConfig, state = fresh()) => {
-  const steps: Array<Step> = []
-  for (const [i, input] of inputs.entries()) {
-    const result = step(state, input, context(i + 1, nowOf(input), rules))
-    steps.push(result)
-    state = result.state
-  }
-  return { state, steps, events: steps.flatMap((s) => s.events) }
-}
-
-const replay = (inputs: ReadonlyArray<Input>, recorded: ReadonlyArray<Recorded>, rules?: RulesConfig) => {
-  let state = fresh()
-  const events = []
-  for (const [i, input] of inputs.entries()) {
-    const rec = recorded[i] ?? { rolls: [], refusal: null }
-    const result = step(state, input, context(i + 1, nowOf(input), rules, { kind: "replay", recorded: rec }))
-    events.push(...result.events)
-    state = result.state
-  }
-  return { state, events }
-}
+import {
+  client,
+  context,
+  flat,
+  fresh,
+  minutesLater,
+  nextId,
+  nowOf,
+  play,
+  replay,
+  repo,
+  Script,
+  session,
+  start,
+  toInputs,
+} from "./play.ts"
 
 const always: RulesConfig = { ...starterRules, loot: { ...starterRules.loot, chancePerTurn: 1, promptChanceAtTen: 1 } }
 
@@ -133,7 +52,7 @@ describe("step: XP", () => {
   it("grants a commit's reported XP, and the day's first event starts the streak", () => {
     const { state, events } = play([client("commit.made")])
     expect(state.progress.xp).toEqual({ verified: 0, reported: 13 })
-    expect(events.map((e) => e.type)).toEqual(["xp.granted", "streak.changed", "xp.granted"])
+    expect(events.map((e) => e.type)).toEqual(["xp.granted", "streak.changed", "xp.granted", "achievement.unlocked"])
     expect(events[2]).toEqual({ type: "xp.granted", data: { amount: 3, tier: "reported", reason: "commit.made", totalAfter: 13 } })
   })
 
@@ -501,7 +420,10 @@ describe("step: level-up loot", () => {
       "level.up",
       "loot.dropped",
       "gold.changed",
+      "achievement.unlocked",
+      "achievement.unlocked",
     ])
+    expect(state.holdings.achievements.map((a) => a.id)).toEqual(["first-merge", "legendary-find"])
     expect(state.holdings.inventory).toHaveLength(1)
     const recorded = steps.map((s) => ({ rolls: s.rolls, refusal: s.refusal }))
     // The starter's level-up odds rarely give a legendary: the recorded roll, not today's odds, decides the replay.
@@ -579,6 +501,7 @@ describe("step: pet", () => {
     const { state, steps } = play([client("change.merged"), hatch, hatch])
     expect(steps[1]?.events).toEqual([
       { type: "pet.hatched", data: { species: "fox", name: "Ember", form: 0, mood: 100, equipped: {} } },
+      { type: "achievement.unlocked", data: { achievementId: "hatched", title: "Hatchling", tier: "common", glyph: "🥚" } },
     ])
     expect(steps[2]?.refusal?.code).toBe("not_allowed")
     expect(state.holdings.pet?.name).toBe("Ember")
@@ -877,39 +800,6 @@ describe("step: purity", () => {
     expect(state).toEqual(before)
   })
 })
-
-// A generated session: each entry is an event kind, minutes after the previous one, which of two sessions, and `n`
-// for the event's data (a prompt's scores, a context fill).
-const Kind = Schema.Literals([
-  "turn.completed",
-  "commit.made",
-  "change.opened",
-  "change.merged",
-  "tests.failed",
-  "tests.passed",
-  "repo.explored",
-  "prompt.graded",
-  "session.cleared",
-  "session.compacted",
-  "command.used",
-  "context.measured",
-])
-const Script = Schema.Array(
-  Schema.Struct({
-    kind: Kind,
-    gap: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1440 })),
-    second: Schema.Boolean,
-    n: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 10 })),
-  }),
-).check(Schema.isMaxLength(60))
-
-const toInputs = (script: typeof Script.Type): Array<Input> => {
-  let minutes = 0
-  return script.map(({ kind, gap, second, n }) => {
-    minutes += gap
-    return client(kind, minutes, second ? "01K6ZQ8W3J5V7XKQ2M4N6P8R9V" : session, n)
-  })
-}
 
 const loot = { ...starterRules, loot: { ...starterRules.loot, chancePerTurn: 0.5 } }
 

@@ -1,6 +1,6 @@
 import type { BandLook, BandView, Celebration, Loop, Stage, Tier } from '../types'
 import { barCells } from './band'
-import { isSmall, scriptOf } from './celebrate'
+import { badgeLabel, hasMore, isSmall, scriptOf } from './celebrate'
 import type { Cell, Row, Run, Style } from './cells'
 import { cellsOf, glyphSlot, glyphsOf, isWide, runsOf } from './cells'
 
@@ -201,15 +201,34 @@ export const capitalised = (text: string): string => text.charAt(0).toUpperCase(
 
 const articleOf = (word: string): string => (/^[aeiou]/i.test(word) ? 'an' : 'a')
 
-const nameOf = (celebration: Celebration): string =>
-  celebration.kind === 'loot' ? celebration.name : celebration.kind === 'quest' ? celebration.title || 'Mission' : ''
+/** What a celebration names: a drop's item, a mission's title, or a badge's glyph and name. */
+const nameOf = (celebration: Celebration): string => {
+  switch (celebration.kind) {
+    case 'loot':
+      return celebration.name
+    case 'quest':
+      return celebration.title || 'Mission'
+    case 'badge':
+      return badgeLabel(celebration)
+    case 'xp':
+    case 'level':
+      return ''
+  }
+}
+
+/** What a small celebration's line says it was. */
+const whatOf = (celebration: Extract<Celebration, { more: number }>): string =>
+  celebration.kind === 'quest'
+    ? 'mission complete'
+    : celebration.kind === 'badge'
+      ? 'badge unlocked'
+      : `${celebration.tier} drop`
 
 const extras = (celebration: Celebration): Array<Run> => {
   const runs: Array<Run> = []
   if (celebration.kind === 'loot' && celebration.gold > 0)
     runs.push({ text: ` +${celebration.gold} gold`, color: gold, dim: true })
-  if ((celebration.kind === 'loot' || celebration.kind === 'quest') && celebration.more > 0)
-    runs.push({ text: ` · +${celebration.more} more`, dim: true })
+  if (hasMore(celebration) && celebration.more > 0) runs.push({ text: ` · +${celebration.more} more`, dim: true })
   return runs
 }
 
@@ -248,15 +267,16 @@ export const slotRow = (stage: Stage, hasRows: boolean): Row | null => {
     ]
   }
   const color = rarityColors[celebration.tier]
-  const what = celebration.kind === 'quest' ? 'mission complete' : `${celebration.tier} drop`
-  const label = { text: ` · ${what}`, dim: true }
+  const label = { text: ` · ${whatOf(celebration)}`, dim: true }
   if (celebration.tier === 'common') {
     const { glyphs, sparks, colors } = looks.common
     const landed = !full || tick === ticksOf(stage) - 1
-    const coin = landed ? cycle(sparks, 0, '◈') : cycle(glyphs, tick, '◐')
+    // A drop's coin spins and lands; a badge's own glyph stands in its place, so it is never drawn beside a coin.
+    const isBadge = celebration.kind === 'badge'
+    const coin = isBadge ? celebration.glyph : landed ? cycle(sparks, 0, '◈') : cycle(glyphs, tick, '◐')
     return [
       { text: coin, color: landed ? gold : cycle(colors, tick, gold), bold: true },
-      { text: ` ${nameOf(celebration)}`, color, bold: landed || tick >= 2 },
+      { text: ` ${isBadge ? celebration.title : nameOf(celebration)}`, color, bold: landed || tick >= 2 },
       label,
       ...extras(celebration),
     ]
@@ -291,7 +311,7 @@ export const stageRows = (stage: Stage, columns: number, room: number): Array<Ro
   if (height < minRows || columns < 30) return []
   if (celebration.tier !== 'rare') return burstRows(stage, columns, height)
   if (celebration.kind === 'level') return levelRows(stage, celebration, columns, height)
-  if (celebration.kind === 'quest') return missionRows(stage, celebration, columns, height)
+  if (celebration.kind === 'quest' || celebration.kind === 'badge') return missionRows(stage, celebration, columns, height)
   return chestRows(stage, columns, height)
 }
 
@@ -365,12 +385,13 @@ const chestRows = (stage: Stage, columns: number, height: number): Array<Row> =>
 const missionBar = 12
 
 /**
- * A rare mission: its bar fills the last of the way and flashes, a check stamps beside it, the banner lights up over
- * the bar, the title types out with sparks rising off the check, and what it granted shows under it.
+ * A rare mission or badge: its bar fills the last of the way and flashes, a check stamps beside it, the banner lights
+ * up over the bar, the title types out with sparks rising off the check, and under it what a mission granted, or how
+ * many more badges this one stands for.
  */
 const missionRows = (
   stage: Stage,
-  celebration: Extract<Celebration, { kind: 'quest' }>,
+  celebration: Extract<Celebration, { kind: 'quest' | 'badge' }>,
   columns: number,
   height: number,
 ): Array<Row> => {
@@ -406,19 +427,20 @@ const missionRows = (
     }
   }
   const textX = checkX + 3
-  // The banner sits over the bar, the title types out beside the check, and the rewards show under it.
-  const words = spaced('Mission complete')
+  // The banner sits over the bar, the title types out beside the check, and the line under it shows last.
+  const words = spaced(celebration.kind === 'badge' ? 'Badge unlocked' : 'Mission complete')
   clear(grid, x - 1, banner, cellsOf(words) + 2)
   write(grid, x, banner, words, { color: accent, bold: isDone, dim: !isDone })
   if (isDone) {
-    const title = celebration.title || 'Mission'
+    const title = celebration.kind === 'badge' ? nameOf(celebration) : celebration.title || 'Mission'
     const letters = glyphsOf(title)
     const shown = tick >= 8 ? letters.length : Math.ceil((letters.length * (tick - 3)) / 5)
     const typing = shown < letters.length
     write(grid, textX, row, `${letters.slice(0, shown).join('')}${typing ? '▌' : ''}`, { color: accent, bold: true })
     const twinkle = tick % 2 === 0 ? '✦' : '✧'
     if (!typing) write(grid, textX + cellsOf(title) + 1, row, twinkle, { color: pick(colors, 1, white) })
-    const under = celebration.rewards ?? ''
+    const under =
+      celebration.kind === 'quest' ? (celebration.rewards ?? '') : celebration.more > 0 ? `+${celebration.more} more` : ''
     if (!typing && under !== '' && row + 1 < height) write(grid, textX, row + 1, under, { color: gold, dim: true })
   }
   return rowsOf(grid)
@@ -480,6 +502,14 @@ const burstText = (celebration: Celebration): { banner: string; name: string; un
       under: celebration.rewards ?? '',
     }
   if (celebration.kind === 'xp') return { banner: '', name: '', under: '' }
+  if (celebration.kind === 'badge') {
+    const words = spaced('Badge unlocked')
+    return {
+      banner: celebration.tier === 'legendary' ? `★  ${words}  ★` : words,
+      name: nameOf(celebration),
+      under: celebration.more > 0 ? `+${celebration.more} more` : '',
+    }
+  }
   const banner =
     celebration.tier === 'legendary'
       ? `★  ${spaced('Legendary drop')}  ★`

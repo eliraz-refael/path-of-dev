@@ -21,6 +21,19 @@ the work is, why it matters, where things stand and what it waits on.
 - **Depends on:** the public server entry (PR 5). Profile pages send `no-store` and render a snapshot per view with
   no cache (PR 6, decision 12A), so `/u/*` per client IP matters as soon as they are linked anywhere.
 
+### Protect volume badges against faked counts
+
+- **What:** stop a player unlocking the volume badges (100 commits, 50 merged PRs, 500 graded prompts) by posting
+  made-up events: count them from verified work once the verifier exists, or bound them with the per-player event
+  rate cap that open signup adds.
+- **Why:** badges show on public profiles. `grant` counts `progress.totals` even past the daily XP cap
+  (engine/src/step.ts, `grant`), and the private form's subject key is made by the mod, so a script can post 100
+  distinct `commit.made` events in a minute. XP is bounded by the caps; the badges are not.
+- **Context:** accepted for the closed beta, where the allowlist bounds who can do it (docs/plans/achievements.md,
+  decision A1A). Options: a badge metric over verified facts only, a per-day cap on how much a total can grow toward
+  a badge, or relying on the events-per-minute cap from "Open signup".
+- **Depends on:** achievements (PR 7a); before open signup.
+
 ### Open signup
 
 - **What:** drop the allowlist check (`Allowlist.allows`: `ALLOWED_LOGINS`, the `beta_logins` table and the admins)
@@ -79,18 +92,37 @@ the work is, why it matters, where things stand and what it waits on.
   prestige lowers the total, so the series must not claim to equal the state's XP.
 - **Depends on:** profiles in use (PR 6b).
 
-### Achievements, shown as badges
+### Review badges
 
-- **What:** achievement definitions (a name, what earns it, a rarity, a mark to draw) in the rules, the engine
-  unlocking them, and the profile page's `badges` section drawing each from its definition.
-- **Why:** players want a profile to show off what they've done. The page has a `badges` section (PR 6b), but the
-  engine never unlocks an achievement, so every page says "No badges yet".
-- **Context:** `holdings.achievements` (`{id, unlockedAt}`) and the `achievement.unlocked` server event already exist.
-  `profileOf` (server/profile.ts) copies `snapshot.achievements` into the page, and `badgesCard` (server/pages.ts) draws
-  each as a hexagon with the id's first letter, in the common colour, under the id. With definitions it should draw
-  the name, what it was for, and the rarity's colour (the mockup had one per rarity), and show "N of M". The mod could
-  show them too.
-- **Depends on:** which achievements there are: a design question.
+- **What:** add "first review" and "25 reviews" to the starter achievements, on reviews counted.
+- **Why:** the user approved them for the starter list (2026-10-18), but nothing counts reviews today, so they would
+  sit locked forever.
+- **Context:** `review.acted_on` is verified-tier, and `grant` returns before it counts `progress.totals` for a
+  verified fact (engine/src/step.ts, `grant`); `fact.verified` does nothing yet, the engine ignores
+  `review.submitted`, and the mod never sends it. A schema filter refuses a badge on a verified-tier fact, so this
+  needs either the verifier crediting reviews or a reported counter of `review.submitted` (the mod would have to send
+  it). Plan: docs/plans/achievements.md.
+- **Depends on:** "Named public subjects and the verifier", or a decision to count reported reviews.
+
+### Prestige badge
+
+- **What:** add "first prestige" to the starter achievements, on `progress.prestige` ≥ 1.
+- **Why:** approved for the starter list, but no one can prestige yet.
+- **Context:** `character.prestige` is in the command schema, but `applyCommand` refuses it as not available
+  (engine/src/step.ts). The `Metric` union needs a `prestige` member, and the threshold property over the starter
+  list will check the badge is earnable once prestige works.
+- **Depends on:** implementing prestige.
+
+### Badges tab in the pane
+
+- **What:** a Badges tab in the mod's pane: earned badges, and locked ones with what earns them and their progress,
+  with click-to-showcase once PR 7c's showcase slot exists.
+- **Why:** after 7a the mod only celebrates an unlock; a player can't see their badges or what's next without the
+  profile page, and picking showcase badges by typing ids is clumsy.
+- **Context:** PR 7b puts locked progress (`badgeProgress`, gauges per locked def) in the snapshot, and the rules
+  carry the definitions, so the pane needs no new server work. Follow `missionsViewOf(snapshot, rules)` and the
+  wardrobe tab's layout (packages/mod/hooks).
+- **Depends on:** PR 7b (progress in the snapshot); PR 7c for click-to-showcase.
 
 ### Cache profile pages at Cloudflare, with purge
 
