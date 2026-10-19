@@ -482,7 +482,8 @@ export const welcomeLayout = (input: WelcomeInput): WelcomeLayout => {
         { text: '🥚 ' },
         { text: shownName, bold: true },
         dim(` the ${speciesWord(view.species, picked)} · `),
-        ready ? { text: 'ready to hatch from the band', color: 'success' } : dim('hatches at Lv 1, on the band'),
+        // Where it hatches depends on the `band` option: the band's button, or the pet card in /pathofdev.
+        ready ? { text: 'ready to hatch', color: 'success' } : dim('hatches at Lv 1'),
       ]
       return {
         ...base,

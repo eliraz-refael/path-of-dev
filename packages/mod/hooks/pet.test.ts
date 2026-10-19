@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 import type { On, PromptOrigin, RenderPropsOf, SessionStartInput } from 'claude-code'
 import type { ServerEvent } from '@pathofdev/schema'
@@ -24,6 +24,7 @@ import {
   wellGradedAt,
   withReactions,
 } from './pet-motion'
+import { test } from '../test/full'
 
 // The living pet: it wanders band row 2, reacts to good play and never to a weak prompt, sleeps when the player is
 // away, and stays still or off the band as the player chooses. A small server beneath the mod hands it a hatched pet

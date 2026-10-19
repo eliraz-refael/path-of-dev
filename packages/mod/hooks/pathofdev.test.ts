@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 import type {
   CommandInfo,
@@ -28,6 +28,7 @@ import { statsLayout, twoColumnsFrom } from './stats'
 import { statsViewOf } from './view'
 import { closeSetsAside, freshWizard, lootText, stepperRow, taperText, welcomeLayout, xpText } from './welcome'
 import { github as recorded } from '../test/github'
+import { test } from '../test/full'
 
 // A fake local server beneath the mod: it answers the four routes, records what the mod sends, and holds the
 // stream until the test's clock passes 25 seconds, as the real one does.
@@ -3673,7 +3674,7 @@ describe('the welcome', () => {
     await shown.ui.input({ key: 'welcome:petName', text: 'Hoot', kind: 'change' })
     await shown.ui.unmount()
     shown = await look($)
-    expect(shown.texts).toContain('Hoot the owl · ready to hatch from the band')
+    expect(shown.texts).toContain('Hoot the owl · ready to hatch')
     await shown.ui.press({ key: 'welcome:next' })
     await shown.ui.unmount()
     expect(commandsOf(sent).at(-1)).toMatchObject({ type: 'egg.choose', data: { species: 'owl', name: 'Hoot' } })

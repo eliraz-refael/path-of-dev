@@ -18,6 +18,7 @@ import type {
   Link,
   Loop,
   Motion,
+  Opening,
   PaneTab,
   PetDisplay,
   Said,
@@ -42,6 +43,8 @@ import {
 } from './celebrate'
 import type { Row } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
+import type { BandMode } from './collapse'
+import { bandModeOf, isBandShown, isHeld, kicked, openingAfter, sameOpening, statusText } from './collapse'
 import type { Coach, Saying } from './coach'
 import {
   asked,
@@ -153,7 +156,7 @@ import {
 import type { Online, Route, Target } from './server'
 import { loops as isLooping, ownedLooks, ratesOf, wornLooks } from './looks'
 import type { MissionEntry } from './missions'
-import { knowsTogether, missionChip, missionsLayout, missionsViewOf, roomBeside } from './missions'
+import { knowsTogether, missionChip, missionsLayout, missionsViewOf, roomBeside, runningCount } from './missions'
 import type { Choice } from './pane'
 import { brand, headerGap, headerOf, lookSections, otherItems, paneId, renamedNote, tabBarOf, tabOf } from './pane'
 import type { PetAsk, StepContext, Walker } from './pet-motion'
@@ -240,6 +243,8 @@ const wizard = atom({ plugin: 'pathofdev', key: 'wizard' }, null)
 const petScene = atom({ plugin: 'pathofdev', key: 'pet' }, null)
 const coachMemory = atom({ plugin: 'pathofdev', key: 'coach' }, null)
 const bubble = atom({ plugin: 'pathofdev', key: 'bubble' }, null)
+const open = atom({ plugin: 'pathofdev', key: 'open' }, null)
+const lastGrade = atom({ plugin: 'pathofdev', key: 'grade' }, null)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -480,7 +485,7 @@ const flush = async ($: EngineInterface): Promise<void> => {
         })
     }
   } catch (error) {
-    if (error instanceof ServerDown && at === generation) await update($, link, () => 'offline')
+    if (error instanceof ServerDown && at === generation) await setLink($, 'offline')
   } finally {
     isFlushing = false
   }
@@ -495,6 +500,8 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   // A meal or a pat names the pet, as the band does.
   const petName = shown?.pet?.name ?? 'Your pet'
   const line = batchGainOf(events, petName)
+  const heard = heardOf(events)
+  if (heard !== null) await update($, lastGrade, () => heard.grade)
   if (line !== null) {
     const until = (await $.clock.now()) + fadeMs
     await update($, gain, () => ({ ...line, until }))
@@ -504,15 +511,18 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   if (toast !== null) $.ui.toast(toast)
   const glyph = shown?.glyph ?? ''
   // A batch's badges play as one, so a dozen at once never push each other out of the queue.
-  const celebrations = motion === 'off' ? [] : badgeBurstOf(events.flatMap((event) => celebrationOf(event, glyph) ?? []))
+  const celebrations = celebrates() ? badgeBurstOf(events.flatMap((event) => celebrationOf(event, glyph) ?? [])) : []
   if (celebrations.length > 0) {
     lineup = celebrations.reduce(joinQueue, lineup)
     await saveQueue($)
     playSoon($, 0)
   }
+  // A gain opens the band in `auto`, the celebrations holding it open once they play.
+  if (line !== null || celebrations.length > 0) await openBand($)
   // After the celebrations are queued: the pet's reaction waits for them, and what it says waits for that.
   await petReact($, events)
   await coachHear($, events)
+  await syncStatus($)
 }
 
 /** Takes the gain's line down in `ms`, unless a newer line has taken its place by then. */
@@ -622,7 +632,7 @@ const resumeCelebrations = async ($: EngineInterface) => {
   playing = null
   isTurnRunning = false
   const saved = await read($, queue)
-  lineup = motion === 'off' || !Array.isArray(saved) ? [] : queueOf(saved)
+  lineup = !celebrates() || !Array.isArray(saved) ? [] : queueOf(saved)
   await update($, stage, () => null)
   await saveQueue($)
   if (lineup.length > 0) playSoon($, idleMs)
@@ -636,7 +646,9 @@ const syncLoop = async ($: EngineInterface) => {
   // The pane's previews loop while it is open: the owned looks, and the ones on the shop's shelf.
   const offered = isPaneOpen ? offerLooks(await read($, shop)) : []
   const looks = [...Object.values(wornLooks(owned)), ...(isPaneOpen ? ownedLooks(owned) : []), ...offered]
-  const rates = motion === 'full' && !isTurnRunning && playing === null ? ratesOf(looks) : []
+  // A band shut in `auto`, or one that never opens, draws no loop: the pane's previews still do while it is open.
+  const isDrawn = bandShown() || isPaneOpen
+  const rates = motion === 'full' && !isTurnRunning && playing === null && isDrawn ? ratesOf(looks) : []
   if (rates.length === loopTimers.size && rates.every((rate) => loopTimers.has(rate))) return
   // The clocks are swapped before any await, so two syncs that overlap never leave two clocks at one rate; the atom
   // is written from the clocks in force when the write lands, so the last sync wins there too.
@@ -686,15 +698,24 @@ let petRoom: number | null = null
 let petSleepy = false
 let petStep: Timer | null = null
 let petNap: Timer | null = null
+/** Whether the character has a pet, as `syncPet` last read the view. */
+let hasPet = false
 
-/** The band is free for the pet: no main-loop turn, and no celebration playing or waiting to. */
-const petContext = (): StepContext => ({
-  ...modeOf(motion, petDisplay),
-  free: !isTurnRunning && playing === null && lineup.length === 0,
-  sleepy: petSleepy,
-  room: roomNow(petRoom, walker),
-  holds: toSay.length > 0 || bubbleTimer !== null,
-})
+/**
+ * The band is free for the pet: no main-loop turn, and no celebration playing or waiting to. A band shut in `auto`
+ * shows no wander, so the pet takes none there: only its reactions, which open the band.
+ */
+const petContext = (): StepContext => {
+  const mode = modeOf(motion, petDisplay)
+  return {
+    ...mode,
+    wanders: mode.wanders && bandShown(),
+    free: !isTurnRunning && playing === null && lineup.length === 0,
+    sleepy: petSleepy,
+    room: roomNow(petRoom, walker),
+    holds: toSay.length > 0 || bubbleTimer !== null,
+  }
+}
 
 const petSceneNow = () => sceneOf(walker, petDisplay, petActiveAt, modeOf(motion, petDisplay))
 
@@ -704,23 +725,31 @@ const drawPet = async ($: EngineInterface) => {
   await update($, petScene, petSceneNow)
 }
 
+/** The pet plays a reaction, or has one waiting. */
+const isActing = (at: Walker): boolean => at.act !== null || at.queue.length > 0
+
 /** One step, and the timer for the next, set before anything is awaited so that two steps never run side by side. */
 const stepPet = ($: EngineInterface) => {
   petStep = null
+  const wasActing = isActing(walker)
   const step = stepWalker(walker, petContext())
   walker = step.walker
   if (step.waitMs !== null) petStep = $.clock.after(step.waitMs, () => stepPet($))
   void drawPet($).catch(() => undefined)
   void speakWhenFree($).catch(() => undefined)
+  // A reaction that just ended lets the band go, `holdMs` from now; a step of wandering changes nothing there.
+  if (wasActing && !isActing(walker)) void settleBand($).catch(() => undefined)
 }
 
 /** Starts the pet's steps when it has one to take; otherwise holds it, a reaction a turn cut short to play again. */
 const syncPet = async ($: EngineInterface) => {
   const pet = (await read($, view))?.pet ?? null
+  hasPet = pet !== null
   petSleepy = pet !== null && moodWord(pet.mood, happyLine(await read($, care))) === 'sleepy'
   const context = petContext()
-  if (pet !== null && !petDisplay.hidden && wantsStep(walker, context)) {
+  if (pet !== null && !petOffBand() && wantsStep(walker, context)) {
     petStep ??= $.clock.after(0, () => stepPet($))
+    await settleBand($)
     return
   }
   petStep?.cancel()
@@ -728,6 +757,7 @@ const syncPet = async ($: EngineInterface) => {
   if (!context.free) walker = heldWalker(placedIn(walker, context.room))
   await drawPet($)
   await speakWhenFree($)
+  await settleBand($)
 }
 
 /** The pet falls asleep 10 minutes after the player was last active, at `now` or before. */
@@ -756,7 +786,7 @@ const petReact = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>) 
   // A prompt hops at its own rubric's line: rubric 2's grades run higher.
   const graded = heardRubricOf(await read($, coachMemory), events, await rubricNow($))
   const reactions = reactionsOf(events, motion, wellGradedAt[graded])
-  if (petDisplay.hidden || reactions.length === 0 || ((await read($, view))?.pet ?? null) === null) return
+  if (petOffBand() || reactions.length === 0 || ((await read($, view))?.pet ?? null) === null) return
   // A bubble on show gives way: the reaction plays now.
   if (bubbleTimer !== null) await hush($)
   walker = withReactions(walker, reactions)
@@ -817,7 +847,7 @@ const coachHear = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   const heard = heardOf(events)
   if (heard === null) return
   const pet = (await read($, view))?.pet ?? null
-  const onBand = pet !== null && !petDisplay.hidden
+  const onBand = pet !== null && !petOffBand()
   // Worked out from the memory as the write lands, so a grade kept meanwhile is not undone.
   const decided: { saying: Saying | null } = { saying: null }
   await update($, coachMemory, (kept) => {
@@ -836,19 +866,19 @@ const speakWhenFree = async ($: EngineInterface) => {
   const [line, ...rest] = toSay
   if (line === undefined || bubbleTimer !== null) return
   // Off the band, or with no room on it for a bubble, the pet says nothing, keeps nothing to say, and wanders on.
-  if (petDisplay.hidden || (bubbleRoom !== null && bubbleRoom < minBubble)) {
+  if (petOffBand() || (bubbleRoom !== null && bubbleRoom < minBubble)) {
     toSay = []
     saying = null
     await syncPet($)
     return
   }
-  if (!canSpeak(walker, petDisplay.hidden, petContext().free)) return
+  if (!canSpeak(walker, petOffBand(), petContext().free)) return
   toSay = rest
   petStep?.cancel()
   petStep = null
   const timer = $.clock.after(line.ms, () => {
     bubbleTimer = null
-    const goesOn = toSay.length > 0 && canSpeak(walker, petDisplay.hidden, petContext().free)
+    const goesOn = toSay.length > 0 && canSpeak(walker, petOffBand(), petContext().free)
     void (goesOn ? speakWhenFree($) : hush($)).catch(() => undefined)
   })
   bubbleTimer = timer
@@ -886,12 +916,103 @@ const coachTip = async ($: EngineInterface): Promise<string> => {
   if (said === null) return noTipText(pet?.name ?? null)
   const name = pet?.name ?? 'Your pet'
   const text = tipText(said, name)
-  if (pet === null || petDisplay.hidden || (bubbleRoom !== null && bubbleRoom < minBubble)) return text
+  if (pet === null || petOffBand() || (bubbleRoom !== null && bubbleRoom < minBubble)) return text
   await hush($)
   toSay = phasesOf(said, name)
   await syncPet($)
   const isWhole = bubbleRoom !== null && fitsWhole(said, name, bubbleRoom)
   return isWhole ? `${name} says it beside itself on the band.` : text
+}
+
+// The band as the `band` option has it (collapse.ts). In `auto` a moment opens it, and it shuts `holdMs` after the
+// moment ends; the opening is kept in the session's state, where a reload finds it and sets its timer again. A moment
+// that comes while a main-loop turn runs is owed, and opens the band once the turn is over. The player's focus on one
+// of the band's elements holds it open until it moves off, or a prompt or a turn takes the keyboard back.
+let bandMode: BandMode = 'auto'
+let bandOpen = false
+let isOwed = false
+let isBandFocused = false
+let collapseTimer: Timer | null = null
+let armedUntil: number | null = null
+/** The status line as last sent, so a change that leaves it as it was sends nothing; undefined until one is. */
+let statusShown: string | null | undefined = undefined
+
+/** Whether the band draws now: always in `full`, while it is open in `auto`, never in `line`. */
+const bandShown = (): boolean => isBandShown(bandMode, bandOpen)
+
+/** The pet is off the band: the player hid it, or the band never opens. */
+const petOffBand = (): boolean => petDisplay.hidden || bandMode === 'line'
+
+/** Celebrations play: the player wants them, and the band opens for them. */
+const celebrates = (): boolean => motion !== 'off' && bandMode !== 'line'
+
+/** What holds the band open now, as the mod's memory has it. */
+const momentsNow = () => ({
+  celebrates: playing !== null || (!isTurnRunning && lineup.length > 0),
+  reacts:
+    !isTurnRunning && hasPet && !petOffBand() && !walker.asleep && isActing(walker),
+  // A line waiting on a pet asleep holds nothing: it waits for the wake, which opens the band for it then.
+  speaks: bubbleTimer !== null || (toSay.length > 0 && !walker.asleep),
+  isFocused: isBandFocused,
+})
+
+/**
+ * Moves the band's opening on in `auto`: writes it when it changed, sets the timer that shuts it, and starts or stops
+ * the loops and the pet's wander as the band opens or shuts.
+ */
+const moveBand = async ($: EngineInterface, change: (was: Opening | null, now: number) => Opening | null) => {
+  if (bandMode !== 'auto') return
+  const now = await $.clock.now()
+  const was = await read($, open)
+  // What the write lands, so a change that came in meanwhile is what the timer and the loops follow.
+  let next = change(was, now)
+  if (!sameOpening(was, next)) await update($, open, (kept) => (next = change(kept, now)))
+  const until = next?.until ?? null
+  if (until !== null && until !== armedUntil) {
+    collapseTimer?.cancel()
+    armedUntil = until
+    collapseTimer = $.clock.after(Math.max(0, until - now), () => {
+      collapseTimer = null
+      armedUntil = null
+      void settleBand($).catch(() => undefined)
+    })
+  }
+  const wasShown = bandOpen
+  bandOpen = next !== null
+  if (wasShown !== bandOpen) await syncLoop($)
+}
+
+/** The band as what holds it says: held while a moment lasts, then shut `holdMs` after it. */
+const settleBand = ($: EngineInterface) => moveBand($, (was, now) => openingAfter(was, isHeld(momentsNow()), now))
+
+/** Something happened: the band opens, at once or once the turn running is over. */
+const openBand = async ($: EngineInterface) => {
+  if (bandMode !== 'auto') return
+  if (isTurnRunning) {
+    isOwed = true
+    return
+  }
+  await moveBand($, kicked)
+}
+
+/** Sends the status line when what it says changed: the game's essentials, or nothing in `full`. */
+const syncStatus = async ($: EngineInterface) => {
+  const text = statusText(bandMode, {
+    link: await read($, link),
+    view: await read($, view),
+    hint: offlineHint(),
+    running: runningCount(await read($, missions), await $.clock.now()),
+    grade: await read($, lastGrade),
+  })
+  if (text === statusShown) return
+  statusShown = text
+  $.ui.status(text ?? undefined)
+}
+
+/** Says whether the server answers: on the band, and in the status line. */
+const setLink = async ($: EngineInterface, to: Link) => {
+  await update($, link, () => to)
+  await syncStatus($)
 }
 
 /** The rubric to grade with on the server the mod plays on: as its last rules said, read from the store once. */
@@ -952,7 +1073,7 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
   await update($, welcome, () => greeted)
   // Again here, as a /clear empties the session's state after its end hook has written the new id.
   await update($, session, () => sessionId)
-  await update($, link, () => 'online')
+  await setLink($, 'online')
   await syncLoop($)
 }
 
@@ -979,7 +1100,7 @@ const poll = async ($: EngineInterface): Promise<void> => {
   } catch {
     if (at !== generation) return
     isPolling = false
-    await update($, link, () => 'offline').catch(() => undefined)
+    await setLink($, 'offline').catch(() => undefined)
     retryLater($)
   }
 }
@@ -996,7 +1117,7 @@ const connect = async ($: EngineInterface): Promise<void> => {
   try {
     await refresh($, true)
   } catch {
-    await update($, link, () => 'offline')
+    await setLink($, 'offline')
     retryLater($)
     return
   }
@@ -1069,13 +1190,13 @@ const hatch = async ($: EngineInterface) => {
     if (answer.status === 'refused') $.ui.toast(answer.message)
     // The hatch arrives on the stream too, with its toast.
   } catch {
-    await update($, link, () => 'offline')
+    await setLink($, 'offline')
   }
 }
 
 /** A command with no answer: only a server that can't be reached is offline; one that answered oddly is still up. */
 const commandFailed = async ($: EngineInterface, error: unknown) => {
-  if (error instanceof ServerDown) await update($, link, () => 'offline')
+  if (error instanceof ServerDown) await setLink($, 'offline')
   else $.ui.toast('The server answered something unexpected.')
 }
 
@@ -1141,7 +1262,8 @@ const patFromPrompt = async ($: EngineInterface): Promise<string> => {
   const current = await read($, view)
   if (current === null) return 'Connecting to the Path of Dev server…'
   if (current.pet === null) {
-    return canHatch(current) ? 'Your egg is ready: hatch it from the band first.' : 'Your egg hatches at level 1.'
+    const from = bandMode === 'full' ? 'from the band' : 'in /pathofdev'
+    return canHatch(current) ? `Your egg is ready: hatch it ${from} first.` : 'Your egg hatches at level 1.'
   }
   if ((await read($, care))?.isKnown !== true) {
     return `The server predates pet care: restart it with ${startHint(server)}`
@@ -1155,7 +1277,7 @@ const patFromPrompt = async ($: EngineInterface): Promise<string> => {
     return `You pet ${current.pet.name}.`
   } catch (error) {
     if (!(error instanceof ServerDown)) return 'The server answered something unexpected.'
-    await update($, link, () => 'offline')
+    await setLink($, 'offline')
     return 'The Path of Dev server is not answering.'
   }
 }
@@ -1200,7 +1322,7 @@ const runDev = async ($: EngineInterface, ask: DevAsk): Promise<{ text: string; 
   } catch (error) {
     // Only a server that can't be reached is offline; one that answered oddly is still there.
     if (!(error instanceof ServerDown)) return { text: 'The dev server answered something unexpected.', isDone: false }
-    await update($, link, () => 'offline')
+    await setLink($, 'offline')
     return { text: 'The dev server is not answering.', isDone: false }
   }
 }
@@ -1242,7 +1364,7 @@ const forget = async ($: EngineInterface) => {
   reconnect = null
   lineup = []
   playing = null
-  await update($, link, () => 'connecting')
+  await setLink($, 'connecting')
   await update($, view, () => null)
   await update($, wardrobe, () => null)
   await update($, stats, () => null)
@@ -1256,6 +1378,7 @@ const forget = async ($: EngineInterface) => {
   await update($, stage, () => null)
   await update($, queue, () => [])
   await syncLoop($)
+  await syncStatus($)
 }
 
 /**
@@ -1301,7 +1424,7 @@ const switchServer = async ($: EngineInterface, to: ServerName): Promise<string>
     await forget($)
     await begin($, await $.session.cwd(), null)
     const reached = await refresh($, true).then(() => null, (error: unknown) => error)
-    if (reached instanceof ServerDown) await update($, link, () => 'offline')
+    if (reached instanceof ServerDown) await setLink($, 'offline')
     return `${nowText(target, named)}${reachText(reached)}`
   } finally {
     isSwitching = false
@@ -1476,7 +1599,7 @@ const logout = async ($: EngineInterface): Promise<string> => {
   if (tokenOf(await $.store.get(key)) === token) await $.store.delete(key)
   if (target === to) {
     isSignedOut = true
-    await update($, link, () => 'offline')
+    await setLink($, 'offline')
   }
   return `${stopped}Signed out of ${to.origin}. What you do waits in the queue until you sign in again.`
 }
@@ -1579,7 +1702,7 @@ const deleteAccount = async ($: EngineInterface, ask: Extract<DataAsk, { kind: '
     }
     if (target === to) {
       isSignedOut = true
-      await update($, link, () => 'offline')
+      await setLink($, 'offline')
     }
   } else if (response?.status === 401) {
     await forgetToken()
@@ -1667,7 +1790,7 @@ const choose = async ($: EngineInterface, made: (id: string) => Command): Promis
     return null
   } catch (error) {
     if (!(error instanceof ServerDown)) return 'The server answered something unexpected.'
-    await update($, link, () => 'offline')
+    await setLink($, 'offline')
     return 'The Path of Dev server is not answering.'
   }
 }
@@ -1863,7 +1986,9 @@ const later = ($: EngineInterface, work: () => Promise<unknown>) => {
  * repo, its first exploration and the server, after the hook returns.
  */
 const begin = async ($: EngineInterface, cwd: string, kept: string | null) => {
-  $.ui.status(undefined)
+  // The status line as this session has it: the last one's, sent again, or none in `full`.
+  statusShown = undefined
+  await syncStatus($)
   lastPrompt = ''
   lastAnswer = ''
   turnPeak = null
@@ -1885,6 +2010,7 @@ export const register: Register = (on, options) => {
   gradeWords = minWords
   motion = motionOf(options)
   coach = coachOf(options)
+  bandMode = bandModeOf(options)
   toasts = toastsOf(options)
   server = serverOf(options)
   target = targetOf(options)
@@ -1897,7 +2023,11 @@ export const register: Register = (on, options) => {
     // A reload keeps the session's id: a new one would leave the old open beside it, as if two sessions ran.
     await begin($, e.cwd, await read($, session))
     flushTimer?.cancel()
-    flushTimer = $.clock.every(flushEveryMs, () => void flush($))
+    // The status line's missions end by the clock too: it is read again as the flush comes round, sent if it moved.
+    flushTimer = $.clock.every(flushEveryMs, () => {
+      void flush($)
+      void syncStatus($).catch(() => undefined)
+    })
     // A pane the last copy of the mod opened stays up across a reload: the engine keeps the record.
     isPaneOpen = (await $.ui.panes().catch(() => [])).some((pane) => pane.id === paneId)
     // A fresh copy starts its own minute; a reload took the last copy's with it.
@@ -1905,6 +2035,13 @@ export const register: Register = (on, options) => {
     paneClock = null
     syncPaneClock($)
     await startPet($)
+    // The band's opening the last copy left: its timer is set again as the loops sync, or it shuts if its time is up.
+    bandOpen = (await read($, open)) !== null
+    collapseTimer?.cancel()
+    collapseTimer = null
+    armedUntil = null
+    isOwed = false
+    isBandFocused = false
     stopLoops()
     // The atom outlives a reload: clear the last copy's frames, or a sync with no clock to start leaves them frozen.
     await update($, loops, () => null)
@@ -1974,6 +2111,11 @@ export const register: Register = (on, options) => {
   on('prompt.submit', async ($, e, next) => {
     const result = await next(e)
     const byPlayer = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
+    // The player typed at the prompt: the band's focus is let go.
+    if (isBandFocused && result.drop === undefined) {
+      isBandFocused = false
+      later($, () => settleBand($))
+    }
     // Any prompt the player sends wakes the pet, graded or not; it never reacts to the grade here.
     if (result.drop === undefined && byPlayer) later($, () => wakePet($))
     if (result.drop !== undefined || !byPlayer || isSlashCommand(e.text)) return result
@@ -2053,6 +2195,7 @@ export const register: Register = (on, options) => {
 
   // A celebration never plays over a main-loop turn: it waits for the idle prompt.
   on('turn.start', async ($, e, next) => {
+    if (e.agentId === undefined) isBandFocused = false
     await holdCelebrations($)
     // A new turn moves on from the last prompt: the pet's bubble about it comes down.
     if (e.agentId === undefined) await hush($)
@@ -2064,6 +2207,11 @@ export const register: Register = (on, options) => {
       isTurnRunning = false
       playSoon($, idleMs)
       await syncLoop($)
+      // What happened during the turn opens the band now.
+      if (isOwed) {
+        isOwed = false
+        await openBand($)
+      }
       // A turn the person interrupted, or one an error ended, is no finished piece of work.
       if (e.reason === 'answer') {
         const data = {
@@ -2083,8 +2231,20 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // The player's focus on one of the band's elements holds it open in `auto`; moved off them, it lets the band go.
+  on('ui.focus', async ($, e, next) => {
+    const result = await next(e)
+    if (e.component === 'AbovePrompt' && result.deny === undefined) {
+      isBandFocused = e.element !== undefined && e.plugin === $.plugin.name
+      later($, () => settleBand($))
+    }
+    return result
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
+    // Shut in `auto` with nothing happening, and never open in `line`: the status line says the rest.
+    if (!isBandShown(bandMode, (await read($, open)) !== null)) return next(e)
     const status = await read($, link)
     const current = await read($, view)
     const last = await read($, gain)
