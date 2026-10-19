@@ -22,6 +22,24 @@ token, only your GitHub user id and login. One account per GitHub account:
 The mod never sends a prompt's text, only Haiku's grades for it. It never sends a repo's name either, only opaque keys.
 Slash-command names are counted in your stats.
 
+### What a graded prompt sends
+
+Haiku grades the prompt on your own Claude account. On a server that grades by rubric 2, as `api.pathof.dev` does,
+the `prompt.graded` event carries only:
+
+- `rubricVersion`: 2, the rubric it was graded by.
+- `kind`: whether the prompt is a task, a question, a discussion or a steer.
+- `measures`: eight scores from 0 to 10: intent, grounding, why, success shape, scope, forward, craft and tone. Why and
+  success shape are left out (`null`) when the prompt doesn't need them.
+- `spelledClean`: true or false. Haiku lists the words it thinks are misspelled; the mod checks each against the
+  prompt on your machine, and sends only whether any of them is really there.
+- `words`: how many words the prompt has.
+- `grader`: which model graded it.
+
+It never sends the prompt, the prompt before it, Claude's last answer, Haiku's note or the misspelled words, nor how
+many there were. The note stays in the mod's memory on your machine, for the pet's tips. A server that grades by rubric
+1 gets rubric 1's scores in place of `kind`, `measures` and `spelledClean`.
+
 ## Your profile
 
 Your profile is private until you make it public:

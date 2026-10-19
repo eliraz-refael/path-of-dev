@@ -1,22 +1,26 @@
-import type { GradeDimension, QualityDimension, ServerEvent } from '@pathofdev/schema'
+import type { ContentMeasure, GradeDimension, QualityDimension, RulesConfig, ServerEvent } from '@pathofdev/schema'
 import type { PluginOptions } from 'claude-code'
-import type { CoachMemory, Graded, Said } from '../types'
+import type { CoachMemory, Graded, GradeMeasure, Said } from '../types'
 import type { Row } from './cells'
 import { cellsOf, cutAtWord } from './cells'
+import type { Rubric } from './grade'
 import type { Walker } from './pet-motion'
 import { shownGrade, wellGradedAt } from './pet-motion'
 
 // The pet coach: a short tip the pet says in a speech bubble beside itself on band row 2, about the prompt the player
 // typed last. It makes no model call of its own: the tip is the grader's note when that is a sensible one, else a line
 // written here for the prompt's weakest score. All of it stays on this machine; the server only ever gets the scores.
+// A rubric 2 grade is weighed by its six content measures alone: its craft and tone are never a tip, and a hostile
+// tone gets one gentle line in praise's place.
 //
 //   grade ─▶ gradedOf ─▶ remembered ─▶ CoachMemory.last (the note stays here)
 //   the XP it earned ─▶ heardOf ─▶ unasked ─▶ Said ─▶ phasesOf ─▶ the bubble, once the pet's reactions have played
 //   /pathofdev pet tip ─▶ asked ─▶ Said
 //
-// It never nags. It speaks up now and then after a prompt graded 7 or more: one unasked bubble in 3 graded prompts
-// at most, and never about the same score twice in a row. After a weaker prompt it stays quiet, unless the player set
-// the `coach` option to `always`; even then it only ever suggests, and never scolds.
+// It never nags. It speaks up now and then after a prompt graded 7 or more (8 by rubric 2, whose grades run higher):
+// one unasked bubble in 3 graded prompts at most, and never about the same score twice in a row. After a weaker
+// prompt it stays quiet, unless the player set the `coach` option to `always`; even then it only ever suggests, and
+// never scolds.
 
 /** The `coach` option: speak after good prompts (the default), after every graded prompt, or never unasked. */
 export type Coach = 'good' | 'always' | 'off'
@@ -86,8 +90,63 @@ export const strongestOf = (scores: Scores): Array<QualityDimension> =>
 export const meanOf = (scores: Scores): number =>
   quality.reduce((sum, dimension) => sum + scores[dimension], 0) / quality.length
 
-/** A prompt graded 7 or more, to one decimal as the band shows it: the line the pet hops at. */
-export const isGood = (grade: number): boolean => shownGrade(grade) >= wellGradedAt
+// Rubric 2's content measures in the order the coach prefers them on a tie: the ones the grading experiment's prompts
+// most often lacked first.
+const content: ReadonlyArray<ContentMeasure> = ['successShape', 'why', 'grounding', 'forward', 'scope', 'intent']
+
+type MeasureScores = Readonly<Record<GradeMeasure, number | null>>
+
+/** Craft joins the praise only this high, exceptional writing; tone never does. */
+const praiseCraftAt = 9
+/** A tone this or lower is hostile, as the starter rules' `caps.hostile.toneAtMost` says, unless the rules say else. */
+export const hostileToneAt = 2
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+/** The tone the rules cap a grade at as hostile (`prompt.v2.caps.hostile.toneAtMost`), else the starter's 2. */
+export const hostileToneOf = (rules: Partial<RulesConfig>): number => {
+  const caps: unknown = isRecord(rules.prompt?.v2) ? rules.prompt.v2.caps : undefined
+  const hostile: unknown = isRecord(caps) ? caps['hostile'] : undefined
+  const at: unknown = isRecord(hostile) ? hostile['toneAtMost'] : undefined
+  return typeof at === 'number' && Number.isFinite(at) ? at : hostileToneAt
+}
+
+/** The measures in `order` the prompt gave a score, with it: a null one, which the prompt didn't need, is left out. */
+const scored = <M extends GradeMeasure>(
+  measures: MeasureScores,
+  order: ReadonlyArray<M>,
+): Array<{ measure: M; score: number }> =>
+  order.flatMap((measure) => {
+    const score = measures[measure]
+    return score === null ? [] : [{ measure, score }]
+  })
+
+const weakestScoredOf = (measures: MeasureScores): Array<{ measure: ContentMeasure; score: number }> =>
+  scored(measures, content).sort((a, b) => a.score - b.score)
+
+/** The content measures the prompt needed, weakest first, a tie in the coach's order. Craft and tone are no tip. */
+export const weakestMeasuresOf = (measures: MeasureScores): Array<ContentMeasure> =>
+  weakestScoredOf(measures).map((one) => one.measure)
+
+/** The content measures the prompt needed, strongest first, a tie in the coach's order; craft last, from a 9. */
+export const strongestMeasuresOf = (measures: MeasureScores): Array<ContentMeasure | 'craft'> => {
+  const craft = measures.craft !== null && measures.craft >= praiseCraftAt ? scored(measures, ['craft']) : []
+  return [...scored<ContentMeasure | 'craft'>(measures, content), ...craft]
+    .sort((a, b) => b.score - a.score)
+    .map((one) => one.measure)
+}
+
+/** The plain mean of the content measures the prompt needed: the grade until the server's arrives. */
+export const measuresMeanOf = (measures: MeasureScores): number => {
+  const given = scored(measures, content)
+  return given.length === 0 ? 0 : given.reduce((sum, one) => sum + one.score, 0) / given.length
+}
+
+/** The rubric a remembered grade was made with: one kept before rubric 2 says none, and is rubric 1's. */
+export const rubricOfGraded = (graded: Graded): Rubric => (graded.rubric === 2 ? 2 : 1)
+
+/** A prompt graded at the rubric's line or more (7, or 8 by rubric 2), to one decimal as the band shows it. */
+export const isGood = (grade: number, rubric: Rubric = 1): boolean => shownGrade(grade) >= wellGradedAt[rubric]
 
 // The pet's own lines, `{name}` where its name goes. Each score has a few, said by turns, never one twice in a row.
 
@@ -140,6 +199,55 @@ const praises: Record<QualityDimension, ReadonlyArray<string>> = {
   grammar: ['{name} admires that tidy writing.', 'Neatly written, {name} thinks.'],
 }
 
+// Rubric 2's lines, today's where a measure carries on from a score: what done looks like from done criteria, the why
+// from context, grounding from specificity, scope from focus and intent from clarity.
+
+const measureTips: Record<ContentMeasure, ReadonlyArray<string>> = {
+  successShape: [
+    "{name} wonders how you'll know it's done: a passing test? a behaviour?",
+    '{name} likes a finish line: which test should pass?',
+    '{name} asks what a good answer should give you.',
+  ],
+  why: [
+    '{name} wonders why: a line of why helps Claude choose.',
+    '{name} says the goal behind the ask shapes the fix.',
+    '{name} would mention what you already tried.',
+  ],
+  grounding: [
+    '{name} sniffs for a file name or the exact error.',
+    '{name} wonders which file or function you mean.',
+    '{name} says pasting the error helps Claude find it.',
+  ],
+  forward: [
+    "{name} wonders what's new here: a decision, a fact, a method?",
+    '{name} says one new detail moves Claude further.',
+    '{name} would say what you decided, so Claude can act on it.',
+  ],
+  scope: [
+    '{name} suggests one ask at a time; the rest can wait.',
+    '{name} says smaller steps keep each one sharp.',
+    '{name} would start with the piece that matters most.',
+  ],
+  intent: [
+    "{name} tilts its head: what's the one thing you want?",
+    '{name} would lead with the ask, then the details.',
+    '{name} likes the ask said in one plain sentence.',
+  ],
+}
+
+const measurePraises: Record<ContentMeasure | 'craft', ReadonlyArray<string>> = {
+  successShape: ['{name} loves a clear finish line!', "{name} knows just what you're after. Lovely."],
+  why: ['{name} loves knowing the why!', 'Great context, {name} thinks.'],
+  grounding: ['{name} loves that you named the exact spot!', 'Precise pointers, {name} cheers.'],
+  forward: ['{name} loves how that moves things on!', 'Real progress, {name} cheers.'],
+  scope: ['Nice and focused, {name} says!', '{name} likes one sharp ask.'],
+  intent: ['{name} got that in one read!', 'Crystal clear, {name} thinks.'],
+  craft: ['{name} admires how well that is put.', 'Beautifully written, {name} thinks.'],
+}
+
+/** Said in praise's place about a hostile prompt: never a scold. */
+const gentle: ReadonlyArray<string> = ['{name} works best with kind words.']
+
 const praiseWords = [
   'great',
   'nice',
@@ -174,16 +282,29 @@ const nextLine = (
   return { line: options[at] ?? '', lines: { ...lines, [key]: at } }
 }
 
+type Lines = Readonly<Record<string, number>>
+type Spoken = { said: Said | null; lines: Lines }
+
 /**
  * What the pet says about a graded prompt, never about `avoid`: after a good prompt, praise for its strongest score and
  * a tip when a score is low; after a weaker one, a tip alone. The tip is the grader's note when the note is about the
  * weakest score (which it most likely is) and is no praise, else the pet's own line. Null when there is nothing to say.
+ * A rubric 2 grade is weighed by its measures, and `hostileAt` is the tone that gets the gentle line.
  */
 export const sayAbout = (
   graded: Graded,
-  lines: Readonly<Record<string, number>>,
-  avoid: GradeDimension | null,
-): { said: Said | null; lines: Readonly<Record<string, number>> } => {
+  lines: Lines,
+  avoid: Said['topic'] | null,
+  hostileAt: number = hostileToneAt,
+): Spoken =>
+  graded.rubric === 2 ? sayAboutMeasures(graded, lines, avoid, hostileAt) : sayAboutScores(graded, lines, avoid)
+
+/** Rubric 1's: the scores, regret upside down and grammar weighed kinder. */
+const sayAboutScores = (
+  graded: Extract<Graded, { scores: unknown }>,
+  lines: Lines,
+  avoid: Said['topic'] | null,
+): Spoken => {
   const good = isGood(graded.grade)
   const weakest = weakestOf(graded.scores)
   const low = weakest.filter((one) => one !== avoid && (!good || weaknessOf(graded.scores, one) <= tipAt))
@@ -206,12 +327,63 @@ export const sayAbout = (
   return { said: topic === null || out.length === 0 ? null : { lines: out, topic }, lines: said }
 }
 
+/**
+ * Rubric 2's: the content measures the prompt needed, never its craft or tone. A hostile tone (`hostileAt` or lower)
+ * gets the gentle line in praise's place, its topic `tone`, unless the last bubble was about that; such a prompt is
+ * capped below good, so it shows only when asked or with the coach set to always.
+ */
+const sayAboutMeasures = (
+  graded: Extract<Graded, { rubric: 2 }>,
+  lines: Lines,
+  avoid: Said['topic'] | null,
+  hostileAt: number,
+): Spoken => {
+  const { measures } = graded
+  const good = isGood(graded.grade, 2)
+  const weakest = weakestScoredOf(measures)
+  const tip = weakest.find((one) => one.measure !== avoid && (!good || one.score <= tipAt))?.measure ?? null
+  const isHostile = measures.tone !== null && measures.tone <= hostileAt && avoid !== 'tone'
+  const praise = good && !isHostile ? (strongestMeasuresOf(measures).find((one) => one !== avoid) ?? null) : null
+  let said = lines
+  const say = (key: string, options: ReadonlyArray<string>): string => {
+    const next = nextLine(said, key, options)
+    said = next.lines
+    return next.line
+  }
+  const advice = (measure: ContentMeasure): string =>
+    graded.note !== null && !isPraise(graded.note) && measure === weakest[0]?.measure
+      ? graded.note
+      : say(`tip:${measure}`, measureTips[measure])
+  const opening = isHostile
+    ? [say('gentle:tone', gentle)]
+    : praise === null
+      ? []
+      : [say(`praise:${praise}`, measurePraises[praise])]
+  const out = [...opening, ...(tip === null ? [] : [advice(tip)])]
+  const topic: Said['topic'] | null = isHostile ? 'tone' : (tip ?? praise)
+  return { said: topic === null || out.length === 0 ? null : { lines: out, topic }, lines: said }
+}
+
 /** The prompt just graded, as the coach keeps it: its grade is the scores' mean until the server's arrives. */
 export const gradedOf = (id: string, scores: Scores, note: string | null): Graded => ({
+  rubric: 1,
   id,
   scores,
   note,
   grade: meanOf(scores),
+  said: null,
+})
+
+/**
+ * A prompt just graded by rubric 2, as the coach keeps it: its grade is the plain mean of the content measures it
+ * needed until the server's arrives.
+ */
+export const gradedByMeasuresOf = (id: string, measures: MeasureScores, note: string | null): Graded => ({
+  rubric: 2,
+  id,
+  measures,
+  note,
+  grade: measuresMeanOf(measures),
   said: null,
 })
 
@@ -230,6 +402,20 @@ export const heardOf = (events: ReadonlyArray<ServerEvent>): { id: string; grade
   return null
 }
 
+/**
+ * The rubric of the prompt whose XP a batch of the stream brings, by the coach's memory of it; `otherwise`, the rubric
+ * the mod grades with now, for one it doesn't remember (graded in another session, say) or for none.
+ */
+export const heardRubricOf = (
+  memory: CoachMemory | null,
+  events: ReadonlyArray<ServerEvent>,
+  otherwise: Rubric,
+): Rubric => {
+  const heard = heardOf(events)
+  const last = memory?.last ?? null
+  return heard !== null && last !== null && last.id === heard.id ? rubricOfGraded(last) : otherwise
+}
+
 /** What the pet is about to say unasked about a prompt, and the lines it says, kept once the bubble shows. */
 export type Saying = { id: string; said: Said; lines: Readonly<Record<string, number>> }
 
@@ -244,15 +430,16 @@ export const unasked = (
   heard: { id: string; grade: number },
   coach: Coach,
   onBand: boolean,
+  hostileAt: number = hostileToneAt,
 ): { memory: CoachMemory; saying: Saying | null } => {
   const { last } = memory
   if (last === null || last.id !== heard.id) return { memory, saying: null }
   const graded: Graded = { ...last, grade: heard.grade }
   const kept: CoachMemory = { ...memory, last: graded }
   const isQuiet = memory.sinceBubble !== null && memory.sinceBubble < everyGraded
-  const isAllowed = coach === 'always' || (coach === 'good' && isGood(heard.grade))
+  const isAllowed = coach === 'always' || (coach === 'good' && isGood(heard.grade, rubricOfGraded(last)))
   if (!onBand || !isAllowed || isQuiet || last.said !== null) return { memory: kept, saying: null }
-  const { said, lines } = sayAbout(graded, memory.lines, memory.lastTopic)
+  const { said, lines } = sayAbout(graded, memory.lines, memory.lastTopic, hostileAt)
   return { memory: kept, saying: said === null ? null : { id: heard.id, said, lines } }
 }
 
@@ -266,11 +453,14 @@ export const spoke = (memory: CoachMemory, saying: Saying): CoachMemory => ({
 })
 
 /** `/pathofdev pet tip`: what the pet says about the last graded prompt, weak or not; the same when asked again. */
-export const asked = (memory: CoachMemory): { memory: CoachMemory; said: Said | null } => {
+export const asked = (
+  memory: CoachMemory,
+  hostileAt: number = hostileToneAt,
+): { memory: CoachMemory; said: Said | null } => {
   const { last } = memory
   if (last === null) return { memory, said: null }
   if (last.said !== null) return { memory, said: last.said }
-  const { said, lines } = sayAbout(last, memory.lines, null)
+  const { said, lines } = sayAbout(last, memory.lines, null, hostileAt)
   return { memory: { ...memory, lines, last: { ...last, said } }, said }
 }
 

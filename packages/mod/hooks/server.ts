@@ -17,7 +17,8 @@ import type { HttpInit, HttpResponse, PluginOptions } from 'claude-code'
 // The token is the game's own, from `/pathofdev login` (login.ts), kept in $.store under `token@<origin>`; the mod
 // never logs a request's headers.
 
-export const clientVersion = '0.1.0'
+// The mod's version, as plugin.json has it, sent with every request: the one a server's `minClientVersion` names.
+export const clientVersion = '0.5.0'
 
 /** The server can't be reached, or can't take the request now: the band shows it offline, and what waits stays. */
 export class ServerDown extends Error {}

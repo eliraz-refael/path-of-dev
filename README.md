@@ -1,7 +1,7 @@
 # Path of Dev
 
-An RPG layer for your coding sessions with Claude Code. Every prompt you type is graded on seven qualities, from
-clarity to done criteria, and the grade earns XP, levels and loot. A pixel-art pet keeps you company in the terminal,
+An RPG layer for your coding sessions with Claude Code. Every prompt you type is graded against what it needs, from a
+clear ask to what done looks like, and the grade earns XP, levels and loot. A pixel-art pet keeps you company in the terminal,
 quests point you at better habits, and milestones earn badges. Real outcomes pay the big bonuses: a merged pull
 request is worth 250 XP, an opened one nothing, and only work confirmed on GitHub ranks.
 

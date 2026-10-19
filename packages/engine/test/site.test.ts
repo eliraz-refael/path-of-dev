@@ -1,7 +1,7 @@
 import { petSprite } from "@pathofdev/schema"
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
-import { starterRules as rules, titleFor, xpForLevel } from "../src/index.ts"
+import { gradeV2, starterQuestPack, starterRules as rules, titleFor, xpForLevel } from "../src/index.ts"
 
 // The landing page hard-codes the rules' numbers in plain HTML, so a change to the rules has to reach it too. Each
 // test reads the numbers back out of site/index.html and checks them against the starter rules. The pet it draws is
@@ -80,9 +80,12 @@ describe("the landing page's loot odds", () => {
     expect(site).toContain(`aria-label="Base drop odds: ${label.join(", ")}"`)
   })
 
-  it("gives the drop chance at a grade of 5 and of 10", () => {
-    const [, at5, at10] = one(/(\d+)% of the time at an average grade of 5, rising to (\d+)% at a perfect 10/g)
-    expect([Number(at5), Number(at10)]).toEqual([rules.loot.chancePerTurn * 100, rules.loot.promptChanceAtTen * 100])
+  it("gives a turn's drop chance, a prompt's at a 10 and the grade that doubles rare and better, as rubric 2 prices them", () => {
+    const [, turn, at10] = one(/Each turn can drop an item, (\d+)% of the time, and each graded prompt rolls too: ([\d.]+)% of the time at a perfect 10/g)
+    expect([Number(turn), Number(at10)]).toEqual([rules.loot.chancePerTurn * 100, rules.prompt.v2.loot.chanceAtTen * 100])
+    const [, great] = one(/A grade of (\d+) or more doubles the odds of rare and better/g)
+    expect(Number(great)).toBe(rules.prompt.v2.loot.greatAt)
+    expect(rules.loot.promptGreatRareFactor).toBe(2)
   })
 })
 
@@ -94,8 +97,12 @@ describe("the landing page's prompt XP", () => {
     )
   })
 
-  it("tops out at the rules' maximum", () => {
-    expect(one(/<h3>Up to (\d+) XP a prompt<\/h3>/g)[1]).toBe(String(rules.prompt.maxXp))
+  it("tops out at rubric 2's maximum, in the rule, its words and the ledger", () => {
+    const { maxXp } = rules.prompt.v2
+    expect(one(/<h3>Up to (\d+) XP a prompt<\/h3>/g)[1]).toBe(String(maxXp))
+    expect(one(/so a perfect 10 earns (\d+)\./g)[1]).toBe(String(maxXp))
+    expect(one(/<small>your grade × ([\d.]+)<\/small>/g)[1]).toBe(String(maxXp / 10))
+    expect(one(/<td class="xp">up to (\d+)<\/td>/g)[1]).toBe(String(maxXp))
   })
 })
 
@@ -152,5 +159,70 @@ describe("the landing page's pet", () => {
     const [, colors] = one(/const colors = (\{[^}]*\});/g)
     expect(JSON.parse(`[${rows!.trim().replace(/,$/, "")}]`)).toEqual(petSprite.rows)
     expect(JSON.parse(colors!.replace(/(\w+):/g, '"$1":'))).toEqual(petSprite.palette)
+  })
+})
+
+describe("the landing page's rubric card", () => {
+  const [, sample] = one(/<p class="sample">([^<]+)<\/p>/g)
+  const [, body] = one(/const rubric = \[\n([^\]]*(?:\][^;][^\]]*)*)\];/g)
+  const shown = [...body!.matchAll(/\["([a-z ]+)", (\d+), "[^"]*"\]/g)].map(([, name, n]) => ({
+    measure: name!.replace(/ (\w)/g, (_, c: string) => c.toUpperCase()),
+    score: Number(n),
+  }))
+  const scores = Object.fromEntries(shown.map(({ measure, score }) => [measure, score]))
+  const content = Object.keys(rules.prompt.v2.weights)
+
+  it("names rubric 2's measures in its order: the content ones, then craft and tone", () => {
+    expect(shown.map(({ measure }) => measure)).toEqual([...content, "craft", "tone"])
+  })
+
+  it("shows the grade rubric 2 gives those scores, and the XP it earns, on the card and in the session", () => {
+    const grade = gradeV2(rules.prompt.v2, {
+      rubricVersion: 2,
+      kind: "task",
+      measures: {
+        intent: scores.intent!,
+        grounding: scores.grounding!,
+        why: scores.why!,
+        successShape: scores.successShape!,
+        scope: scores.scope!,
+        forward: scores.forward!,
+        craft: scores.craft!,
+        tone: scores.tone!,
+      },
+      spelledClean: true,
+      words: sample!.split(/\s+/).length,
+      grader: "haiku",
+    })
+    const xp = Math.floor((rules.prompt.v2.maxXp * grade) / 10)
+    expect(one(/<span class="g">([\d.]+)<small> \/ 10<\/small><\/span><span class="x">\+(\d+) XP<\/span>/g).slice(1)).toEqual([
+      String(grade),
+      String(xp),
+    ])
+    const session = matches(/✦ Graded ([\d.]+)<\/span><span class="t-dim">\/10<\/span> +<span class="t-xp">\+(\d+) XP/g)
+    expect(session.map(([, g, x]) => [g, x])).toEqual([
+      [String(grade), String(xp)],
+      [String(grade), String(xp)],
+    ])
+    const [, start, end] = one(/await animateXp\((\d+), (\d+)\);/g)
+    expect(Number(end) - Number(start)).toBe(xp)
+  })
+})
+
+describe("the landing page's quests", () => {
+  const cards = matches(/<article class="quest"[^>]*><h3>([^<]+)<\/h3><span class="cadence tag">\w+<\/span><p>([^<]+)<\/p><div class="reward"><span>\+(\d+) XP<\/span><span class="g">● (\d+) gold<\/span>/g)
+
+  it("says each quest as the starter pack does, with its XP and gold", () => {
+    expect(cards.length).toBeGreaterThan(0)
+    for (const [, title, description, xp, gold] of cards) {
+      const quest = starterQuestPack.quests.find((one) => one.title === title)
+      expect(quest, title).toBeDefined()
+      expect({ title, description, xp: Number(xp), gold: Number(gold) }).toEqual({
+        title,
+        description: quest!.description,
+        xp: quest!.rewards.xp,
+        gold: quest!.rewards.gold,
+      })
+    }
   })
 })

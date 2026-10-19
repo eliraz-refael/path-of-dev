@@ -120,6 +120,11 @@ export type StatsView = {
   prompts: { graded: number; today: number; average: number; best: number | null; regretted: number }
   /** Each quality score's average over the graded prompts, 0-10, in the rubric's order. */
   profile: ReadonlyArray<{ dimension: string; average: number }> | null
+  /**
+   * The counts are rubric 2's: the profile is its measures, and no prompt regrets. Absent from a server that counts
+   * rubric 1 alone, and in what a copy of the mod from before kept.
+   */
+  isMeasured?: boolean
   /** Percent: the latest session's peak and the average, and the sessions that crossed each fill. */
   context: { lastSession: number; average: number; pct50: number; pct75: number; pct100: number }
   clears: number
@@ -310,23 +315,41 @@ export type GradeScore =
   | 'regret'
 
 /**
+ * A measure rubric 2 gives a prompt: the six content measures, against what the prompt needs, then the writing's
+ * craft and its tone, which only nudge the grade.
+ */
+export type GradeMeasure = 'intent' | 'grounding' | 'why' | 'successShape' | 'scope' | 'forward' | 'craft' | 'tone'
+
+/**
  * What the pet coach says about one graded prompt: its lines in order (praise first, then a tip), each with `{name}`
  * where the pet's name goes, and the score the bubble is about, which the next unasked one may not be about again.
  */
-export type Said = { lines: ReadonlyArray<string>; topic: GradeScore }
+export type Said = { lines: ReadonlyArray<string>; topic: GradeScore | GradeMeasure }
 
 /**
  * The last prompt the mod graded, kept on this machine only: the id of its `prompt.graded` event (the cause of the
- * XP it earned), its scores, the grader's note, its grade (the server's once it arrives, else the scores' mean) and,
- * once the pet has said something about it, what it said.
+ * XP it earned), its scores by its rubric, the grader's note, its grade (the server's once it arrives, else the scores'
+ * mean) and, once the pet has said something about it, what it said. A memory kept before rubric 2 has no `rubric`:
+ * it is rubric 1's.
  */
-export type Graded = {
-  id: string
-  scores: Readonly<Record<GradeScore, number>>
-  note: string | null
-  grade: number
-  said: Said | null
-}
+export type Graded =
+  | {
+      rubric?: 1
+      id: string
+      scores: Readonly<Record<GradeScore, number>>
+      note: string | null
+      grade: number
+      said: Said | null
+    }
+  | {
+      rubric: 2
+      id: string
+      /** `why` and `successShape` are null when the prompt needs neither. */
+      measures: Readonly<Record<GradeMeasure, number | null>>
+      note: string | null
+      grade: number
+      said: Said | null
+    }
 
 /**
  * The pet coach's memory: the last graded prompt; the graded prompts since its last unasked bubble (null before its
@@ -336,7 +359,7 @@ export type Graded = {
 export type CoachMemory = {
   last: Graded | null
   sinceBubble: number | null
-  lastTopic: GradeScore | null
+  lastTopic: GradeScore | GradeMeasure | null
   lines: Readonly<Record<string, number>>
 }
 
@@ -354,13 +377,15 @@ export type SpeciesView = { id: string; name: string; about: string }
  * don't say, and the step then says it without one.
  */
 export type GradingView = {
+  /** The rubric the mod grades with against these rules. */
+  rubric: 1 | 2
   /** A typed prompt shorter than this goes ungraded. */
   minWords: number
   /** XP for a perfect grade. */
   maxXp: number | null
   /** How a day's graded prompts taper, in order: up to the `upTo`-th earn `pct` percent; null = every one after. */
   perDay: ReadonlyArray<{ upTo: number | null; pct: number }> | null
-  /** The quality scores that count toward XP, in the rubric's order. */
+  /** The scores that count toward the grade, in the rubric's order: its quality scores, or its content measures. */
   counted: ReadonlyArray<string>
   /** The chance of a drop at a perfect grade, 0-1. */
   lootAtTen: number | null

@@ -18,6 +18,7 @@ import { joinQueue, queueOf, rewardsText } from './celebrate'
 import { cellsOf, cellsOfRow, glyphSlot } from './cells'
 import { hmac } from './ids'
 import { barRow } from './frames'
+import { maxTokens, RUBRIC, RUBRIC_V2 } from './grade'
 import { sheenHead } from './looks'
 import { exitIsTheRuns, githubName, testRunner } from './observe'
 import { missionChip, missionsLayout, timeLeft } from './missions'
@@ -650,11 +651,11 @@ const grader = (on: On, answer: string | ModelCompleteResult | Error = REPLY) =>
 }
 
 /** A started session with the server up, its stream held; `flushed` sends what queued and reads all it has sent. */
-const started = async ($: Parameters<TestBody>[0], on: On) => {
+const started = async ($: Parameters<TestBody>[0], on: On, server: ServerOptions = {}) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
   mock.store(on, { explored: ['acme/widgets'] })
   mock.env(on, { HOME: '/home/player' })
-  const { sent } = fakeServer(on, clock)
+  const { sent } = fakeServer(on, clock, server)
   await $.session.start(start)
   await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
   const flushed = async () => {
@@ -683,13 +684,19 @@ describe('grading prompts', () => {
       words: 14,
       grader: 'haiku',
     })
-    expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens: 120 })
+    expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens })
     expect(asked[0]?.systemBlocks?.[0]?.cache).toBe(true)
+    expect(asked[0]?.systemBlocks?.[0]?.text).toBe(RUBRIC)
     expect(asked[0]?.prompt).toContain(typed)
     expect(asked[0]?.prompt).toContain('I refactored the parser.')
     const wire = JSON.stringify(sent)
     expect(wire).not.toContain('explode')
     expect(wire).not.toContain('clear ask')
+    // Byte for byte as before rubric 2, against a server whose rules don't price it.
+    expect(JSON.stringify(graded[0]?.['data'])).toBe(
+      '{"scores":{"clarity":7,"grammar":8,"specificity":5,"instructive":6,"context":4,"doneCriteria":3,"focus":9,"regret":1},' +
+        '"rubricVersion":1,"words":14,"grader":"haiku"}',
+    )
   })
 
   test("keeps the grader's note on this machine: prompt.graded carries none, and nothing sent or queued has it", async ($, on) => {
@@ -790,6 +797,130 @@ describe('grading prompts', () => {
       expect(ofType(events, 'prompt.graded')).toEqual([])
     })
   }
+})
+
+/** Rubric 2's grading and price, as a server from grading v2 on sends them: the mod grades with it only then. */
+const V2_RULES = {
+  prompt: {
+    rubricVersion: 2,
+    maxXp: 20,
+    perDay: [
+      { upTo: 20, pct: 100 },
+      { upTo: 40, pct: 50 },
+      { upTo: null, pct: 10 },
+    ],
+    weights: { clarity: 1, grammar: 1, specificity: 1, instructive: 1, context: 1, doneCriteria: 1, focus: 1 },
+    v2: {
+      maxXp: 15,
+      weights: { intent: 1.5, grounding: 1, why: 1, successShape: 1, scope: 1, forward: 1.5 },
+      craft: { from: 6, span: 4, max: 0.5 },
+      spelling: { fullAtWords: 60, max: 0.4 },
+      tone: { upFrom: 6, upPer: 0.075, downFrom: 4, downPer: 0.6 },
+      caps: { hostile: { toneAtMost: 2, grade: 3.5 }, steer: { grade: 8 } },
+      loot: { chanceAtTen: 0.175, greatAt: 9 },
+    },
+  },
+  loot: { promptChanceAtTen: 0.24, promptGreatAt: 9, promptGreatRareFactor: 2 },
+}
+const MEASURES = { intent: 8, grounding: 6, why: null, successShape: 5, scope: 9, forward: 7, craft: 7, tone: 6 }
+const replyV2 = (more: Record<string, unknown> = {}) =>
+  JSON.stringify({ kind: 'task', ...MEASURES, misspelled: [], note: 'Say which test should pass.', ...more })
+const byRubric2: ServerOptions = { rules: V2_RULES }
+
+describe('grading prompts by rubric 2', () => {
+  test('against a server whose rules price it: the kind, the measures and whether it is spelled clean, never the text', async ($, on) => {
+    const asked = grader(on, replyV2())
+    const { sent, flushed } = await started($, on, byRubric2)
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    const graded = ofType(await flushed(), 'prompt.graded')
+    expect(graded).toHaveLength(1)
+    expect(graded[0]?.['data']).toEqual({ rubricVersion: 2, kind: 'task', measures: MEASURES, spelledClean: true, words: 14, grader: 'haiku' })
+    expect(Object.keys(graded[0]?.['data'] ?? {})).toEqual(['rubricVersion', 'kind', 'measures', 'spelledClean', 'words', 'grader'])
+    expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens })
+    expect(asked[0]?.systemBlocks?.[0]?.text).toBe(RUBRIC_V2)
+    expect(asked[0]?.systemBlocks?.[0]?.cache).toBe(true)
+    expect(JSON.stringify(sent)).not.toContain('explode')
+  })
+
+  test('rules from before rubric 2, or none, grade by rubric 1 with its rubric', async ($, on) => {
+    const asked = grader(on)
+    const { perDay, weights } = V2_RULES.prompt
+    const { flushed } = await started($, on, { rules: { ...V2_RULES, prompt: { rubricVersion: 1, maxXp: 20, perDay, weights } } })
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    expect(ofType(await flushed(), 'prompt.graded').map((event) => event['data'])).toMatchObject([{ rubricVersion: 1 }])
+    expect(asked[0]?.systemBlocks?.[0]?.text).toBe(RUBRIC)
+  })
+
+  test("costs the bonus only for a misspelled word the prompt has, and the words never leave the machine, nor the note", async ($, on) => {
+    // A canary in the list, in the note and in the prompt; and a word Haiku made up, which the prompt hasn't.
+    grader(on, replyV2({ misspelled: ['zebrq', 'quaggle'], note: 'Mention the okapi fixture you want covered.' }))
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    const kept = new Map<string, unknown>([['explored', ['acme/widgets']]])
+    const stored: Array<string> = []
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      stored.push(JSON.stringify(e.value) ?? '')
+      return { value: undefined }
+    })
+    on('store.delete', ($, e) => {
+      kept.delete(e.key)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock, byRubric2)
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.prompt.submit({ text: 'why did the zebrq parser explode, please fix it and add a failing test', wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await clock.settle()
+    const graded = ofType(eventsOf(sent), 'prompt.graded')
+    expect(graded.map((event) => event['data'])).toMatchObject([{ rubricVersion: 2, spelledClean: false }])
+    for (const canary of ['zebrq', 'quaggle', 'okapi', 'misspelled', 'explode']) {
+      expect(JSON.stringify(sent)).not.toContain(canary)
+      expect(stored.join('\n')).not.toContain(canary)
+    }
+    expect(stored.some((value) => value.includes('prompt.graded'))).toBe(true)
+  })
+
+  test('a word Haiku made up never costs the bonus', async ($, on) => {
+    grader(on, replyV2({ misspelled: ['recieve'] }))
+    const { flushed } = await started($, on, byRubric2)
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    expect(ofType(await flushed(), 'prompt.graded').map((event) => event['data'])).toMatchObject([{ spelledClean: true }])
+  })
+
+  test('a reply with a stray "," before its closing brace is repaired and graded', async ($, on) => {
+    grader(on, replyV2().replace(/\}$/, ',"}'))
+    const { flushed } = await started($, on, byRubric2)
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    expect(ofType(await flushed(), 'prompt.graded').map((event) => event['data'])).toMatchObject([{ measures: MEASURES }])
+  })
+
+  const failures: ReadonlyArray<[string, string]> = [
+    ['a kind of none of the four', replyV2({ kind: 'chat' })],
+    ['a missing measure', replyV2().replace('"why":null,', '')],
+    ['a measure out of range', replyV2({ forward: 11 })],
+    ['a reply in rubric 1', REPLY],
+  ]
+  for (const [what, answer] of failures) {
+    test(`sends nothing on ${what}`, async ($, on) => {
+      grader(on, answer)
+      const { flushed } = await started($, on, byRubric2)
+      await $.prompt.submit({ text: typed, wait: false, origin: composer })
+      expect(ofType(await flushed(), 'prompt.graded')).toEqual([])
+    })
+  }
+
+  test('the pet coach says the tip for the weakest content measure the prompt needed', async ($, on) => {
+    grader(on, replyV2({ note: 'Name the test that should pass.' }))
+    const { flushed } = await started($, on, byRubric2)
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await flushed()
+    const said = await $.command.run({ command: 'pathofdev', args: 'pet tip', origin: composer, presentation })
+    expect(said.text).toContain('Name the test that should pass.')
+  })
 })
 
 describe('counting stats', () => {
@@ -1966,6 +2097,32 @@ describe('the Stats tab', () => {
     const back = (await paneTexts($, 72)).texts.join('\n')
     expect(back).toContain('◆ Inventory')
     expect(back).toContain('Band styles')
+  })
+
+  test('once the counts are rubric 2\'s, the profile is its measures, the advice from the content alone, and no regret', async ($, on) => {
+    const measures = { intent: 8.4, grounding: 7.1, why: 6.2, successShape: 5.5, scope: 8.8, forward: 7.6, craft: 9.6, tone: 4.1 }
+    const zeros = { clarity: 0, grammar: 0, specificity: 0, instructive: 0, context: 0, doneCriteria: 0, focus: 0 }
+    const stats = {
+      clears: 8,
+      compactions: { manual: 3, auto: 1 },
+      commands: { '/code-review': 12 },
+      contextCrossed: { pct50: 12, pct75: 5, pct100: 1 },
+      contextPeak: { lastSession: 62, average: 48.4 },
+      prompts: { graded: 12, gradedToday: 3, averageScore: 7.6, regretted: 0 },
+      grades: { best: 9.1, dimensions: zeros, measures },
+    }
+    await streaming($, on, ownedOf(wearing), false, { counted: { ...playing, stats } })
+    await openStats($)
+    const texts = (await paneTexts($, 72)).texts.join('\n')
+    expect(texts).toMatch(/^ {2}Intent +▰+▱+ 8\.4 {2}$/m)
+    expect(texts).toMatch(/^ {2}Success shape +▰+▱+ 5\.5 ▼$/m)
+    expect(texts).toMatch(/^ {2}Scope +▰+▱+ 8\.8 ▲$/m)
+    // Craft and tone show, but are never the strongest or the weakest: they only nudge the grade.
+    expect(texts).toMatch(/^ {2}Craft +▰+▱+ 9\.6 {2}$/m)
+    expect(texts).toMatch(/^ {2}Tone +▰+▱+ 4\.1 {2}$/m)
+    expect(texts).toContain('▼ Work on success shape: say what good looks like')
+    expect(texts).not.toContain('Clarity')
+    expect(texts).not.toContain('Regretted')
   })
 
   test('fits a 40-column pane with every number on the right edge, and sets two columns side by side on a wide one', async ($, on) => {
@@ -3452,7 +3609,7 @@ describe('the welcome', () => {
       'Once you send a prompt of 6 words or more, Haiku grades it on your own Claude account',
       "never the prompt, and never Haiku's note",
       "A day's graded prompts earn full XP for the first 20, half for the next 20 and a tenth after that.",
-      'A 10 earns 20 XP and a 7 earns 14',
+      'A prompt earns up to 20 XP, at a 10, and 14 at a 7',
       'a 24% chance at a 10, less as the grade falls, and from a 9 the odds of a rare, epic or legendary drop double',
       'A low grade only earns less. Nothing is ever taken away',
       'Done criteria',
@@ -3570,7 +3727,7 @@ describe('the welcome', () => {
       isDone: false,
       species,
       egg: { species: 'fox', name: 'Ember' },
-      grading: { minWords: 6, maxXp: 20, perDay: null, counted: [], lootAtTen: null, greatAt: null, greatFactor: null },
+      grading: { rubric: 1, minWords: 6, maxXp: 20, perDay: null, counted: [], lootAtTen: null, greatAt: null, greatFactor: null },
     }
     const keys = (shown: WelcomeView, pet: BandView['pet'] = null) =>
       welcomeLayout({
@@ -3606,7 +3763,7 @@ describe('the welcome', () => {
       isDone: false,
       species: [],
       egg: null,
-      grading: { minWords: 6, maxXp: 20, perDay: null, counted: [], lootAtTen: null, greatAt: null, greatFactor: null },
+      grading: { rubric: 1, minWords: 6, maxXp: 20, perDay: null, counted: [], lootAtTen: null, greatAt: null, greatFactor: null },
     }
     const words = (step: WelcomeStep, online?: string) => {
       const layout = welcomeLayout({
@@ -3630,8 +3787,31 @@ describe('the welcome', () => {
   })
 
   test('review fix: says what a 7 earns as the engine prices it, to the thousandth', () => {
-    expect(xpText(25)).toBe('A 10 earns 25 XP and a 7 earns 17.5, before your sigil and boosts.')
-    expect(xpText(20)).toBe('A 10 earns 20 XP and a 7 earns 14, before your sigil and boosts.')
+    expect(xpText(25)).toBe('A prompt earns up to 25 XP, at a 10, and 17.5 at a 7, before your sigil and boosts.')
+    expect(xpText(20)).toBe('A prompt earns up to 20 XP, at a 10, and 14 at a 7, before your sigil and boosts.')
+  })
+
+  test("against a server that prices rubric 2, the grading step says rubric 2's numbers and measures", async ($, on) => {
+    const rules = { ...welcomeRules, prompt: { ...welcomeRules.prompt, v2: V2_RULES.prompt.v2 } }
+    await streaming($, on, undefined, false, { rules, kept: { welcome: fresh() } })
+    let shown = await look($)
+    for (let i = 0; i < 3; i++) await shown.ui.press({ key: 'welcome:next' })
+    await shown.ui.unmount()
+    shown = await look($)
+    expect(shown.texts).toContain('How grading works')
+    for (const said of [
+      'A prompt earns up to 15 XP, at a 10, and 10.5 at a 7',
+      'a 17.5% chance at a 10, less as the grade falls, and from a 9 the odds of a rare, epic or legendary drop double',
+      "gets its scores, its kind, whether it is spelled clean and a word count: never the prompt, Haiku's note or the",
+      'a little more for clear writing, clean spelling and kind words',
+      'Success shape',
+      'Forward',
+    ]) {
+      expect(shown.texts).toContain(said)
+    }
+    expect(shown.texts).not.toContain('Done criteria')
+    expect(shown.texts).not.toContain('Craft')
+    await shown.ui.unmount()
   })
 
   test('shows a pet that has hatched as it is, with no egg to pick, and sends no pick', async ($, on) => {
@@ -3828,6 +4008,43 @@ describe('switching servers', () => {
     await clock.settle()
     expect(typesOn(sent, sandbox)).toContain('session.compacted')
     expect(typesOn(sent, own)).toHaveLength(1)
+  })
+
+  test('grades by rubric 1 again after a switch, until the new server says it prices rubric 2', async ($, on) => {
+    settings(on)
+    // Haiku answers in the shape of the rubric it was given.
+    const asked: Array<string | undefined> = []
+    on('model.complete', ($, e) => {
+      const rubric = e.systemBlocks?.[0]?.text
+      asked.push(rubric)
+      return { value: { isAnswered: true, text: rubric === RUBRIC_V2 ? replyV2() : REPLY, usage: USAGE } }
+    })
+    const listensOn = { at: own }
+    const { sent, clock } = await streaming($, on, ownedOf(), false, { rules: V2_RULES, listensOn })
+    const rubricsOn = (socket: string) =>
+      ofType(eventsOf(sent.filter((one) => one.socket === socket)), 'prompt.graded').map((event) =>
+        isRecord(event['data']) ? event['data']['rubricVersion'] : null,
+      )
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await until(clock, () => rubricsOn(own).length === 1)
+    expect(rubricsOn(own)).toEqual([2])
+    // The sandbox isn't up yet: nothing has said it prices rubric 2.
+    await run($, 'server dev')
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    listensOn.at = sandbox
+    await clock.advance(5_000)
+    await until(clock, () => rubricsOn(sandbox).length === 1)
+    expect(rubricsOn(sandbox)).toEqual([1])
+    // Once it has answered, rubric 2 again.
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await until(clock, () => rubricsOn(sandbox).length === 2)
+    expect(rubricsOn(sandbox)).toEqual([1, 2])
+    expect(asked).toEqual([RUBRIC_V2, RUBRIC, RUBRIC_V2])
   })
 
   test("an event the last server's stream brings after a switch is not shown", async ($, on) => {

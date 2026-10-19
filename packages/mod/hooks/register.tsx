@@ -50,8 +50,12 @@ import {
   coachOf,
   fitsWhole,
   freshCoach,
+  gradedByMeasuresOf,
   gradedOf,
   heardOf,
+  heardRubricOf,
+  hostileToneAt,
+  hostileToneOf,
   minBubble,
   noTipText,
   phasesOf,
@@ -63,16 +67,20 @@ import {
 import type { DevAsk, ServerKind } from './dev'
 import { devAskOf, devCommandOf, devUsage, previewEvents, previews, serverOf, startHint, toNextLevel } from './dev'
 import { barRow, capitalised, rarityColors, slotRow, stageRows } from './frames'
+import type { Rubric } from './grade'
 import {
   answerTail,
   askFor,
   isGradable,
   isSlashCommand,
+  maxTokens,
+  measuresOf,
   minWordsOf,
   noteOf,
-  RUBRIC,
-  rubricVersion,
+  rubricOf,
+  rubrics,
   scoresOf,
+  spelledCleanOf,
   wordsOf,
 } from './grade'
 import type { DataAsk } from './account'
@@ -172,6 +180,7 @@ import {
   walkerOf,
   wanderingPet,
   wantsStep,
+  wellGradedAt,
   withReactions,
 } from './pet-motion'
 import type { ProfileAsk } from './profile'
@@ -290,6 +299,12 @@ type SigningIn = { readonly origin: string; readonly code: DeviceCode; poll: Pol
 let signingIn: SigningIn | null = null
 /** The `minWords` option, which the welcome's grading step says. */
 let gradeWords = 6
+/**
+ * The rubric the mod grades with: 1, which every server takes, until the server's rules say it prices 2, and again
+ * after a switch of server until the new one says so. The tone its rules call hostile, for the pet coach.
+ */
+let rubric: Rubric = 1
+let hostileTone = hostileToneAt
 /** Takes the gain's line down once it has stood a minute. */
 let fadeTimer: Timer | null = null
 let sessionId = ''
@@ -735,7 +750,9 @@ const wakePet = async ($: EngineInterface) => {
 
 /** What a batch of the stream earned, the pet reacts to once the band is free; a reaction wakes it, as prompts do. */
 const petReact = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>) => {
-  const reactions = reactionsOf(events, motion)
+  // A prompt hops at its own rubric's line: rubric 2's grades run higher.
+  const graded = heardRubricOf(await read($, coachMemory), events, rubric)
+  const reactions = reactionsOf(events, motion, wellGradedAt[graded])
   if (petDisplay.hidden || reactions.length === 0 || ((await read($, view))?.pet ?? null) === null) return
   // A bubble on show gives way: the reaction plays now.
   if (bubbleTimer !== null) await hush($)
@@ -801,7 +818,7 @@ const coachHear = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   // Worked out from the memory as the write lands, so a grade kept meanwhile is not undone.
   const decided: { saying: Saying | null } = { saying: null }
   await update($, coachMemory, (kept) => {
-    const next = unasked(kept ?? freshCoach, heard, coach, onBand)
+    const next = unasked(kept ?? freshCoach, heard, coach, onBand, hostileTone)
     decided.saying = next.saying
     return next.memory
   })
@@ -858,7 +875,7 @@ const coachTip = async ($: EngineInterface): Promise<string> => {
   const pet = (await read($, view))?.pet ?? null
   const answer: { said: Said | null } = { said: null }
   await update($, coachMemory, (kept) => {
-    const next = asked(kept ?? freshCoach)
+    const next = asked(kept ?? freshCoach, hostileTone)
     answer.said = next.said
     return next.memory
   })
@@ -892,6 +909,9 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
   if (at !== generation) return
   await learnOwner($, opened.snapshot.character.playerId)
   if (fromScratch) cursor = opened.snapshot.cursor
+  // Rubric 2 only on a server whose rules price it; an older one carries no rules, and takes rubric 1.
+  rubric = rubricOf(opened.rules ?? {})
+  hostileTone = hostileToneOf(opened.rules ?? {})
   const next = viewOf(opened.snapshot)
   // An older server's answer carries no rules: it deals in no sigils, and the pane shows none.
   const owned = wardrobeOf(opened.snapshot, opened.rules ?? {})
@@ -1246,6 +1266,9 @@ const switchServer = async ($: EngineInterface, to: ServerName): Promise<string>
       return `The Server option stays as it is: ${written.deny}`
     }
     generation += 1
+    // Rubric 1 until the new server says it prices 2.
+    rubric = 1
+    hostileTone = hostileToneAt
     // The stream held on the last server is let go: the new one's starts at once, not once that one answers.
     isPolling = false
     given = { ...given, server: to }
@@ -1751,25 +1774,43 @@ const syncPaneClock = ($: EngineInterface) => {
 }
 
 /**
- * Grades a prompt the player typed with Haiku, from what the grader is asked (`askFor`), and queues the scores. A
- * failed call or a reply that doesn't parse sends nothing.
+ * Grades a prompt the player typed (`text`) with Haiku, from what the grader is asked (`prompt`, from `askFor`), by
+ * the rubric the server prices, and queues the scores. A failed call or a reply that doesn't parse sends nothing.
  */
-const grade = async ($: EngineInterface, prompt: string, words: number) => {
+const grade = async ($: EngineInterface, text: string, prompt: string, words: number) => {
+  // Taken as the grading sets out: the rubric's text, its reader and its event go together.
+  const by = rubric
   const stamped = await stamp($)
   const result = await $.model.complete({
     model: 'haiku',
-    system: [{ text: RUBRIC, cache: true }],
+    system: [{ text: rubrics[by], cache: true }],
     prompt,
-    maxTokens: 120,
+    maxTokens,
     effort: 'low',
     timeoutMs: 30_000,
   })
-  const scores = result.isAnswered ? scoresOf(result.text) : null
-  if (scores === null) return
+  if (!result.isAnswered) return
   // The note stays on this machine, with the pet coach, kept before the XP it earns can come back: it is in no event.
-  const graded = gradedOf(stamped.id, scores, result.isAnswered ? noteOf(result.text) : null)
-  await update($, coachMemory, (kept) => remembered(kept ?? freshCoach, graded))
-  await enqueue($, { ...stamped, type: 'prompt.graded', data: { scores, rubricVersion, words, grader: 'haiku' } })
+  const note = noteOf(result.text)
+  if (by === 2) {
+    const read = measuresOf(result.text)
+    if (read === null) return
+    // The words the grader found misspelled are checked against the prompt here, and go no further: only the answer.
+    const spelledClean = spelledCleanOf(result.text, text)
+    const { kind, measures } = read
+    const graded = gradedByMeasuresOf(stamped.id, measures, note)
+    await update($, coachMemory, (kept) => remembered(kept ?? freshCoach, graded))
+    await enqueue($, {
+      ...stamped,
+      type: 'prompt.graded',
+      data: { rubricVersion: 2, kind, measures, spelledClean, words, grader: 'haiku' },
+    })
+    return
+  }
+  const scores = scoresOf(result.text)
+  if (scores === null) return
+  await update($, coachMemory, (kept) => remembered(kept ?? freshCoach, gradedOf(stamped.id, scores, note)))
+  await enqueue($, { ...stamped, type: 'prompt.graded', data: { scores, rubricVersion: 1, words, grader: 'haiku' } })
 }
 
 /** A slash command the player ran, by the name the stats count it under. */
@@ -1921,7 +1962,7 @@ export const register: Register = (on, options) => {
     // What the grader reads is taken now: a prompt typed before the grading runs must not become this one's previous.
     if (isGradable(e.origin.kind, e.text, words, minWords)) {
       const asked = askFor(text, lastPrompt, lastAnswer)
-      later($, () => grade($, asked, words))
+      later($, () => grade($, text, asked, words))
     }
     lastPrompt = text
     return result
