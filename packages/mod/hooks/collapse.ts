@@ -54,8 +54,7 @@ export const sameOpening = (a: Opening | null, b: Opening | null): boolean =>
   a === null || b === null ? a === b : a.until === b.until
 
 /** Whether the band draws: always in `full`, never in `line`, and in `auto` while it is open. */
-export const isBandShown = (mode: BandMode, opening: Opening | null): boolean =>
-  mode === 'full' || (mode === 'auto' && opening !== null)
+export const isBandShown = (mode: BandMode, isOpen: boolean): boolean => mode === 'full' || (mode === 'auto' && isOpen)
 
 /** What the status line reads from: the link, the character, what to do offline, the missions running, the grade. */
 export type StatusFacts = {
@@ -64,7 +63,7 @@ export type StatusFacts = {
   /** What to do while offline: start the server, sign in, or wait on it. */
   hint: string
   running: number
-  /** The grade the server gave the last prompt it priced in this session; null before one. */
+  /** The grade the server gave the player's last prompt it priced, as the stream brought it; null before one. */
   grade: number | null
 }
 

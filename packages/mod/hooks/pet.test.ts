@@ -1,5 +1,5 @@
-import { describe, expect, mock, test as kitTest } from 'claude-code/testing'
-import type { TestBody, TestRest } from 'claude-code/testing'
+import { describe, expect, mock } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 import type { On, PromptOrigin, RenderPropsOf, SessionStartInput } from 'claude-code'
 import type { ServerEvent } from '@pathofdev/schema'
 import type { PetLook, PetPose } from '../types'
@@ -24,12 +24,7 @@ import {
   wellGradedAt,
   withReactions,
 } from './pet-motion'
-
-/** The band as it always was, open at rest: these tests draw it so. collapse.test.ts plays it `auto` and `line`. */
-const test = (name: string, ...rest: TestRest) =>
-  rest.length === 1
-    ? kitTest(name, { options: { band: 'full' } }, rest[0])
-    : kitTest(name, { ...rest[0], options: { band: 'full', ...rest[0].options } }, rest[1])
+import { test } from '../test/full'
 
 // The living pet: it wanders band row 2, reacts to good play and never to a weak prompt, sleeps when the player is
 // away, and stays still or off the band as the player chooses. A small server beneath the mod hands it a hatched pet

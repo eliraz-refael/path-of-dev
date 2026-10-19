@@ -459,7 +459,7 @@ declare module 'claude-code' {
       bubble: Bubble | null
       /** The band open in `auto`; null while it is shut. */
       open: Opening | null
-      /** The grade the server gave the last prompt it priced, for the status line; null before one. */
+      /** The grade the server gave the player's last prompt it priced, for the status line; null before one. */
       grade: number | null
     }
   }

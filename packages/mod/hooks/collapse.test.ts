@@ -49,11 +49,22 @@ const reply = (status: number, body: unknown) => ({
 })
 
 /**
- * The engine beneath the mod, with what the status line was sent and the band's site, and a local server that
- * answers its routes and hands the stream the test's events; or none, when it is `down`.
+ * What the world beneath holds: no server when it is `down`, Haiku's reply when there is a `grader`, and the
+ * missions its snapshot carries, with the rules that say the server knows them.
  */
-const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, down = false) => {
+type More = { down?: boolean; grader?: string; quests?: ReadonlyArray<unknown> }
+
+const missionRules = {
+  missions: { daily: { count: 3, tier: 'uncommon' }, weekly: { offered: 5, active: 3, tier: 'rare' } },
+}
+
+/**
+ * The engine beneath the mod, with what the status line was sent, the band's site and the ids of the prompts graded,
+ * and a local server that answers its routes and hands the stream the test's events.
+ */
+const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More = {}) => {
   const statuses: Array<string | undefined> = []
+  const gradedIds: Array<string> = []
   const site = { requestId: '' }
   on('ui.toast', () => ({ value: undefined }))
   on('ui.focus', () => ({}))
@@ -79,25 +90,40 @@ const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, down = fals
   on('ui.close', () => ({ value: undefined }))
   on('audio.play', () => ({ value: undefined }))
   on('model.complete', () => {
-    throw new Error('no model here')
+    if (more.grader === undefined) throw new Error('no model here')
+    const usage = { input_tokens: 812, output_tokens: 41, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+    return { value: { isAnswered: true, text: more.grader, usage } }
   })
   on('process.run', () => ({
     value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   }))
   on('http.fetch', async ($, e) => {
-    if (down) throw new Error('connect ENOENT /home/player/.pathofdev/server.sock')
+    if (more.down === true) throw new Error('connect ENOENT /home/player/.pathofdev/server.sock')
     const url = new URL(e.url)
     if (e.init?.method === 'DELETE') return reply(200, { closed: true })
-    if (url.pathname === '/v1/sessions')
-      return reply(200, { snapshot, rules: careRules, minClientVersion: '0.0.0', acceptedEventTypes: [] })
-    if (url.pathname === '/v1/events') return reply(200, { results: [], events: [] })
+    if (url.pathname === '/v1/sessions') {
+      const shot = more.quests === undefined ? snapshot : { ...snapshot, quests: more.quests }
+      const rules = more.quests === undefined ? careRules : { ...careRules, ...missionRules }
+      return reply(200, { snapshot: shot, rules, minClientVersion: '0.0.0', acceptedEventTypes: [] })
+    }
+    if (url.pathname === '/v1/events') {
+      const body: unknown = e.init?.body === undefined ? undefined : JSON.parse(e.init.body)
+      const events: unknown = typeof body === 'object' && body !== null && 'events' in body ? body.events : []
+      const ids = (Array.isArray(events) ? events : []).flatMap((event: unknown) =>
+        typeof event === 'object' && event !== null && 'id' in event && typeof event.id === 'string'
+          ? [{ id: event.id, isGraded: 'type' in event && event.type === 'prompt.graded' }]
+          : [],
+      )
+      gradedIds.push(...ids.filter((one) => one.isGraded).map((one) => one.id))
+      return reply(200, { results: ids.map((one) => ({ id: one.id, status: 'accepted' })), events: [] })
+    }
     if (url.pathname === '/v1/commands') return reply(200, { status: 'ok', events: [] })
     for (let waited = 0; waited < 25_000 && stream.length === 0; waited += 1_000) await clock.sleep(1_000)
     const events = stream.splice(0)
     const cursor = Math.max(0, ...events.map((event) => event.seq))
     return reply(200, { events, cursor, rulesVersion: 1, minClientVersion: '0.0.0' })
   })
-  return { statuses, site }
+  return { statuses, site, gradedIds }
 }
 
 const start: SessionStartInput = { cwd: '/work/widgets', surface: 'terminal', isInteractive: true }
@@ -121,12 +147,12 @@ const until = async (clock: Clock, check: () => boolean | Promise<boolean>) => {
 }
 
 /** A session with the pet hatched and the stream open; `send` hands the mod events. */
-const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}) => {
+const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}, more: More = {}) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
   mock.store(on, { explored: ['acme/widgets'], ...store })
   mock.env(on, { HOME: '/home/player' })
   const stream: Array<{ seq: number }> = []
-  const { statuses, site } = world(on, clock, stream)
+  const { statuses, site, gradedIds } = world(on, clock, stream, more)
   await $.session.start(start)
   await until(clock, () => statuses.at(-1)?.startsWith('⚔ Lv') === true)
   await clock.settle()
@@ -136,7 +162,7 @@ const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}) =
     await until(clock, () => stream.length === 0)
     await clock.settle()
   }
-  return { clock, send, statuses, site }
+  return { clock, send, statuses, site, gradedIds }
 }
 
 const mountBand = ($: Dollar, isWorking = false) =>
@@ -208,6 +234,36 @@ const run = async ($: Dollar, args: string) =>
 
 /** No celebrations: a weak grade's gain then holds the band open for nothing but its own `holdMs`. */
 const still = { options: { animations: 'off' } }
+/** And a coach with a tip after every graded prompt, weak ones too. */
+const tipping = { options: { animations: 'off', coach: 'always' } }
+
+/** Haiku's grade of a weak prompt, with a tip. */
+const weakReply = JSON.stringify({
+  clarity: 4,
+  grammar: 8,
+  specificity: 3,
+  instructive: 4,
+  context: 2,
+  doneCriteria: 2,
+  focus: 6,
+  regret: 0,
+  note: 'Name the file and the error.',
+})
+
+/** A mission running as the snapshot carries it, its window ending at `expiresAt`. */
+const mission = (cadence: string, expiresAt: string) => ({
+  questId: `q-${cadence}`,
+  packId: 'starter',
+  title: 'Steady Voice',
+  description: null,
+  cadence,
+  start: cadence === 'daily' ? 'auto' : 'pick',
+  status: 'active',
+  progress: 1,
+  goal: 5,
+  rewards: { xp: 50, gold: 30 },
+  expiresAt,
+})
 
 describe('the band, auto', () => {
   test('is shut at rest; the status line says it connects, then the essentials', async ($, on) => {
@@ -301,11 +357,36 @@ describe('the band, auto', () => {
     expect(await bandNow($)).toBeNull()
   })
 
+  // Review fix: a line waiting on a pet asleep held the band open with no end.
+  test('a tip waiting on a pet that fell asleep in a long turn holds nothing', tipping, async ($, on) => {
+    const { clock, send, gradedIds } = await playing($, on, {}, { grader: weakReply })
+    await $.prompt.submit({ text: 'fix the parser so it reads nested lists', wait: false, origin: composer })
+    await $.turn.start({ text: 'fix the parser', turnId: 't1' })
+    // The turn runs past the pet's nap, and the prompt's XP comes back during it, with a tip to say.
+    await clock.advance(11 * 60_000)
+    await until(clock, () => gradedIds.length > 0)
+    await send(graded(5, gradedIds.at(-1) ?? ''))
+    await $.turn.complete({ answer: 'Done', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+    await clock.settle()
+    expect(await bandNow($)).toContain('XP')
+    await clock.advance(holdMs + 100)
+    expect(await bandNow($)).toBeNull()
+  })
+
+  // Review fix: the missions running were counted only when the stream brought something.
+  test('the status line stops counting a mission once its window ends, with nothing on the stream', async ($, on) => {
+    const quests = [mission('daily', '2026-10-09T08:01:00.000Z'), mission('weekly', '2026-10-12T00:00:00.000Z')]
+    const { clock, statuses } = await playing($, on, {}, { quests })
+    expect(statuses.at(-1)).toBe('⚔ Lv 4 ▰▱▱▱▱ 30/203 xp · 2 missions')
+    await clock.advance(2 * 60_000)
+    expect(statuses.at(-1)).toBe('⚔ Lv 4 ▰▱▱▱▱ 30/203 xp · 1 mission')
+  })
+
   test('the status line says what to do while the server is down', async ($, on) => {
     const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
     mock.store(on)
     mock.env(on, { HOME: '/home/player' })
-    const { statuses } = world(on, clock, [], true)
+    const { statuses } = world(on, clock, [], { down: true })
     await $.session.start(start)
     await until(clock, () => statuses.at(-1)?.includes('offline') === true)
     expect(statuses.at(-1)).toBe('⚔ Path of Dev · offline · start the server: pnpm --filter @pathofdev/server start')
@@ -371,10 +452,10 @@ describe('the opening', () => {
   })
 
   test('shows always in full, never in line, and in auto while open', () => {
-    expect(isBandShown('full', null)).toBe(true)
-    expect(isBandShown('line', { until: null })).toBe(false)
-    expect(isBandShown('auto', null)).toBe(false)
-    expect(isBandShown('auto', { until: 9 })).toBe(true)
+    expect(isBandShown('full', false)).toBe(true)
+    expect(isBandShown('line', true)).toBe(false)
+    expect(isBandShown('auto', false)).toBe(false)
+    expect(isBandShown('auto', true)).toBe(true)
   })
 })
 

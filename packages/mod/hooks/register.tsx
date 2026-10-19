@@ -725,16 +725,20 @@ const drawPet = async ($: EngineInterface) => {
   await update($, petScene, petSceneNow)
 }
 
+/** The pet plays a reaction, or has one waiting. */
+const isActing = (at: Walker): boolean => at.act !== null || at.queue.length > 0
+
 /** One step, and the timer for the next, set before anything is awaited so that two steps never run side by side. */
 const stepPet = ($: EngineInterface) => {
   petStep = null
+  const wasActing = isActing(walker)
   const step = stepWalker(walker, petContext())
   walker = step.walker
   if (step.waitMs !== null) petStep = $.clock.after(step.waitMs, () => stepPet($))
   void drawPet($).catch(() => undefined)
   void speakWhenFree($).catch(() => undefined)
-  // A reaction that just ended lets the band go, `holdMs` from now.
-  void settleBand($).catch(() => undefined)
+  // A reaction that just ended lets the band go, `holdMs` from now; a step of wandering changes nothing there.
+  if (wasActing && !isActing(walker)) void settleBand($).catch(() => undefined)
 }
 
 /** Starts the pet's steps when it has one to take; otherwise holds it, a reaction a turn cut short to play again. */
@@ -934,7 +938,7 @@ let armedUntil: number | null = null
 let statusShown: string | null | undefined = undefined
 
 /** Whether the band draws now: always in `full`, while it is open in `auto`, never in `line`. */
-const bandShown = (): boolean => bandMode === 'full' || (bandMode === 'auto' && bandOpen)
+const bandShown = (): boolean => isBandShown(bandMode, bandOpen)
 
 /** The pet is off the band: the player hid it, or the band never opens. */
 const petOffBand = (): boolean => petDisplay.hidden || bandMode === 'line'
@@ -946,8 +950,9 @@ const celebrates = (): boolean => motion !== 'off' && bandMode !== 'line'
 const momentsNow = () => ({
   celebrates: playing !== null || (!isTurnRunning && lineup.length > 0),
   reacts:
-    !isTurnRunning && hasPet && !petOffBand() && !walker.asleep && (walker.act !== null || walker.queue.length > 0),
-  speaks: bubbleTimer !== null || toSay.length > 0,
+    !isTurnRunning && hasPet && !petOffBand() && !walker.asleep && isActing(walker),
+  // A line waiting on a pet asleep holds nothing: it waits for the wake, which opens the band for it then.
+  speaks: bubbleTimer !== null || (toSay.length > 0 && !walker.asleep),
   isFocused: isBandFocused,
 })
 
@@ -959,8 +964,9 @@ const moveBand = async ($: EngineInterface, change: (was: Opening | null, now: n
   if (bandMode !== 'auto') return
   const now = await $.clock.now()
   const was = await read($, open)
-  const next = change(was, now)
-  if (!sameOpening(was, next)) await update($, open, (kept) => change(kept, now))
+  // What the write lands, so a change that came in meanwhile is what the timer and the loops follow.
+  let next = change(was, now)
+  if (!sameOpening(was, next)) await update($, open, (kept) => (next = change(kept, now)))
   const until = next?.until ?? null
   if (until !== null && until !== armedUntil) {
     collapseTimer?.cancel()
@@ -2017,7 +2023,11 @@ export const register: Register = (on, options) => {
     // A reload keeps the session's id: a new one would leave the old open beside it, as if two sessions ran.
     await begin($, e.cwd, await read($, session))
     flushTimer?.cancel()
-    flushTimer = $.clock.every(flushEveryMs, () => void flush($))
+    // The status line's missions end by the clock too: it is read again as the flush comes round, sent if it moved.
+    flushTimer = $.clock.every(flushEveryMs, () => {
+      void flush($)
+      void syncStatus($).catch(() => undefined)
+    })
     // A pane the last copy of the mod opened stays up across a reload: the engine keeps the record.
     isPaneOpen = (await $.ui.panes().catch(() => [])).some((pane) => pane.id === paneId)
     // A fresh copy starts its own minute; a reload took the last copy's with it.
@@ -2234,7 +2244,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     // Shut in `auto` with nothing happening, and never open in `line`: the status line says the rest.
-    if (!isBandShown(bandMode, await read($, open))) return next(e)
+    if (!isBandShown(bandMode, (await read($, open)) !== null)) return next(e)
     const status = await read($, link)
     const current = await read($, view)
     const last = await read($, gain)
