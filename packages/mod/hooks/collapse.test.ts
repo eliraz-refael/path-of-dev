@@ -6,6 +6,7 @@ import { bandModeOf, holdMs, isBandShown, isHeld, kicked, openingAfter } from '.
 import { gradeSegment, statusText } from './status'
 import type { Moments } from './collapse'
 import { runningCount } from './missions'
+import { until } from '../test/until'
 
 // The band as the `band` option has it: shut at rest in `auto` and open for a moment of play, always open in `full`,
 // never in `line`; and the status line under the prompt beside it. A small server beneath the mod hands it a hatched
@@ -143,14 +144,6 @@ const bandProps = (isWorking = false): RenderPropsOf['AbovePrompt'] => ({
   scroll: { offset: 0, bodyRows: 10 },
   view: {},
 })
-
-const until = async (clock: Clock, check: () => boolean | Promise<boolean>) => {
-  for (let round = 0; round < 100; round++) {
-    if (await check()) return
-    await clock.settle()
-  }
-  throw new Error('the mod never got there')
-}
 
 /** A session with the pet hatched and the stream open; `send` hands the mod events. */
 const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}, more: More = {}) => {
@@ -317,7 +310,10 @@ describe('the band, auto', () => {
     expect(await bandNow($)).toBeNull()
   })
 
-  test('a celebration holds it open while it plays, the pet with it, in one run, then shuts', async ($, on) => {
+  // It draws the band 160 times over 40 seconds of play: 3 of the 5 seconds a test gets on a CI runner, and all 5 on
+  // a loaded machine.
+  const celebrating = 'a celebration holds it open while it plays, the pet with it, in one run, then shuts'
+  test(celebrating, { timeoutMs: 15_000 }, async ($, on) => {
     const { clock, send } = await playing($, on)
     await send(dropped('rare', 'p1'), graded(9, 'p1'))
     const drawn = await bandNow($)

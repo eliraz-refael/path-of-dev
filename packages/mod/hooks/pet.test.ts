@@ -25,6 +25,7 @@ import {
   withReactions,
 } from './pet-motion'
 import { test } from '../test/full'
+import { until } from '../test/until'
 
 // The living pet: it wanders band row 2, reacts to good play and never to a weak prompt, sleeps when the player is
 // away, and stays still or off the band as the player chooses. A small server beneath the mod hands it a hatched pet
@@ -148,14 +149,6 @@ const bandProps = (isWorking = false): RenderPropsOf['AbovePrompt'] => ({
   scroll: { offset: 0, bodyRows: 10 },
   view: {},
 })
-
-const until = async (clock: Clock, check: () => boolean | Promise<boolean>) => {
-  for (let round = 0; round < 100; round++) {
-    if (await check()) return
-    await clock.settle()
-  }
-  throw new Error('the mod never got there')
-}
 
 /**
  * A session with the pet hatched and the stream open; `send` hands the mod events, `store` what it keeps. A test that
