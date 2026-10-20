@@ -1,6 +1,6 @@
 {
   "name": "pathofdev",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Path of Dev: an RPG around your Claude Code work: XP, levels, loot and a pixel pet, drawn in a band above the prompt.",
   "types": "./types/index.d.ts",
   "author": { "name": "eliraz-refael" },
@@ -23,7 +23,7 @@
     "band": {
       "type": "string",
       "title": "Band",
-      "description": "When the band above the prompt shows: only when something happens (auto, the default), as a graded prompt's gain, loot, a level-up, a finished mission, a badge, a celebration or a pet coach tip, folding away a few seconds after the moment ends, and staying open while you focus it; always (full), or never (line). In auto and line a status line under the prompt keeps your level, XP, missions running and your last prompt's grade; full shows none. Celebrations still play as that option says while the band is open.",
+      "description": "When the band above the prompt shows: only when something happens (auto, the default), as a graded prompt's gain, loot, a level-up, a finished mission, a badge, a celebration or a pet coach tip, folding away a few seconds after the moment ends, and staying open while you focus it; always (full), or never (line). In auto and line a status line under the prompt keeps your level, XP, missions running and your last prompt's grade; full shows none. Celebrations still play as that option says while the band is open. Its scores button opens a card under it with how your last prompt was scored; /pathofdev last says the same in any mode.",
       "options": ["auto", "full", "line"],
       "default": "auto"
     },

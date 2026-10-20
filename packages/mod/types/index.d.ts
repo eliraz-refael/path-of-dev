@@ -382,6 +382,59 @@ export type StatusFacts = {
   grade: number | null
 }
 
+/** What a prompt is, as rubric 2's grader reads it. */
+export type PromptKindView = 'task' | 'question' | 'discussion' | 'steer'
+
+/**
+ * The numbers of `prompt.v2` that make a rubric 2 grade from its measures: the content measures' weights, the craft's
+ * and the clean spelling's bonus, the tone's nudge and the caps. The Last prompt card breaks a grade down by them.
+ */
+export type Pricing = {
+  weights: Readonly<Record<'intent' | 'grounding' | 'why' | 'successShape' | 'scope' | 'forward', number>>
+  craft: { from: number; span: number; max: number }
+  spelling: { fullAtWords: number; max: number }
+  tone: { upFrom: number; upPer: number; downFrom: number; downPer: number }
+  caps: { hostile: { toneAtMost: number; grade: number }; steer: { grade: number } }
+}
+
+/** What the server made of a graded prompt: its grade and the XP it earned. */
+export type Priced = { grade: number; xp: number }
+
+/**
+ * The player's last graded prompt as the Last prompt card shows it, kept on this machine for the session: the id of
+ * its `prompt.graded` event, what it sent, the pricing numbers it was graded under (rubric 2), and the server's grade
+ * and XP once they arrive (null while pending). Never the misspelled words: those stay in the mod's memory alone.
+ */
+export type ScoredPrompt =
+  | {
+      rubric: 1
+      id: string
+      scores: Readonly<Record<GradeScore, number>>
+      words: number
+      priced: Priced | null
+    }
+  | {
+      rubric: 2
+      id: string
+      kind: PromptKindView
+      /** `why` and `successShape` are null when the prompt needs neither. */
+      measures: Readonly<{
+        intent: number
+        grounding: number
+        why: number | null
+        successShape: number | null
+        scope: number
+        forward: number
+        craft: number
+        tone: number
+      }>
+      spelledClean: boolean
+      words: number
+      /** Null when the rules carried no `prompt.v2` the card could read. */
+      pricing: Pricing | null
+      priced: Priced | null
+    }
+
 /** The `/pathofdev` pane's tabs; the last is the first-run welcome, which a player may open again. */
 export type PaneTab = 'inventory' | 'shop' | 'stats' | 'missions' | 'welcome'
 
@@ -478,6 +531,10 @@ declare module 'claude-code' {
       status: StatusFacts | null
       /** The prompt hint draws the status line, so the plain one stays clear, a reload of the mod included. */
       hinted: boolean
+      /** The player's last graded prompt, for the Last prompt card; null before one. Never its misspelled words. */
+      scored: ScoredPrompt | null
+      /** The band shows the Last prompt card, its scores Button pressed. */
+      scoresOpen: boolean
     }
   }
 }

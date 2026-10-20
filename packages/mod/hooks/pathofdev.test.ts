@@ -2122,6 +2122,35 @@ const openStats = async ($: Parameters<TestBody>[0]) => {
 }
 
 describe('the Stats tab', () => {
+  test("puts the last graded prompt's card on top, with the server's grade once it prices it", async ($, on) => {
+    grader(on, replyV2())
+    const { clock, send, sent } = await streaming($, on, ownedOf(wearing), false, { counted: playing, rules: V2_RULES })
+    await openStats($)
+    const paneNow = async () => {
+      const ui = await mountPane($)
+      const texts = await textsOf(ui)
+      await ui.unmount()
+      return texts
+    }
+    expect(await paneNow()).not.toContain('Last prompt')
+    await $.prompt.submit({ text: typed, wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await until(clock, () => ofType(eventsOf(sent), 'prompt.graded').length === 1)
+    const pending = await paneNow()
+    expect(pending).toMatch(/^Last prompt · pending · task$/m)
+    expect(pending.indexOf('Last prompt')).toBeLessThan(pending.indexOf('Progress'))
+    const id = ofType(eventsOf(sent), 'prompt.graded')[0]?.['id']
+    await send(serverEvent('xp.granted', { amount: 11, tier: 'reported', reason: 'prompt.graded', grade: 7.4, totalAfter: 150 }, typeof id === 'string' ? id : ''))
+    const priced = await paneNow()
+    expect(priced).toMatch(/^Last prompt · 7\.4 · \+11 XP · task$/m)
+    // As wide as the cards under it, the measures broken between two of them.
+    expect(priced).toMatch(/^intent 8 {2}grounding 6 {2}why – {2}success 5 {2}scope 9$/m)
+    expect(priced).toMatch(/^forward 7 {2}– didn't apply$/m)
+    expect(priced).toMatch(/^base 7\.1 · craft \+0\.1 · spelling \+0\.1 · tone \+0$/m)
+    expect(priced).toContain('“Say which test should pass.”')
+  })
+
   test('switches from the tab bar and back, and draws every section from the snapshot', async ($, on) => {
     await streaming($, on, ownedOf(wearing), false, { counted: playing })
     await openStats($)
@@ -2490,7 +2519,8 @@ describe('missions on the band', () => {
     await $.prompt.submit({ text: typed, wait: false, origin: composer })
     await clock.settle()
     const widths: Array<number> = []
-    for (let columns = 56; columns <= 140; columns += 2) widths.push(columns)
+    // Up to a band wide enough for the whole note beside the mission and the last prompt's scores Button.
+    for (let columns = 56; columns <= 160; columns += 2) widths.push(columns)
     const rowsOf = async () => {
       const shown: Array<{ chip: string | null; lane: string | null }> = []
       for (const columns of widths) {
