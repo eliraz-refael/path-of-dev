@@ -1,11 +1,10 @@
 import type { PluginOptions } from 'claude-code'
-import type { BandView, Link, Opening } from '../types'
-import { bar, canHatch } from './view'
+import type { Opening } from '../types'
 
 // The band as the `band` option has it, and the status line beside it. In `auto` the band is shut at rest and opens
 // for a moment of play: a gain, a celebration, the pet's reaction or its bubble, the player's focus on it. It stays
 // open while the moment lasts and `holdMs` past its end, then shuts. The status line under the prompt carries the
-// game's essentials meanwhile, and all the time in `line`, where the band never opens.
+// game's essentials meanwhile, and all the time in `line`, where the band never opens (status.ts).
 
 /** The `band` option: shut until something happens (the default), always open as it was, or never open. */
 export type BandMode = 'auto' | 'full' | 'line'
@@ -55,35 +54,3 @@ export const sameOpening = (a: Opening | null, b: Opening | null): boolean =>
 
 /** Whether the band draws: always in `full`, never in `line`, and in `auto` while it is open. */
 export const isBandShown = (mode: BandMode, isOpen: boolean): boolean => mode === 'full' || (mode === 'auto' && isOpen)
-
-/** What the status line reads from: the link, the character, what to do offline, the missions running, the grade. */
-export type StatusFacts = {
-  link: Link
-  view: BandView | null
-  /** What to do while offline: start the server, sign in, or wait on it. */
-  hint: string
-  running: number
-  /** The grade the server gave the player's last prompt it priced, as the stream brought it; null before one. */
-  grade: number | null
-}
-
-/** Cells of the status line's XP bar. */
-const barCells = 5
-
-/**
- * The status line: `⚔ Lv 7 ▰▰▰▱▱ 340/500 xp · 2 missions · last prompt 8.2`, and the egg once it can hatch; offline,
- * what to do about it; before the first snapshot, that it connects. Null in `full`, where the band says it all.
- */
-export const statusText = (mode: BandMode, facts: StatusFacts): string | null => {
-  if (mode === 'full') return null
-  const { link, view, hint, running, grade } = facts
-  if (link === 'offline') return `⚔ Path of Dev · offline · ${hint}`
-  if (view === null) return '⚔ Path of Dev · connecting…'
-  const { filled, empty } = bar(view, barCells)
-  const meter = `${'▰'.repeat(filled)}${'▱'.repeat(empty)}`
-  const parts = [`${view.glyph || '⚔'} Lv ${view.level} ${meter} ${view.xp.intoLevel}/${view.xp.forNextLevel} xp`]
-  if (running > 0) parts.push(`${running} ${running === 1 ? 'mission' : 'missions'}`)
-  if (grade !== null) parts.push(`last prompt ${grade.toFixed(1)}`)
-  if (canHatch(view)) parts.push('🥚 hatch it in /pathofdev')
-  return parts.join(' · ')
-}
