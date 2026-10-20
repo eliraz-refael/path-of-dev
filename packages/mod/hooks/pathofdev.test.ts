@@ -29,6 +29,7 @@ import { statsViewOf } from './view'
 import { closeSetsAside, freshWizard, lootText, stepperRow, taperText, welcomeLayout, xpText } from './welcome'
 import { github as recorded } from '../test/github'
 import { test } from '../test/full'
+import { until } from '../test/until'
 
 // A fake local server beneath the mod: it answers the four routes, records what the mod sends, and holds the
 // stream until the test's clock passes 25 seconds, as the real one does.
@@ -190,15 +191,6 @@ const commands: Array<CommandInfo> = [
 ]
 
 type Clock = ReturnType<typeof mock.clock>
-
-/** Lets the mod's work run until `check` holds: its start-up chains several calls, more than one settle may cover. */
-const until = async (clock: Clock, check: () => boolean | Promise<boolean>) => {
-  for (let round = 0; round < 100; round++) {
-    if (await check()) return
-    await clock.settle()
-  }
-  throw new Error('the mod never got there')
-}
 
 type ServerOptions = {
   level?: number
@@ -4333,12 +4325,17 @@ describe('switching servers', () => {
     slow.key = `token@${origin}`
     await clock.advance(30_000)
     const answer = run($, 'server dev')
-    await clock.advance(3_000)
+    // The switch gives up on the close at half a second and plays on the sandbox, whose flush as it connects finds this
+    // one under way and sends nothing. The read ends once the sandbox's stream is held: moved on sooner, the clock could
+    // end this flush before the sandbox connects (its repo's key is a digest the clock never waits for), and the
+    // sandbox's flush would send its exploration.
+    await clock.advance(500)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream' && one.socket === sandbox))
+    await clock.advance(2_500)
     expect((await answer).text).toBe('Now on the dev sandbox (~/.pathofdev-dev).')
     await clock.advance(3_000)
-    await clock.settle()
+    await until(clock, () => typesOn(sent, '').includes('session.compacted'))
     expect(typesOn(sent, sandbox)).toEqual([])
-    expect(typesOn(sent, '')).toContain('session.compacted')
   })
 
   test('review fix: the reload the option sets off as it is written opens a new session, not the closed one', async ($, on) => {
