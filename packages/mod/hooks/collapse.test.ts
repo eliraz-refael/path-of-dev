@@ -53,7 +53,7 @@ const reply = (status: number, body: unknown) => ({
  * What the world beneath holds: no server when it is `down`, Haiku's reply when there is a `grader`, and the
  * missions its snapshot carries, with the rules that say the server knows them.
  */
-type More = { down?: boolean; grader?: string; quests?: ReadonlyArray<unknown> }
+type More = { down?: boolean; grader?: string; quests?: ReadonlyArray<unknown>; rules?: Record<string, unknown> }
 
 const missionRules = {
   missions: { daily: { count: 3, tier: 'uncommon' }, weekly: { offered: 5, active: 3, tier: 'rare' } },
@@ -66,6 +66,7 @@ const missionRules = {
 const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More = {}) => {
   const statuses: Array<string | undefined> = []
   const gradedIds: Array<string> = []
+  const bodies: Array<string> = []
   const site = { requestId: '' }
   on('ui.toast', () => ({ value: undefined }))
   on('ui.focus', () => ({}))
@@ -102,12 +103,13 @@ const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More 
     value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   }))
   on('http.fetch', async ($, e) => {
+    bodies.push(e.init?.body ?? '')
     if (more.down === true) throw new Error('connect ENOENT /home/player/.pathofdev/server.sock')
     const url = new URL(e.url)
     if (e.init?.method === 'DELETE') return reply(200, { closed: true })
     if (url.pathname === '/v1/sessions') {
       const shot = more.quests === undefined ? snapshot : { ...snapshot, quests: more.quests }
-      const rules = more.quests === undefined ? careRules : { ...careRules, ...missionRules }
+      const rules = { ...(more.quests === undefined ? careRules : { ...careRules, ...missionRules }), ...more.rules }
       return reply(200, { snapshot: shot, rules, minClientVersion: '0.0.0', acceptedEventTypes: [] })
     }
     if (url.pathname === '/v1/events') {
@@ -127,7 +129,7 @@ const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More 
     const cursor = Math.max(0, ...events.map((event) => event.seq))
     return reply(200, { events, cursor, rulesVersion: 1, minClientVersion: '0.0.0' })
   })
-  return { statuses, site, gradedIds }
+  return { statuses, site, gradedIds, bodies }
 }
 
 const start: SessionStartInput = { cwd: '/work/widgets', surface: 'terminal', isInteractive: true }
@@ -642,5 +644,217 @@ describe('the status line', () => {
     expect(runningCount(missions, 9)).toBe(1)
     expect(runningCount({ ...missions, isKnown: false }, 10)).toBe(0)
     expect(runningCount(null, 10)).toBe(0)
+  })
+})
+
+/** Rubric 2's grading and price, as a server from grading v2 sends them: the card then breaks a grade down by them. */
+const v2Rules = {
+  prompt: {
+    rubricVersion: 2,
+    maxXp: 20,
+    perDay: [{ upTo: null, pct: 100 }],
+    weights: { clarity: 1, grammar: 1, specificity: 1, instructive: 1, context: 1, doneCriteria: 1, focus: 1 },
+    v2: {
+      maxXp: 15,
+      weights: { intent: 1.5, grounding: 1, why: 1, successShape: 1, scope: 1, forward: 1.5 },
+      craft: { from: 6, span: 4, max: 0.5 },
+      spelling: { fullAtWords: 60, max: 0.4 },
+      tone: { upFrom: 6, upPer: 0.075, downFrom: 4, downPer: 0.6 },
+      caps: { hostile: { toneAtMost: 2, grade: 3.5 }, steer: { grade: 8 } },
+      loot: { chanceAtTen: 0.175, greatAt: 9 },
+    },
+  },
+}
+/** Haiku's rubric 2 grade of a prompt that needed no why and no success shape, with a word it misspelled. */
+const v2Reply = JSON.stringify({
+  kind: 'task',
+  intent: 9,
+  grounding: 8,
+  why: null,
+  successShape: null,
+  scope: 9,
+  forward: 8,
+  craft: 8,
+  misspelled: ['zebrq'],
+  tone: 7,
+  note: "Say which test should pass when it's done.",
+})
+const v2Prompt = 'fix the zebrq parser so it reads nested lists and keeps the old cases'
+
+describe('the Last prompt card', () => {
+  /** No celebrations and no coach: only the gain holds the band open. */
+  const quiet = { options: { animations: 'off', coach: 'off' } }
+  /**
+   * A session in any band mode, against a server that grades by rubric 2, with a store that keeps what was written to
+   * it; then a prompt graded and priced at `grade`, its XP sent back as the stream's batch.
+   */
+  const scoredOnce = async ($: Dollar, on: On, grade = 8.7) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    const kept = new Map<string, unknown>([['explored', ['acme/widgets']]])
+    const stored: Array<string> = []
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      stored.push(JSON.stringify(e.value) ?? '')
+      return { value: undefined }
+    })
+    on('store.delete', ($, e) => {
+      kept.delete(e.key)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const stream: Array<{ seq: number }> = []
+    const { statuses, site, gradedIds, bodies } = world(on, clock, stream, { grader: v2Reply, rules: v2Rules })
+    await $.session.start(start)
+    const isOnline = async () =>
+      statuses.at(-1)?.startsWith('⚔ Lv') === true || ((await bandNow($)) ?? '').includes('Lv 4')
+    await until(clock, isOnline)
+    await clock.settle()
+    const send = async (...events: Array<{ seq: number }>) => {
+      stream.push(...events)
+      await clock.advance(1_000)
+      await until(clock, () => stream.length === 0)
+      await clock.settle()
+    }
+    await $.prompt.submit({ text: v2Prompt, wait: false, origin: composer })
+    await clock.settle()
+    await clock.advance(30_000)
+    await until(clock, () => gradedIds.length > 0)
+    await send(graded(grade, gradedIds.at(-1) ?? ''))
+    return { clock, send, site, stored, bodies }
+  }
+
+  /** What `/pathofdev last` answers. */
+  const lastOf = async ($: Dollar): Promise<string> => (await run($, 'last')) ?? ''
+
+  /** Presses the band's scores Button, and says what the band draws then. */
+  const pressScores = async ($: Dollar) => {
+    const ui = await mountBand($)
+    await ui.press({ key: 'band:scores' })
+    await ui.unmount()
+    return bandNow($)
+  }
+
+  test("a grade landing opens the band with its scores Button; pressed, it shows the card; pressed again, it goes", still, async ($, on) => {
+    await scoredOnce($, on)
+    const ui = await mountBand($)
+    expect(await ui.find({ key: 'band:scores' })).toBeDefined()
+    await ui.unmount()
+    expect(await bandNow($)).not.toContain('Last prompt')
+    const shown = (await pressScores($)) ?? ''
+    expect(shown).toContain('Last prompt · 8.7 · +12 XP · task')
+    expect(shown).toContain("intent 9  grounding 8  why –  success –  scope 9  forward 8  – didn't apply")
+    expect(shown).toContain('base 8.5 · craft +0.3 · spelling +0 (check: zebrq) · tone +0.1')
+    expect(shown).toContain('“Say which test should pass when it\'s done.”')
+    expect(await pressScores($)).not.toContain('Last prompt')
+  })
+
+  test('shuts with the band, which opens next with the Button alone', quiet, async ($, on) => {
+    const { clock, send } = await scoredOnce($, on)
+    expect(await pressScores($)).toContain('Last prompt')
+    // The pet's hop for the good grade plays out, then the band shuts holdMs after.
+    await clock.advance(20_000)
+    expect(await bandNow($)).toBeNull()
+    await send(graded(6, 'p2'))
+    const drawn = (await bandNow($)) ?? ''
+    expect(drawn).toContain('XP')
+    expect(drawn).not.toContain('Last prompt')
+  })
+
+  test('shuts when a prompt takes the keyboard back, or the focus moves off the band', still, async ($, on) => {
+    const { clock, site } = await scoredOnce($, on)
+    expect(await pressScores($)).toContain('Last prompt')
+    await $.prompt.submit({ text: 'and the empty input case too, please', wait: false, origin: composer })
+    await clock.settle()
+    expect(await bandNow($)).not.toContain('Last prompt')
+    expect(await pressScores($)).toContain('Last prompt')
+    await $.ui.focus({ component: 'AbovePrompt', requestId: site.requestId, origin: { kind: 'person' } })
+    await clock.settle()
+    expect(await bandNow($)).not.toContain('Last prompt')
+  })
+
+  test('review fix: two presses close together open the card and shut it again', quiet, async ($, on) => {
+    await scoredOnce($, on)
+    const ui = await mountBand($)
+    await Promise.all([ui.press({ key: 'band:scores' }), ui.press({ key: 'band:scores' })])
+    await ui.unmount()
+    expect(await bandNow($)).not.toContain('Last prompt')
+  })
+
+  /** The band's rows of the card and of a celebration, `maxRows` tall, by their keys. */
+  const grownRows = async ($: Dollar, maxRows: number) => {
+    const props = { ...bandProps(), maxRows }
+    const ui = await $.ui.mount({ plugin: 'pathofdev', surface: 'terminal', component: 'AbovePrompt', props })
+    const card = (await ui.find({ key: 'band:card' }))?.children.length ?? 0
+    const stage = (await ui.find({ key: 'stage' }))?.children.length ?? 0
+    await ui.unmount()
+    return { card, stage }
+  }
+
+  test("review fix: the open card takes its rows out of the band's room, a celebration's too", async ($, on) => {
+    const { clock, send } = await scoredOnce($, on)
+    expect(await pressScores($)).toContain('Last prompt')
+    // Room for two of its rows under the band's own four and the one above it.
+    expect((await grownRows($, 7)).card).toBe(2)
+    await send(dropped('legendary', 'p3'))
+    let most = 0
+    for (let at = 0; at < 4_000; at += 250) {
+      const grown = await grownRows($, 16)
+      if (grown.card > 0) most = Math.max(most, grown.stage)
+      expect(grown.card + (grown.card > 0 ? 1 : 0) + grown.stage).toBeLessThanOrEqual(16 - 4)
+      await clock.advance(250)
+    }
+    expect(most).toBeGreaterThan(0)
+  })
+
+  test('says how the last prompt was scored as /pathofdev last, pending until the server prices it', async ($, on) => {
+    const { clock, gradedIds } = await playing($, on, {}, { grader: v2Reply, rules: v2Rules })
+    expect(await lastOf($)).toBe(
+      'No prompt graded yet: type one of 6 words or more, and how it was scored shows here.',
+    )
+    await $.prompt.submit({ text: v2Prompt, wait: false, origin: composer })
+    await clock.settle()
+    await until(clock, async () => (await lastOf($)).startsWith('Last prompt'))
+    expect((await lastOf($)).split('\n')[0]).toBe('Last prompt · pending · task')
+    await clock.advance(30_000)
+    await until(clock, () => gradedIds.length > 0)
+    expect(await lastOf($)).toContain('base 8.5 · craft +0.3')
+  })
+
+  test('in line, where there is no band, /pathofdev last says it all', { options: { band: 'line' } }, async ($, on) => {
+    const { clock } = await scoredOnce($, on)
+    expect(await openRuns($, clock, 10_000)).toEqual([])
+    expect((await lastOf($)).split('\n')).toEqual([
+      'Last prompt · 8.7 · +12 XP · task',
+      "intent 9  grounding 8  why –  success –  scope 9  forward 8  – didn't apply",
+      'base 8.5 · craft +0.3 · spelling +0 (check: zebrq) · tone +0.1',
+      '“Say which test should pass when it\'s done.”',
+    ])
+  })
+
+  test('in full, the Button stands beside the latest gain', { options: { band: 'full', animations: 'off' } }, async ($, on) => {
+    await scoredOnce($, on)
+    const ui = await mountBand($)
+    const texts = (await ui.findAll({ type: 'Text' })).map((one) => one.text)
+    expect((await ui.find({ key: 'band:scores' }))?.text).toBe('scores')
+    await ui.unmount()
+    expect(texts.some((text) => text.includes('XP'))).toBe(true)
+    expect(await pressScores($)).toContain('Last prompt · 8.7')
+  })
+
+  test("its misspelled words stay in the mod's memory: never in the session's state, the store or the wire", still, async ($, on) => {
+    const written: Array<string> = []
+    on('state.set', ($, e, next) => {
+      if (e.plugin === 'pathofdev') written.push(JSON.stringify(e.value) ?? '')
+      return next(e)
+    })
+    const { stored, bodies } = await scoredOnce($, on)
+    expect(await pressScores($)).toContain('check: zebrq')
+    expect(written.some((value) => value.includes('"scored"') || value.includes('"spelledClean":false'))).toBe(true)
+    for (const canary of ['zebrq', 'misspelled']) {
+      expect(written.join('\n')).not.toContain(canary)
+      expect(stored.join('\n')).not.toContain(canary)
+      expect(bodies.join('\n')).not.toContain(canary)
+    }
   })
 })

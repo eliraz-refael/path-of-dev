@@ -222,20 +222,26 @@ const isWholeWordIn = (word: string, text: string): boolean =>
   ).test(text)
 
 /**
- * Whether the prompt is spelled clean, by the reply's `misspelled` list: true when no word on it (one word each, the
- * first 8) stands in the prompt as typed, so a word the grader made up never costs the bonus. Anything but a list of
- * strings is false: no bonus, though the grade still counts. The list itself never leaves this function.
+ * The words on the reply's `misspelled` list (one word each, the first 8) that stand in the prompt as typed, so a word
+ * the grader made up is never one; null when the list is anything but a list of strings. They stay on this machine:
+ * in the mod's memory for the Last prompt card, never in an event, the store or the session's state.
  */
-export const spelledCleanOf = (reply: string, prompt: string): boolean => {
+export const misspellingsOf = (reply: string, prompt: string): ReadonlyArray<string> | null => {
   const listed: unknown = replyFieldsOf(reply)?.['misspelled']
-  if (!Array.isArray(listed)) return false
+  if (!Array.isArray(listed)) return null
   const entries: ReadonlyArray<unknown> = listed
   const words = entries.filter((entry): entry is string => typeof entry === 'string')
-  if (words.length !== entries.length) return false
+  if (words.length !== entries.length) return null
   const text = prompt.normalize('NFC')
   const checked = [...new Set(words.map((word) => word.trim().normalize('NFC')).filter(isWord))].slice(0, maxMisspelled)
-  return !checked.some((word) => isWholeWordIn(word, text))
+  return checked.filter((word) => isWholeWordIn(word, text))
 }
+
+/**
+ * Whether the prompt is spelled clean, by the reply's `misspelled` list: true when no word on it stands in the prompt
+ * as typed (`misspellingsOf`). Anything but a list of strings is false: no bonus, though the grade still counts.
+ */
+export const spelledCleanOf = (reply: string, prompt: string): boolean => misspellingsOf(reply, prompt)?.length === 0
 
 /** The longest note the pet says, in cells: twelve words and some slack. A longer one is cut at a word. */
 export const noteMax = 90

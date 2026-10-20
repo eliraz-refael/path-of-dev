@@ -22,6 +22,7 @@ import type {
   Opening,
   PaneTab,
   PetDisplay,
+  Pricing,
   Said,
   Stage,
   StatusFacts,
@@ -43,6 +44,18 @@ import {
   queueOf,
   scriptOf,
 } from './celebrate'
+import type { CardInput } from './card'
+import {
+  cardRows,
+  cardText,
+  noCardText,
+  pricingOf,
+  scoredAfter,
+  scoredV1Of,
+  scoredV2Of,
+  scoresCells,
+  scoresLabel,
+} from './card'
 import type { Row, Run, Style } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
 import type { BandMode } from './collapse'
@@ -81,12 +94,12 @@ import {
   maxTokens,
   measuresOf,
   minWordsOf,
+  misspellingsOf,
   noteOf,
   rubricOf,
   rubrics,
   storedRubricOf,
   scoresOf,
-  spelledCleanOf,
   wordsOf,
 } from './grade'
 import type { DataAsk } from './account'
@@ -251,6 +264,8 @@ const open = atom({ plugin: 'pathofdev', key: 'open' }, null)
 const lastGrade = atom({ plugin: 'pathofdev', key: 'grade' }, null)
 const status = atom({ plugin: 'pathofdev', key: 'status' }, null)
 const hinted = atom({ plugin: 'pathofdev', key: 'hinted' }, false)
+const scored = atom({ plugin: 'pathofdev', key: 'scored' }, null)
+const scoresOpen = atom({ plugin: 'pathofdev', key: 'scoresOpen' }, false)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -319,6 +334,11 @@ let gradeWords = 6
  */
 let rubric: Rubric | null = null
 let hostileTone = hostileToneAt
+// Rubric 2's pricing numbers from the server's last rules, which the Last prompt card breaks a grade down by; and the
+// misspelled words the mod found in the last graded prompt, by its event id. The words are kept here alone, never in
+// the session's state, which any plugin reads, nor the store: a reload forgets them, and the card says less.
+let pricing: Pricing | null = null
+let toCheck: { id: string; words: ReadonlyArray<string> } | null = null
 /** Takes the gain's line down once it has stood a minute. */
 let fadeTimer: Timer | null = null
 let sessionId = ''
@@ -508,6 +528,9 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   const line = batchGainOf(events, petName)
   const heard = heardOf(events)
   if (heard !== null) await update($, lastGrade, () => heard.grade)
+  // The card's prompt, priced by its own batch: with its XP, or at none when the batch brings it none.
+  const kept = await read($, scored)
+  if (scoredAfter(kept, events) !== kept) await update($, scored, (now) => scoredAfter(now, events))
   if (line !== null) {
     const until = (await $.clock.now()) + fadeMs
     await update($, gain, () => ({ ...line, until }))
@@ -986,6 +1009,8 @@ const moveBand = async ($: EngineInterface, change: (was: Opening | null, now: n
   const wasShown = bandOpen
   bandOpen = next !== null
   if (wasShown !== bandOpen) await syncLoop($)
+  // The card shuts with the band, so the band opens next with its Button again.
+  if (wasShown && !bandOpen) await shutCard($)
 }
 
 /** The band as what holds it says: held while a moment lasts, then shut `holdMs` after it. */
@@ -999,6 +1024,40 @@ const openBand = async ($: EngineInterface) => {
     return
   }
   await moveBand($, kicked)
+}
+
+// The Last prompt card (card.ts): the band shows it under its scores Button once pressed, until the next press, the
+// band's focus moving off it, a prompt or a turn taking the keyboard back, or the band shutting; the Stats tab and
+// `/pathofdev last` show it too.
+
+/** What the card shows now: the last graded prompt, the coach's note about it, and its words to check if remembered. */
+const cardNow = async ($: EngineInterface): Promise<CardInput | null> => {
+  const last = await read($, scored)
+  if (last === null) return null
+  const kept = (await read($, coachMemory))?.last ?? null
+  return {
+    scored: last,
+    note: kept !== null && kept.id === last.id ? kept.note : null,
+    misspelled: toCheck !== null && toCheck.id === last.id ? toCheck.words : null,
+  }
+}
+
+/** The scores Button: the card opens under it, and the band stays open a while for it; pressed again, it shuts. */
+const toggleCard = async ($: EngineInterface) => {
+  // From what the write lands on, so two presses close together open it and shut it again.
+  let isOpen = false
+  await update($, scoresOpen, (kept) => (isOpen = !kept))
+  if (isOpen) await openBand($)
+}
+
+const shutCard = async ($: EngineInterface) => {
+  if (await read($, scoresOpen)) await update($, scoresOpen, () => false)
+}
+
+/** `/pathofdev last`: the card as text, in every band mode. */
+const lastText = async ($: EngineInterface): Promise<string> => {
+  const card = await cardNow($)
+  return card === null ? noCardText(gradeWords) : cardText(card)
 }
 
 /**
@@ -1092,6 +1151,7 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
   if (at === generation) {
     rubric = priced
     hostileTone = hostileToneOf(opened.rules ?? {})
+    pricing = pricingOf(opened.rules?.prompt?.v2)
   }
   await learnOwner($, opened.snapshot.character.playerId)
   if (fromScratch) cursor = opened.snapshot.cursor
@@ -1909,6 +1969,7 @@ const draftStep = async ($: EngineInterface, change: Partial<Pick<Wizard, 'name'
  */
 const runCommandLine = async ($: EngineInterface, args: string): Promise<string> => {
   if (args.trim() === 'welcome') return openWelcome($)
+  if (args.trim() === 'last') return lastText($)
   const account = accountAskOf(args)
   if (account !== null) return typeof account === 'string' ? account : account.kind === 'login' ? login($) : logout($)
   const beta = betaAskOf(args)
@@ -1980,11 +2041,15 @@ const grade = async ($: EngineInterface, text: string, prompt: string, words: nu
   if (by === 2) {
     const read = measuresOf(result.text)
     if (read === null) return
-    // The words the grader found misspelled are checked against the prompt here, and go no further: only the answer.
-    const spelledClean = spelledCleanOf(result.text, text)
+    // The words the grader found misspelled are checked against the prompt here, and go no further than the mod's
+    // memory, for the card: only whether any is there goes out.
+    const misspelled = misspellingsOf(result.text, text)
+    const spelledClean = misspelled?.length === 0
     const { kind, measures } = read
     const graded = gradedByMeasuresOf(stamped.id, measures, note)
     await update($, coachMemory, (kept) => remembered(kept ?? freshCoach, graded))
+    toCheck = { id: stamped.id, words: misspelled ?? [] }
+    await update($, scored, () => scoredV2Of(stamped.id, { kind, measures, spelledClean, words }, pricing))
     await enqueue($, {
       ...stamped,
       type: 'prompt.graded',
@@ -1995,6 +2060,7 @@ const grade = async ($: EngineInterface, text: string, prompt: string, words: nu
   const scores = scoresOf(result.text)
   if (scores === null) return
   await update($, coachMemory, (kept) => remembered(kept ?? freshCoach, gradedOf(stamped.id, scores, note)))
+  await update($, scored, () => scoredV1Of(stamped.id, scores, words))
   await enqueue($, { ...stamped, type: 'prompt.graded', data: { scores, rubricVersion: 1, words, grader: 'haiku' } })
 }
 
@@ -2079,6 +2145,8 @@ export const register: Register = (on, options) => {
     await startPet($)
     // The band's opening the last copy left: its timer is set again as the loops sync, or it shuts if its time is up.
     bandOpen = (await read($, open)) !== null
+    // A card the last copy left open under a band that no longer draws (shut, or a band mode put on) shuts too.
+    if (!bandShown()) await shutCard($)
     collapseTimer?.cancel()
     collapseTimer = null
     armedUntil = null
@@ -2093,7 +2161,8 @@ export const register: Register = (on, options) => {
         name: 'pathofdev',
         description:
           'Open the Path of Dev pane: your inventory, the shop, stats and missions (`welcome` for the first-run ' +
-          'guide, `server` to say or switch which server you play on, `login` and `logout` for the online server, ' +
+          'guide, `last` for how your last prompt was scored, `server` to say or switch which server you play on, ' +
+          '`login` and `logout` for the online server, ' +
           '`profile public|private|hide|show` for your public page there, `account export|delete` for your data ' +
           'there, `beta list|add|remove` for its admins, `pet still|move|hide|show|tip` for your pet on the band, ' +
           '`dev …` on the dev server)',
@@ -2158,6 +2227,8 @@ export const register: Register = (on, options) => {
       isBandFocused = false
       later($, () => settleBand($))
     }
+    // And the card shuts: the keyboard is the prompt's again, as after an Escape.
+    if (result.drop === undefined && byPlayer) later($, () => shutCard($))
     // Any prompt the player sends wakes the pet, graded or not; it never reacts to the grade here.
     if (result.drop === undefined && byPlayer) later($, () => wakePet($))
     if (result.drop !== undefined || !byPlayer || isSlashCommand(e.text)) return result
@@ -2237,7 +2308,10 @@ export const register: Register = (on, options) => {
 
   // A celebration never plays over a main-loop turn: it waits for the idle prompt.
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) isBandFocused = false
+    if (e.agentId === undefined) {
+      isBandFocused = false
+      await shutCard($)
+    }
     await holdCelebrations($)
     // A new turn moves on from the last prompt: the pet's bubble about it comes down.
     if (e.agentId === undefined) await hush($)
@@ -2278,6 +2352,8 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     if (e.component === 'AbovePrompt' && result.deny === undefined) {
       isBandFocused = e.element !== undefined && e.plugin === $.plugin.name
+      // Off the band's elements, as an Escape takes it, the card shuts; the band then shuts as it always does.
+      if (!isBandFocused) later($, () => shutCard($))
       later($, () => settleBand($))
     }
     return result
@@ -2337,7 +2413,16 @@ export const register: Register = (on, options) => {
     const staged = e.props.isWorking ? null : await read($, stage)
     const shown = staged !== null && staged.load === load && playing !== null ? staged : null
     const columns = Math.max(0, e.props.bodyColumns - 2 * inset)
-    const rows = shown === null ? [] : stageRows(shown, columns, Math.max(0, e.props.maxRows - ownRows))
+    // The last graded prompt's scores Button, beside the gain, and its card under row 2 once pressed: the card takes
+    // its rows and the one above it out of what the band may grow by, before a celebration's rows do.
+    const hasCard = (await read($, scored)) !== null
+    const card = hasCard && (await read($, scoresOpen)) ? await cardNow($) : null
+    const scoresButton = hasCard ? [scoresCells] : []
+    const cardRoom = Math.max(0, e.props.maxRows - ownRows - 1)
+    const cardShown = card === null ? [] : cardRows(card, columns).slice(0, cardRoom)
+    const cardTaken = cardShown.length === 0 ? 0 : cardShown.length + 1
+    const rows =
+      shown === null ? [] : stageRows(shown, columns, Math.max(0, e.props.maxRows - ownRows - cardTaken))
     const slot = shown === null ? null : slotRow(shown, rows.length > 0)
     const pet = current.pet
     const barLook = looks.xpBar ?? null
@@ -2350,7 +2435,7 @@ export const register: Register = (on, options) => {
     // The mission on row 2 takes the room it would beside a pet sitting still, and the pet's lane what is left then,
     // up to its width, so the row never wraps for either. A pet the player hid takes nothing.
     const tail = slot !== null ? cellsOfRow(slot) : last === null ? 0 : cellsOf(last.text)
-    const others = [cellsOfRow(level), cellsOfRow(gold), ...(tail > 0 ? [tail] : [])]
+    const others = [cellsOfRow(level), cellsOfRow(gold), ...(tail > 0 ? [tail] : []), ...scoresButton]
     const scene = (await read($, petScene)) ?? petSceneNow()
     const sitting = pet === null ? null : petRowOf(pet, scene, petHearts, motion, shown, 0)
     const petCells =
@@ -2369,7 +2454,7 @@ export const register: Register = (on, options) => {
     // steps aside while the pet speaks (a celebration's slot never does). The mission keeps its room either way.
     const said = e.props.isWorking || sitting === null ? null : await read($, bubble)
     const lends = slot === null && last !== null
-    const lent = [cellsOfRow(level), cellsOfRow(gold), ...chipCells]
+    const lent = [cellsOfRow(level), cellsOfRow(gold), ...chipCells, ...scoresButton]
     const speakRoom = lends ? roomBeside(columns, lent, 2) - 2 : petRoomLeft
     bubbleRoom = sitting === null ? null : speakRoom - cellsOfRow(sitting.row) - 1
     const beside = said === null || bubbleRoom === null ? null : bubbleRow(said.text, bubbleRoom)
@@ -2412,7 +2497,13 @@ export const register: Register = (on, options) => {
                 {last.text}
               </Text>
             )}
+            {hasCard ? <Button key="band:scores" label={scoresLabel} onPress={() => void toggleCard($)} /> : null}
           </Box>
+          {cardShown.length === 0 ? null : (
+            <Box key="band:card" flexDirection="column" marginTop={1}>
+              {cardShown.map((row, i) => draw(Text, row, `card-${i}`))}
+            </Box>
+          )}
           {rows.length === 0 ? null : (
             <Box key="stage" flexDirection="column">
               {rows.map((row, i) => draw(Text, row, `stage-${i}`))}
@@ -2906,12 +2997,20 @@ export const register: Register = (on, options) => {
       }
       // Cards of label and number rows, each as wide as its card: one column, or two side by side on a wide pane.
       const layout = statsLayout(counted, current, columns, { looks: wornLooks(owned), loop: moving })
+      // The last graded prompt's card on top, as wide as the cards under it.
+      const card = await cardNow($)
+      const cardWidth = layout.columns.length * layout.width + (layout.columns.length - 1) * layout.gap
       return (
         <Box flexDirection="column" paddingX={1}>
           {header}
           {draw(Text, layout.intro, 'stats:intro')}
           {layout.note === null ? null : draw(Text, layout.note, 'stats:note')}
           <Text> </Text>
+          {card === null ? null : (
+            <Box key="stats:last" flexDirection="column" marginBottom={1}>
+              {cardRows(card, Math.min(columns, cardWidth)).map((row, i) => draw(Text, row, `stats:last:${i}`))}
+            </Box>
+          )}
           <Box key="stats" columnGap={layout.gap}>
             {layout.columns.map((cards, i) => (
               <Box key={`stats:column:${i}`} flexDirection="column" width={layout.width}>

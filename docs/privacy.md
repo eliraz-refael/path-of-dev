@@ -37,7 +37,10 @@ the `prompt.graded` event carries only:
 - `grader`: which model graded it.
 
 It never sends the prompt, the prompt before it, Claude's last answer, Haiku's note or the misspelled words, nor how
-many there were. The note stays in the mod's memory on your machine, for the pet's tips. A server that grades by rubric
+many there were. The note stays in the mod's memory on your machine, for the pet's tips and the Last prompt card
+(`/pathofdev last`, the band's scores button and the Stats tab). The card's scores stay in the session's state on your
+machine. The misspelled words it shows are kept only in the mod's own memory: never in the session's state, which other
+plugins can read, nor in its store on disk, so a reload of the mod forgets them. A server that grades by rubric
 1 gets rubric 1's scores in place of `kind`, `measures` and `spelledClean`.
 
 ## Your profile
