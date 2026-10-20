@@ -1,9 +1,10 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 import type { On, PromptOrigin, RenderPropsOf, SessionStartInput } from 'claude-code'
-import type { BandView, MissionsView, MissionView } from '../types'
-import { bandModeOf, holdMs, isBandShown, isHeld, kicked, openingAfter, statusText } from './collapse'
-import type { Moments, StatusFacts } from './collapse'
+import type { BandView, MissionsView, MissionView, StatusFacts } from '../types'
+import { bandModeOf, holdMs, isBandShown, isHeld, kicked, openingAfter } from './collapse'
+import { gradeSegment, statusText } from './status'
+import type { Moments } from './collapse'
 import { runningCount } from './missions'
 
 // The band as the `band` option has it: shut at rest in `auto` and open for a moment of play, always open in `full`,
@@ -76,6 +77,9 @@ const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More 
     site.requestId = e.requestId
     return $.ui.resolve(e).Box({})
   })
+  on('ui.render', { component: 'PromptHint' }, ($, e) =>
+    $.ui.resolve(e).Text({ dimColor: true, children: e.props.hint }),
+  )
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
@@ -164,6 +168,32 @@ const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}, m
   }
   return { clock, send, statuses, site, gradedIds }
 }
+
+const hintProps = (isWorking = false, isDraft = false): RenderPropsOf['PromptHint'] => ({
+  isDraft,
+  isWorking,
+  hint: '? for shortcuts',
+})
+
+/**
+ * What the prompt hint draws on `surface`, `columns` wide: whether the engine's own line is there, and the status
+ * line's row under it (null where it draws none) with its runs, each as its text and props.
+ */
+const hintNow = async ($: Dollar, surface: 'terminal' | 'desktop' = 'terminal', props = hintProps(), columns = 100) => {
+  const viewport = { columns, rows: 40 }
+  const ui = await $.ui.mount({ plugin: 'pathofdev', surface, component: 'PromptHint', props, viewport })
+  const texts = await ui.findAll({ type: 'Text' })
+  await ui.unmount()
+  const engine = texts.some((one) => one.text === '? for shortcuts')
+  // The row is the one Text cut at its end; its runs are the Texts in it.
+  const row = texts.find((one) => one.props['wrap'] === 'truncate')
+  const runs = row === undefined ? [] : texts.filter((one) => one !== row && one.text !== '? for shortcuts')
+  return { engine, status: row === undefined ? null : row.text, runs: runs.filter((one) => one.text.trim() !== '') }
+}
+
+/** The props of the run that reads `text` in the status row. */
+const runOf = (runs: ReadonlyArray<{ text: string; props: Record<string, unknown> }>, text: string) =>
+  runs.find((one) => one.text === text)?.props
 
 const mountBand = ($: Dollar, isWorking = false) =>
   $.ui.mount({ plugin: 'pathofdev', surface: 'terminal', component: 'AbovePrompt', props: bandProps(isWorking) })
@@ -394,6 +424,87 @@ describe('the band, auto', () => {
   })
 })
 
+describe('the status line in the prompt hint', () => {
+  const plain = '⚔ Lv 4 ▰▱▱▱▱ 30/203 xp'
+
+  test('draws under the engine\'s hint on the terminal, as wide as the row; the plain one clears', async ($, on) => {
+    const { clock, statuses } = await playing($, on)
+    expect(statuses.at(-1)).toBe(plain)
+    const { engine, status, runs } = await hintNow($)
+    expect(engine).toBe(true)
+    // 96 cells: the row less the hint's own blank ends, the bar at its most.
+    expect(status).toBe(`⚔ Lv 4 ${'▰'.repeat(9)}${'▱'.repeat(51)} 30/203 xp`)
+    expect(runOf(runs, '⚔ Lv 4')).toMatchObject({ color: 'claude', bold: true })
+    expect(runOf(runs, '▰'.repeat(9))).toMatchObject({ color: 'success' })
+    expect(runOf(runs, '▱'.repeat(51))).toMatchObject({ dimColor: true })
+    await clock.settle()
+    expect(statuses.at(-1)).toBeUndefined()
+  })
+
+  test('stays clear of the plain one over a reload', async ($, on) => {
+    const { clock, statuses } = await playing($, on)
+    await hintNow($)
+    await clock.settle()
+    const from = statuses.length
+    await $.session.start(start)
+    await clock.advance(60_000)
+    expect(statuses.slice(from).every((text) => text === undefined)).toBe(true)
+  })
+
+  test('the grade in its tone, its label dim, at the row\'s end; working or with a draft', still, async ($, on) => {
+    const { send } = await playing($, on)
+    await send(graded(9, 'p1'))
+    const good = await hintNow($, 'terminal', hintProps(true, true))
+    expect(good.engine).toBe(true)
+    expect(good.status).toBe(`⚔ Lv 4 ${'▰'.repeat(9)}${'▱'.repeat(51)} 30/203 xp    last prompt 9.0`)
+    expect(runOf(good.runs, 'last prompt ')).toMatchObject({ dimColor: true })
+    expect(runOf(good.runs, '9.0')).toMatchObject({ color: 'success' })
+    await send(graded(4.2, 'p2'))
+    expect(runOf((await hintNow($)).runs, '4.2')).toMatchObject({ color: 'warning' })
+    await send(graded(6, 'p3'))
+    expect(runOf((await hintNow($)).runs, '6.0')).toEqual({})
+  })
+
+  test('the missions dim, between dim separators, and dropped first on a narrow row', still, async ($, on) => {
+    const quests = [mission('daily', '2026-10-09T09:00:00Z'), mission('weekly', '2026-10-12T00:00:00Z')]
+    const { send } = await playing($, on, {}, { quests })
+    await send(graded(9, 'p1'))
+    const wide = await hintNow($)
+    expect(wide.status).toBe(`⚔ Lv 4 ${'▰'.repeat(7)}${'▱'.repeat(41)} 30/203 xp · 2 missions · last prompt 9.0`)
+    expect(runOf(wide.runs, '2 missions')).toMatchObject({ dimColor: true })
+    expect(runOf(wide.runs, ' · ')).toMatchObject({ dimColor: true })
+    // 56 cells: the grade goes, as the bar would be under its least beside both.
+    expect((await hintNow($, 'terminal', hintProps(), 60)).status).toBe(
+      `⚔ Lv 4 ${'▰'.repeat(4)}${'▱'.repeat(22)} 30/203 xp · 2 missions`,
+    )
+    // 36 cells: both go, and the bar takes the room.
+    const narrow = await hintNow($, 'terminal', hintProps(), 40)
+    expect(narrow.status).toBe(`⚔ Lv 4 ${'▰'.repeat(3)}${'▱'.repeat(16)} 30/203 xp`)
+  })
+
+  test('offline, what to do in dim, the command to run standing out', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on)
+    mock.env(on, { HOME: '/home/player' })
+    world(on, clock, [], { down: true })
+    await $.session.start(start)
+    await until(clock, async () => ((await hintNow($)).status ?? '').includes('offline'))
+    const { status, runs } = await hintNow($)
+    expect(status).toBe('⚔ Path of Dev · offline · start the server: pnpm --filter @pathofdev/server start')
+    expect(runOf(runs, 'start the server: ')).toMatchObject({ dimColor: true })
+    expect(runOf(runs, 'pnpm --filter @pathofdev/server start')).toMatchObject({ color: 'suggestion' })
+  })
+
+  test('on the desktop the engine\'s hint alone, and the plain status line stays', async ($, on) => {
+    const { clock, statuses } = await playing($, on)
+    const { engine, status } = await hintNow($, 'desktop')
+    expect(engine).toBe(true)
+    expect(status).toBeNull()
+    await clock.settle()
+    expect(statuses.at(-1)).toBe(plain)
+  })
+})
+
 describe('the band, line', () => {
   const line = { options: { band: 'line' } }
 
@@ -410,7 +521,7 @@ describe('the band, line', () => {
 describe('the band, full', () => {
   const full = { options: { band: 'full' } }
 
-  test('is open at rest, as it always was, and sends no status line', full, async ($, on) => {
+  test('is open at rest, as it always was, and draws no status line', full, async ($, on) => {
     const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
     mock.store(on, { explored: ['acme/widgets'] })
     mock.env(on, { HOME: '/home/player' })
@@ -418,6 +529,7 @@ describe('the band, full', () => {
     await $.session.start(start)
     await until(clock, async () => ((await bandNow($)) ?? '').includes('Lv 4'))
     expect(statuses.every((text) => text === undefined)).toBe(true)
+    expect(await hintNow($)).toEqual({ engine: true, status: null, runs: [] })
   })
 })
 
@@ -470,7 +582,8 @@ describe('the status line', () => {
     isDev: false,
     pet: { species: 'fox', name: 'Ember', form: 0, mood: 82 },
   }
-  const facts: StatusFacts = { link: 'online', view, hint: 'sign in with /pathofdev login', running: 2, grade: 8.24 }
+  const hint = { say: 'sign in with ', command: '/pathofdev login' }
+  const facts: StatusFacts = { link: 'online', view, hint, running: 2, grade: 8.24 }
 
   test('the level, a short bar, the XP, the missions running and the last grade', () => {
     expect(statusText('auto', facts)).toBe('🛡 Lv 7 ▰▰▰▱▱ 340/500 xp · 2 missions · last prompt 8.2')
@@ -490,6 +603,14 @@ describe('the status line', () => {
     expect(statusText('auto', { ...facts, link: 'offline' })).toBe(signedOut)
     expect(statusText('auto', { ...facts, link: 'connecting', view: null })).toBe('⚔ Path of Dev · connecting…')
     expect(statusText('full', facts)).toBeNull()
+  })
+
+  test('the grade\'s tone by the grade it shows: good from 8.0, weak under 5.0, plain between', () => {
+    expect(gradeSegment(8)).toEqual({ role: 'good', text: '8.0' })
+    expect(gradeSegment(7.96)).toEqual({ role: 'good', text: '8.0' })
+    expect(gradeSegment(7.94)).toEqual({ role: 'grade', text: '7.9' })
+    expect(gradeSegment(4.96)).toEqual({ role: 'grade', text: '5.0' })
+    expect(gradeSegment(4.94)).toEqual({ role: 'weak', text: '4.9' })
   })
 
   test('counts the missions running, not those done, on offer or past their window', () => {

@@ -369,6 +369,19 @@ export type Bubble = { text: string; until: number }
 /** The band open in `auto` for a moment: held while it lasts (`until` null), then until clock ms `until`. */
 export type Opening = { until: number | null }
 
+/** What to do while offline, as the status line says it: the words, then the command to run or type ('' for none). */
+export type OfflineHint = { say: string; command: string }
+
+/** What the status line reads from: the link, the character, what to do offline, the missions running, the grade. */
+export type StatusFacts = {
+  link: Link
+  view: BandView | null
+  hint: OfflineHint
+  running: number
+  /** The grade the server gave the player's last prompt it priced, as the stream brought it; null before one. */
+  grade: number | null
+}
+
 /** The `/pathofdev` pane's tabs; the last is the first-run welcome, which a player may open again. */
 export type PaneTab = 'inventory' | 'shop' | 'stats' | 'missions' | 'welcome'
 
@@ -461,6 +474,10 @@ declare module 'claude-code' {
       open: Opening | null
       /** The grade the server gave the player's last prompt it priced, for the status line; null before one. */
       grade: number | null
+      /** What the status line says as last worked out, which the prompt hint draws from; null in `full`. */
+      status: StatusFacts | null
+      /** The prompt hint draws the status line, so the plain one stays clear, a reload of the mod included. */
+      hinted: boolean
     }
   }
 }

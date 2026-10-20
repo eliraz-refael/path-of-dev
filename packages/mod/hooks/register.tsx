@@ -18,11 +18,13 @@ import type {
   Link,
   Loop,
   Motion,
+  OfflineHint,
   Opening,
   PaneTab,
   PetDisplay,
   Said,
   Stage,
+  StatusFacts,
   WelcomeStep,
   WelcomeView,
   Wizard,
@@ -41,10 +43,10 @@ import {
   queueOf,
   scriptOf,
 } from './celebrate'
-import type { Row } from './cells'
+import type { Row, Run, Style } from './cells'
 import { cellsOf, cellsOfRow } from './cells'
 import type { BandMode } from './collapse'
-import { bandModeOf, isBandShown, isHeld, kicked, openingAfter, sameOpening, statusText } from './collapse'
+import { bandModeOf, isBandShown, isHeld, kicked, openingAfter, sameOpening } from './collapse'
 import type { Coach, Saying } from './coach'
 import {
   asked,
@@ -194,6 +196,8 @@ import { careViewOf, eggCardLayout, petCardLayout, shopLayout, shopViewOf } from
 import type { SigilChoice } from './sigils'
 import { multiplierText, sigilChoices, wornSigil } from './sigils'
 import { statsLayout, titleRow } from './stats'
+import type { Segment, StatusRole } from './status'
+import { hintText, sameFacts, statusSegments, statusText } from './status'
 import type { ServerName } from './switching'
 import { nameOf, nowText, placeOf, serverAskOf, serverRowOf, tagOf, whereText } from './switching'
 import type { WelcomeLayout } from './welcome'
@@ -245,6 +249,8 @@ const coachMemory = atom({ plugin: 'pathofdev', key: 'coach' }, null)
 const bubble = atom({ plugin: 'pathofdev', key: 'bubble' }, null)
 const open = atom({ plugin: 'pathofdev', key: 'open' }, null)
 const lastGrade = atom({ plugin: 'pathofdev', key: 'grade' }, null)
+const status = atom({ plugin: 'pathofdev', key: 'status' }, null)
+const hinted = atom({ plugin: 'pathofdev', key: 'hinted' }, false)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -408,12 +414,12 @@ const noteSignedOut = ($: EngineInterface, to: Target, hadToken: boolean) => {
 }
 
 /** What to do when the target doesn't answer: start the local server, sign in, or wait on the online one. */
-const offlineHint = (): string =>
+const offlineHint = (): OfflineHint =>
   target.kind === 'online'
     ? isSignedOut
-      ? 'sign in with /pathofdev login'
-      : `the server at ${target.origin} is not answering`
-    : `start the server: ${startHint(server)}`
+      ? { say: 'sign in with ', command: '/pathofdev login' }
+      : { say: `the server at ${target.origin} is not answering`, command: '' }
+    : { say: 'start the server: ', command: startHint(server) }
 
 const notAnswering = (): string =>
   target.kind === 'online'
@@ -934,7 +940,7 @@ let isOwed = false
 let isBandFocused = false
 let collapseTimer: Timer | null = null
 let armedUntil: number | null = null
-/** The status line as last sent, so a change that leaves it as it was sends nothing; undefined until one is. */
+/** The plain status line as last sent, so a change that leaves it as it was sends nothing; undefined until one is. */
 let statusShown: string | null | undefined = undefined
 
 /** Whether the band draws now: always in `full`, while it is open in `auto`, never in `line`. */
@@ -995,19 +1001,55 @@ const openBand = async ($: EngineInterface) => {
   await moveBand($, kicked)
 }
 
-/** Sends the status line when what it says changed: the game's essentials, or nothing in `full`. */
+/**
+ * Works out the status line: the game's essentials, or nothing in `full`. Kept for the prompt hint, which draws it,
+ * when it changed; and sent as the engine's plain status line while the hint does not draw it, cleared once it does.
+ */
 const syncStatus = async ($: EngineInterface) => {
-  const text = statusText(bandMode, {
-    link: await read($, link),
-    view: await read($, view),
-    hint: offlineHint(),
-    running: runningCount(await read($, missions), await $.clock.now()),
-    grade: await read($, lastGrade),
-  })
+  const facts: StatusFacts | null =
+    bandMode === 'full'
+      ? null
+      : {
+          link: await read($, link),
+          view: await read($, view),
+          hint: offlineHint(),
+          running: runningCount(await read($, missions), await $.clock.now()),
+          grade: await read($, lastGrade),
+        }
+  if (!sameFacts(await read($, status), facts)) await update($, status, () => facts)
+  const text = facts === null || (await read($, hinted)) ? null : statusText(bandMode, facts)
   if (text === statusShown) return
   statusShown = text
   $.ui.status(text ?? undefined)
 }
+
+/** The prompt hint draws the status line from now on: the plain one is cleared, and stays clear. */
+const drawsHint = async ($: EngineInterface) => {
+  await update($, hinted, () => true)
+  await syncStatus($)
+}
+
+/** The cells the engine's prompt hint row leaves blank at its two ends, two each. */
+const hintInset = 4
+
+/** How each part of the status line draws, in theme keys, so it follows the player's theme. */
+const statusLooks: Record<StatusRole, Style> = {
+  level: { color: 'claude', bold: true },
+  filled: { color: 'success' },
+  empty: { dim: true },
+  xp: {},
+  separator: { dim: true },
+  missions: { dim: true },
+  label: { dim: true },
+  grade: {},
+  good: { color: 'success' },
+  weak: { color: 'warning' },
+  quiet: { dim: true },
+  command: { color: 'suggestion' },
+  gap: {},
+}
+
+const runOf = (segment: Segment): Run => ({ text: segment.text, ...statusLooks[segment.role] })
 
 /** Says whether the server answers: on the band, and in the status line. */
 const setLink = async ($: EngineInterface, to: Link) => {
@@ -2241,6 +2283,26 @@ export const register: Register = (on, options) => {
     return result
   })
 
+  // The status line in a row under the engine's prompt hint, which keeps its line and its pills as it draws them: on
+  // the terminal, in the theme's colors, as wide as the row. The first drawing clears the engine's plain status line,
+  // which stays the status line where no hint draws it.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    if (e.surface !== 'terminal' || bandMode === 'full') return next(e)
+    const facts = await read($, status)
+    if (!(await read($, hinted))) later($, () => drawsHint($))
+    const hint = await next(e)
+    const room = e.viewport === undefined ? null : e.viewport.columns - hintInset
+    const segments = facts === null ? null : statusSegments(bandMode, facts, room)
+    if (segments === null) return hint
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="column">
+        {hint}
+        {draw(Text, segments.map(runOf), 'status')}
+      </Box>
+    )
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     // Shut in `auto` with nothing happening, and never open in `line`: the status line says the rest.
@@ -2263,7 +2325,7 @@ export const register: Register = (on, options) => {
             <Text color="claude" bold>
               ⚔ Path of Dev{' '}
             </Text>
-            <Text dimColor>offline · {offlineHint()}</Text>
+            <Text dimColor>offline · {hintText(offlineHint())}</Text>
           </Box>
         </Box>
       )
