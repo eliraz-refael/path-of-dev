@@ -397,8 +397,11 @@ export type Pricing = {
   caps: { hostile: { toneAtMost: number; grade: number }; steer: { grade: number } }
 }
 
-/** What the server made of a graded prompt: its grade and the XP it earned. */
-export type Priced = { grade: number; xp: number }
+/**
+ * What the server made of a graded prompt: its grade and the XP it earned. A prompt it priced at no XP sends no grade,
+ * and the grade is then the card's own working-out, null when it has none.
+ */
+export type Priced = { grade: number | null; xp: number }
 
 /**
  * The player's last graded prompt as the Last prompt card shows it, kept on this machine for the session: the id of

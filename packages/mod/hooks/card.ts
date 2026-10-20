@@ -1,5 +1,5 @@
 import type { ServerEvent } from '@pathofdev/schema'
-import type { GradeScore, Priced, Pricing, PromptKindView, ScoredPrompt } from '../types'
+import type { GradeScore, Priced, Pricing, ScoredPrompt } from '../types'
 import type { Row, Run } from './cells'
 import { cellsOf, cellsOfRow, dim } from './cells'
 import { isRecord } from './server'
@@ -143,23 +143,33 @@ export const breakdownOf = (pricing: Pricing, graded: GradedPrompt): Breakdown =
   return { base, craft: crafted, spelling: spelled, tone: toned, held, grade }
 }
 
-/** The server's grade and XP for the prompt `id`, from a batch of the stream; null when the batch doesn't price it. */
-export const pricedOf = (events: ReadonlyArray<ServerEvent>, id: string): Priced | null => {
+/**
+ * The server's grade and XP for the prompt `id`, from a batch of the stream; null when the batch is none of its.
+ * The engine grants XP only above 0, so a batch of the prompt's with no XP for it (the day's last band, the daily cap,
+ * a grade of 0) priced it at none: the card then says `+0 XP` beside `grade`, its own working-out, null when it has
+ * none (rubric 1, or rules it could not read).
+ */
+export const pricedOf = (events: ReadonlyArray<ServerEvent>, id: string, grade: number | null): Priced | null => {
+  if (!events.some((event) => event.cause === id)) return null
   for (const event of events)
-    if (
-      event.type === 'xp.granted' &&
-      event.data.reason === 'prompt.graded' &&
-      event.cause === id &&
-      event.data.grade !== undefined
-    )
-      return { grade: event.data.grade, xp: event.data.amount }
-  return null
+    if (event.type === 'xp.granted' && event.data.reason === 'prompt.graded' && event.cause === id)
+      return { grade: event.data.grade ?? grade, xp: event.data.amount }
+  return { grade, xp: 0 }
 }
 
-/** The card's prompt with the server's price, when the batch brings it; as it was otherwise. */
+/** The grade the card works out for a prompt it keeps: rubric 2's breakdown, by the rules it was graded under. */
+const ownGrade = (scored: ScoredPrompt): number | null =>
+  scored.rubric === 2 && scored.pricing !== null ? breakdownOf(scored.pricing, scored).grade : null
+
+/**
+ * The card's prompt with the server's price, when the batch brings it; as it was otherwise. A batch with no XP for
+ * it prices it only while it is pending, so a stream that splits one step's events never undoes the XP.
+ */
 export const scoredAfter = (scored: ScoredPrompt | null, events: ReadonlyArray<ServerEvent>): ScoredPrompt | null => {
-  const priced = scored === null ? null : pricedOf(events, scored.id)
-  return scored === null || priced === null ? scored : { ...scored, priced }
+  if (scored === null) return null
+  const priced = pricedOf(events, scored.id, ownGrade(scored))
+  if (priced === null || (priced.xp === 0 && scored.priced !== null)) return scored
+  return { ...scored, priced }
 }
 
 /** A prompt just graded by rubric 2, as the card keeps it until the server prices it. */
@@ -199,20 +209,15 @@ export const signed = (part: number): string => {
   return shown === 0 ? '+0' : shown > 0 ? `+${shown.toFixed(1)}` : shown.toFixed(1)
 }
 
-const kindWords: Record<PromptKindView, string> = {
-  task: 'task',
-  question: 'question',
-  discussion: 'discussion',
-  steer: 'steer',
-}
-
 const headOf = (scored: ScoredPrompt): Line => {
   const { priced } = scored
   const title: Row = [{ text: 'Last prompt', color: 'claude', bold: true }]
-  const grade: Row = priced === null ? [dim('pending')] : [scoreRun(priced.grade, priced.grade.toFixed(1))]
+  const shown = priced?.grade ?? null
+  const grade: Array<Row> =
+    priced === null ? [[dim('pending')]] : shown === null ? [] : [[scoreRun(shown, shown.toFixed(1))]]
   const xp: Array<Row> = priced === null ? [] : [[{ text: `+${priced.xp} XP`, color: 'suggestion' }]]
-  const kind: Array<Row> = scored.rubric === 2 ? [[dim(kindWords[scored.kind])]] : []
-  return { pieces: [title, grade, ...xp, ...kind], between: dot }
+  const kind: Array<Row> = scored.rubric === 2 ? [[dim(scored.kind)]] : []
+  return { pieces: [title, ...grade, ...xp, ...kind], between: dot }
 }
 
 const scorePiece = (label: string, score: number | null): Row => [

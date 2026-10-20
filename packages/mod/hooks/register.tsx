@@ -527,10 +527,10 @@ const showBatch = async ($: EngineInterface, events: ReadonlyArray<ServerEvent>)
   const petName = shown?.pet?.name ?? 'Your pet'
   const line = batchGainOf(events, petName)
   const heard = heardOf(events)
-  if (heard !== null) {
-    await update($, lastGrade, () => heard.grade)
-    await update($, scored, (kept) => scoredAfter(kept, events))
-  }
+  if (heard !== null) await update($, lastGrade, () => heard.grade)
+  // The card's prompt, priced by its own batch: with its XP, or at none when the batch brings it none.
+  const kept = await read($, scored)
+  if (scoredAfter(kept, events) !== kept) await update($, scored, (now) => scoredAfter(now, events))
   if (line !== null) {
     const until = (await $.clock.now()) + fadeMs
     await update($, gain, () => ({ ...line, until }))
@@ -1044,9 +1044,10 @@ const cardNow = async ($: EngineInterface): Promise<CardInput | null> => {
 
 /** The scores Button: the card opens under it, and the band stays open a while for it; pressed again, it shuts. */
 const toggleCard = async ($: EngineInterface) => {
-  const wasOpen = await read($, scoresOpen)
-  await update($, scoresOpen, () => !wasOpen)
-  if (!wasOpen) await openBand($)
+  // From what the write lands on, so two presses close together open it and shut it again.
+  let isOpen = false
+  await update($, scoresOpen, (kept) => (isOpen = !kept))
+  if (isOpen) await openBand($)
 }
 
 const shutCard = async ($: EngineInterface) => {
@@ -2144,6 +2145,8 @@ export const register: Register = (on, options) => {
     await startPet($)
     // The band's opening the last copy left: its timer is set again as the loops sync, or it shuts if its time is up.
     bandOpen = (await read($, open)) !== null
+    // A card the last copy left open under a band that no longer draws (shut, or a band mode put on) shuts too.
+    if (!bandShown()) await shutCard($)
     collapseTimer?.cancel()
     collapseTimer = null
     armedUntil = null
@@ -2410,7 +2413,16 @@ export const register: Register = (on, options) => {
     const staged = e.props.isWorking ? null : await read($, stage)
     const shown = staged !== null && staged.load === load && playing !== null ? staged : null
     const columns = Math.max(0, e.props.bodyColumns - 2 * inset)
-    const rows = shown === null ? [] : stageRows(shown, columns, Math.max(0, e.props.maxRows - ownRows))
+    // The last graded prompt's scores Button, beside the gain, and its card under row 2 once pressed: the card takes
+    // its rows and the one above it out of what the band may grow by, before a celebration's rows do.
+    const hasCard = (await read($, scored)) !== null
+    const card = hasCard && (await read($, scoresOpen)) ? await cardNow($) : null
+    const scoresButton = hasCard ? [scoresCells] : []
+    const cardRoom = Math.max(0, e.props.maxRows - ownRows - 1)
+    const cardShown = card === null ? [] : cardRows(card, columns).slice(0, cardRoom)
+    const cardTaken = cardShown.length === 0 ? 0 : cardShown.length + 1
+    const rows =
+      shown === null ? [] : stageRows(shown, columns, Math.max(0, e.props.maxRows - ownRows - cardTaken))
     const slot = shown === null ? null : slotRow(shown, rows.length > 0)
     const pet = current.pet
     const barLook = looks.xpBar ?? null
@@ -2420,10 +2432,6 @@ export const register: Register = (on, options) => {
     // The hearts follow the rules' happy line; a pet the server cares for takes a pat from a click.
     const cared = await read($, care)
     const petHearts = pet === null ? '' : hearts(pet.mood, happyLine(cared))
-    // The last graded prompt's scores Button, beside the gain, and its card under row 2 once pressed.
-    const card = await cardNow($)
-    const scoresButton = card === null ? [] : [scoresCells]
-    const cardShown = card !== null && (await read($, scoresOpen)) ? cardRows(card, columns) : []
     // The mission on row 2 takes the room it would beside a pet sitting still, and the pet's lane what is left then,
     // up to its width, so the row never wraps for either. A pet the player hid takes nothing.
     const tail = slot !== null ? cellsOfRow(slot) : last === null ? 0 : cellsOf(last.text)
@@ -2489,7 +2497,7 @@ export const register: Register = (on, options) => {
                 {last.text}
               </Text>
             )}
-            {card === null ? null : <Button key="band:scores" label={scoresLabel} onPress={() => void toggleCard($)} />}
+            {hasCard ? <Button key="band:scores" label={scoresLabel} onPress={() => void toggleCard($)} /> : null}
           </Box>
           {cardShown.length === 0 ? null : (
             <Box key="band:card" flexDirection="column" marginTop={1}>

@@ -724,6 +724,9 @@ describe('the Last prompt card', () => {
     return { clock, send, site, stored, bodies }
   }
 
+  /** What `/pathofdev last` answers. */
+  const lastOf = async ($: Dollar): Promise<string> => (await run($, 'last')) ?? ''
+
   /** Presses the band's scores Button, and says what the band draws then. */
   const pressScores = async ($: Dollar) => {
     const ui = await mountBand($)
@@ -765,29 +768,63 @@ describe('the Last prompt card', () => {
     await clock.settle()
     expect(await bandNow($)).not.toContain('Last prompt')
     expect(await pressScores($)).toContain('Last prompt')
-    await $.ui.focus({ component: 'AbovePrompt', requestId: site.requestId })
+    await $.ui.focus({ component: 'AbovePrompt', requestId: site.requestId, origin: { kind: 'person' } })
     await clock.settle()
     expect(await bandNow($)).not.toContain('Last prompt')
   })
 
+  test('review fix: two presses close together open the card and shut it again', quiet, async ($, on) => {
+    await scoredOnce($, on)
+    const ui = await mountBand($)
+    await Promise.all([ui.press({ key: 'band:scores' }), ui.press({ key: 'band:scores' })])
+    await ui.unmount()
+    expect(await bandNow($)).not.toContain('Last prompt')
+  })
+
+  /** The band's rows of the card and of a celebration, `maxRows` tall, by their keys. */
+  const grownRows = async ($: Dollar, maxRows: number) => {
+    const props = { ...bandProps(), maxRows }
+    const ui = await $.ui.mount({ plugin: 'pathofdev', surface: 'terminal', component: 'AbovePrompt', props })
+    const card = (await ui.find({ key: 'band:card' }))?.children.length ?? 0
+    const stage = (await ui.find({ key: 'stage' }))?.children.length ?? 0
+    await ui.unmount()
+    return { card, stage }
+  }
+
+  test("review fix: the open card takes its rows out of the band's room, a celebration's too", async ($, on) => {
+    const { clock, send } = await scoredOnce($, on)
+    expect(await pressScores($)).toContain('Last prompt')
+    // Room for two of its rows under the band's own four and the one above it.
+    expect((await grownRows($, 7)).card).toBe(2)
+    await send(dropped('legendary', 'p3'))
+    let most = 0
+    for (let at = 0; at < 4_000; at += 250) {
+      const grown = await grownRows($, 16)
+      if (grown.card > 0) most = Math.max(most, grown.stage)
+      expect(grown.card + (grown.card > 0 ? 1 : 0) + grown.stage).toBeLessThanOrEqual(16 - 4)
+      await clock.advance(250)
+    }
+    expect(most).toBeGreaterThan(0)
+  })
+
   test('says how the last prompt was scored as /pathofdev last, pending until the server prices it', async ($, on) => {
     const { clock, gradedIds } = await playing($, on, {}, { grader: v2Reply, rules: v2Rules })
-    expect(await run($, 'last')).toBe(
+    expect(await lastOf($)).toBe(
       'No prompt graded yet: type one of 6 words or more, and how it was scored shows here.',
     )
     await $.prompt.submit({ text: v2Prompt, wait: false, origin: composer })
     await clock.settle()
-    await until(clock, async () => (await run($, 'last')).startsWith('Last prompt'))
-    expect((await run($, 'last')).split('\n')[0]).toBe('Last prompt · pending · task')
+    await until(clock, async () => (await lastOf($)).startsWith('Last prompt'))
+    expect((await lastOf($)).split('\n')[0]).toBe('Last prompt · pending · task')
     await clock.advance(30_000)
     await until(clock, () => gradedIds.length > 0)
-    expect(await run($, 'last')).toContain('base 8.5 · craft +0.3')
+    expect(await lastOf($)).toContain('base 8.5 · craft +0.3')
   })
 
   test('in line, where there is no band, /pathofdev last says it all', { options: { band: 'line' } }, async ($, on) => {
     const { clock } = await scoredOnce($, on)
     expect(await openRuns($, clock, 10_000)).toEqual([])
-    expect((await run($, 'last')).split('\n')).toEqual([
+    expect((await lastOf($)).split('\n')).toEqual([
       'Last prompt · 8.7 · +12 XP · task',
       "intent 9  grounding 8  why –  success –  scope 9  forward 8  – didn't apply",
       'base 8.5 · craft +0.3 · spelling +0 (check: zebrq) · tone +0.1',

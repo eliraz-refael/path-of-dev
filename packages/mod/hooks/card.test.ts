@@ -39,6 +39,17 @@ const scoredV2 = (more: Partial<Extract<ScoredPrompt, { rubric: 2 }>> = {}): Ext
   ...more,
 })
 
+const scoredV1Scores = {
+  clarity: 7,
+  grammar: 8,
+  specificity: 5,
+  instructive: 6,
+  context: 4,
+  doneCriteria: 3,
+  focus: 9,
+  regret: 1,
+}
+
 const card = (scored: ScoredPrompt, more: Partial<CardInput> = {}): CardInput => ({
   scored,
   note: "Say which test should pass when it's done.",
@@ -164,10 +175,32 @@ describe("the card's numbers", () => {
   })
 
   test("takes the server's grade and XP for this prompt alone", () => {
-    expect(pricedOf([xp('p1', 8.2)], 'p1')).toEqual({ grade: 8.2, xp: 12 })
-    expect(pricedOf([xp('p2', 8.2)], 'p1')).toBeNull()
-    expect(pricedOf([xp('p1')], 'p1')).toBeNull()
+    expect(pricedOf([xp('p1', 8.2)], 'p1', null)).toEqual({ grade: 8.2, xp: 12 })
+    expect(pricedOf([xp('p2', 8.2)], 'p1', null)).toBeNull()
     expect(scoredAfter(scoredV2({ priced: null }), [xp('p1', 7.5)])?.priced).toEqual({ grade: 7.5, xp: 12 })
     expect(scoredAfter(null, [xp('p1', 7.5)])).toBeNull()
+  })
+
+  /** The daily cap a graded prompt hit, in its batch with no XP: one of the batches that price it at none. */
+  const statsOf = (cause: string): ServerEvent => ({
+    seq: 2,
+    at: '2026-10-09T08:00:00.000Z',
+    cause,
+    type: 'xp.capped',
+    data: { eventType: 'prompt.graded', cap: 40 },
+  })
+
+  test("review fix: a prompt priced at no XP is +0 XP at the card's own grade, never pending for good", () => {
+    const priced = scoredAfter(scoredV2({ priced: null }), [statsOf('p1')])
+    expect(priced?.priced).toEqual({ grade: 9, xp: 0 })
+    expect(cardText(card(priced ?? scoredV2())).split('\n')[0]).toBe('Last prompt · 9.0 · +0 XP · task')
+    // Rubric 1's grade the card can't work out: it says the XP alone.
+    const v1: ScoredPrompt = { rubric: 1, id: 'p1', scores: scoredV1Scores, words: 14, priced: null }
+    const none = scoredAfter(v1, [statsOf('p1')])
+    expect(none?.priced).toEqual({ grade: null, xp: 0 })
+    expect(cardText(card(none ?? v1)).split('\n')[0]).toBe('Last prompt · +0 XP')
+    // A batch of another prompt's prices nothing; a later one of this prompt's never undoes its XP.
+    expect(scoredAfter(scoredV2({ priced: null }), [statsOf('p2')])?.priced).toBeNull()
+    expect(scoredAfter(scoredV2(), [statsOf('p1')])?.priced).toEqual({ grade: 9, xp: 13 })
   })
 })
