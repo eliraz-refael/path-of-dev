@@ -495,6 +495,12 @@ export type Wizard = {
   error: string | null
 }
 
+/**
+ * The player's public page on the online server at `origin`, as far as the mod knows it: `login` as the snapshot names
+ * the player, and `url` and `isPublic` as the server last answered a profile ask, each null until it says.
+ */
+export type PageView = { origin: string; login: string | null; url: string | null; isPublic: boolean | null }
+
 declare module 'claude-code' {
   interface PluginState {
     // Under the mod's plugin id: the engine keys the mod's state, its store and the player's options by it.
@@ -538,6 +544,8 @@ declare module 'claude-code' {
       scored: ScoredPrompt | null
       /** The band shows the Last prompt card, its scores Button pressed. */
       scoresOpen: boolean
+      /** The player's public page on the online server, for the Stats tab and the welcome; null before it is known. */
+      page: PageView | null
     }
   }
 }

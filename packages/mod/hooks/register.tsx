@@ -1,4 +1,4 @@
-import type { ClientEvent, Command, ServerEvent, Slot, WorkRef } from '@pathofdev/schema'
+import type { ClientEvent, Command, ProfileSettings, ServerEvent, Slot, WorkRef } from '@pathofdev/schema'
 import { atom, read, update } from 'claude-code'
 import type {
   ElementConstructor,
@@ -225,7 +225,17 @@ import {
   withReactions,
 } from './pet-motion'
 import type { ProfileAsk } from './profile'
-import { profileAskOf, profileRouteOf, profileTextOf } from './profile'
+import {
+  loginOf,
+  pageFactsOf,
+  pageRow,
+  pageWithLogin,
+  pageWithSettings,
+  profileAskOf,
+  profileRouteOf,
+  profileTextOf,
+  settingsIn,
+} from './profile'
 import type { ShopAction, ShopEntry } from './shop'
 import { careViewOf, eggCardLayout, petCardLayout, shopLayout, shopViewOf } from './shop'
 import type { SigilChoice } from './sigils'
@@ -288,6 +298,7 @@ const status = atom({ plugin: 'pathofdev', key: 'status' }, null)
 const hinted = atom({ plugin: 'pathofdev', key: 'hinted' }, false)
 const scored = atom({ plugin: 'pathofdev', key: 'scored' }, null)
 const scoresOpen = atom({ plugin: 'pathofdev', key: 'scoresOpen' }, false)
+const page = atom({ plugin: 'pathofdev', key: 'page' }, null)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -1211,6 +1222,12 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
     pricing = pricingOf(opened.rules?.prompt?.v2)
   }
   await learnOwner($, opened.snapshot.character.playerId)
+  // The login the page's address is made from, online: the server's word on the page waits for the pane to open.
+  // Not after a switch meanwhile: this snapshot's player is the last server's.
+  if (target.kind === 'online' && at === generation) {
+    const { origin } = target
+    await update($, page, (was) => pageWithLogin(was, origin, loginOf(opened.snapshot)))
+  }
   if (fromScratch) cursor = opened.snapshot.cursor
   const next = viewOf(opened.snapshot)
   // An older server's answer carries no rules: it deals in no sigils, and the pane shows none.
@@ -1945,9 +1962,12 @@ const trade = async ($: EngineInterface, flow: SigningIn, githubToken: string) =
     later($, () => $.http.fetch(revoke.url, revoke.init))
   }
   $.ui.toast(`Signed in to ${origin}${signIn.login === null ? '' : ` as ${signIn.login}`}.`)
-  // Still playing there: the band comes online now, and what waited in the queue goes.
+  // Still playing there: the band comes online now, and what waited in the queue goes. The page is this player's,
+  // known afresh: the snapshot names them, and an open pane asks whether it is public.
   if (target.kind === 'online' && target.origin === origin) {
     isSignedOut = false
+    await update($, page, () => null)
+    if (isPaneOpen) later($, () => learnPage($))
     await connect($)
   }
 }
@@ -1993,11 +2013,11 @@ const askOnline = async (
   $: EngineInterface,
   has: string,
   route: Route,
-  textOf: (response: HttpResponse | null, to: Online) => string | Promise<string>,
+  textOf: (response: HttpResponse | null, to: Online, token: string) => string | Promise<string>,
 ): Promise<string> => {
   const online = await signedInOnline($, has)
   if (typeof online === 'string') return online
-  return textOf(await sendOnline($, online, route), online.to)
+  return textOf(await sendOnline($, online, route), online.to, online.token)
 }
 
 /** Sends `route` to the online target with its token: null when no answer came; a 401 signs the band out. */
@@ -2025,9 +2045,37 @@ const signedInOnline = async ($: EngineInterface, has: string): Promise<{ to: On
 const keepBeta = ($: EngineInterface, ask: BetaAsk): Promise<string> =>
   askOnline($, 'no beta list', betaRouteOf(ask), (response, to) => betaTextOf(ask, response, to.origin))
 
-/** `/pathofdev profile …`: what the player's public page shows, on the online server. */
+/** `/pathofdev profile …`: what the player's public page shows, on the online server; the pane says it from now on. */
 const keepProfile = ($: EngineInterface, ask: ProfileAsk): Promise<string> =>
-  askOnline($, 'no public profile', profileRouteOf(ask), (response, to) => profileTextOf(ask, response, to.origin))
+  askOnline($, 'no public profile', profileRouteOf(ask), async (response, to, token) => {
+    const settings = response === null ? null : settingsIn(response)
+    if (settings !== null) await notePage($, to, token, settings)
+    return profileTextOf(ask, response, to.origin)
+  })
+
+/**
+ * What the server said of the player's page, kept for the pane while the mod still plays there as the player `token`
+ * is for: an answer that lands after a sign-in as someone else, or a switch of server, is dropped.
+ */
+const notePage = async ($: EngineInterface, to: Online, token: string, settings: ProfileSettings) => {
+  if (target !== to || tokenOf(await $.store.get(storeKey(to, 'token'))) !== token) return
+  await update($, page, (was) => pageWithSettings(was, to.origin, settings))
+}
+
+/**
+ * Asks the online server whether the player's page is public, for the Stats tab and the welcome: as the pane opens,
+ * never on a draw. Signed out, or on a local server, it asks nothing; an answer that isn't the settings changes
+ * nothing, and one that comes after a sign-in as someone else, or a switch of server, is theirs to drop.
+ */
+const learnPage = async ($: EngineInterface) => {
+  if (target.kind !== 'online' || isSignedOut) return
+  const to = target
+  const token = tokenOf(await $.store.get(storeKey(to, 'token')))
+  if (token === null) return
+  const response = await sendOnline($, { to, token }, profileRouteOf({ kind: 'view' }))
+  const settings = response === null ? null : settingsIn(response)
+  if (settings !== null) await notePage($, to, token, settings)
+}
 
 /** What a local server has instead of an account to export or delete. */
 const noAccount = 'no account to export or delete: its save is on your own disk'
@@ -2101,10 +2149,13 @@ const pressDev = async ($: EngineInterface, ask: DevAsk) => {
  * only over an empty prompt: the person asked for the pane.
  */
 const openPane = async ($: EngineInterface, focus = false) => {
+  const wasOpen = isPaneOpen
   const opened = await $.ui.open({ id: paneId, title: 'Path of Dev', ...(focus ? { focus: true } : {}) })
   isPaneOpen = true
   syncPaneClock($)
   await syncLoop($)
+  // Asked as the pane opens, not again for each /pathofdev while it is up.
+  if (!wasOpen) later($, () => learnPage($))
   return opened
 }
 
@@ -2422,6 +2473,7 @@ export const register: Register = (on, options) => {
     })
     // A pane the last copy of the mod opened stays up across a reload: the engine keeps the record.
     isPaneOpen = (await $.ui.panes().catch(() => [])).some((pane) => pane.id === paneId)
+    if (isPaneOpen) later($, () => learnPage($))
     // A fresh copy starts its own minute; a reload took the last copy's with it.
     paneClock?.cancel()
     paneClock = null
@@ -2899,6 +2951,7 @@ export const register: Register = (on, options) => {
         isFocused: e.props.isFocused,
         hasInput: Input !== null,
         ...(target.kind === 'online' ? { online: target.origin } : {}),
+        page: pageFactsOf(target, isSignedOut, await read($, page)),
       })
       const { part } = layout
       // The ready step draws the player's own band, by the band's own code, in the looks they wear.
@@ -3287,6 +3340,9 @@ export const register: Register = (on, options) => {
       }
       // Cards of label and number rows, each as wide as its card: one column, or two side by side on a wide pane.
       const layout = statsLayout(counted, current, columns, { looks: wornLooks(owned), loop: moving })
+      // Under the intro, online, where the player's public page is: what it shows is what this tab counts.
+      const facts = pageFactsOf(target, isSignedOut, await read($, page))
+      const pageLine = facts === null ? null : pageRow(facts, Math.max(20, columns))
       // The last graded prompt's card on top, as wide as the cards under it.
       const card = await cardNow($)
       const cardWidth = layout.columns.length * layout.width + (layout.columns.length - 1) * layout.gap
@@ -3295,6 +3351,7 @@ export const register: Register = (on, options) => {
           {header}
           {draw(Text, layout.intro, 'stats:intro')}
           {layout.note === null ? null : draw(Text, layout.note, 'stats:note')}
+          {pageLine === null ? null : draw(Text, pageLine, 'stats:page')}
           <Text> </Text>
           {card === null ? null : (
             <Box key="stats:last" flexDirection="column" marginBottom={1}>

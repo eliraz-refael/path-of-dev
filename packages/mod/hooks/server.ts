@@ -20,7 +20,7 @@ import type { HttpInit, HttpResponse, PluginOptions } from 'claude-code'
 // never logs a request's headers.
 
 // The mod's version, as plugin.json has it, sent with every request: the one a server's `minClientVersion` names.
-export const clientVersion = '0.9.0'
+export const clientVersion = '0.9.1'
 
 /** The server can't be reached, or can't take the request now: the band shows it offline, and what waits stays. */
 export class ServerDown extends Error {}
@@ -76,6 +76,9 @@ export type Online = Extract<Target, { readonly kind: 'online' }>
 
 /** The public server, when the `serverUrl` option names none. */
 export const publicOrigin = 'https://api.pathof.dev'
+
+/** Where the public server's players' pages are, `<site>/u/<login>`, as its `PROFILE_ORIGIN` has it by default. */
+export const publicSite = 'https://pathof.dev'
 
 const label = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
 // The last label starts with a letter, so no URL parser reads the host as an IPv4 address.

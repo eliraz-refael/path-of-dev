@@ -58,7 +58,7 @@ type Accounts = {
   /** The beta list: the tokens of the server's admins, and the logins added, by their lower case. */
   beta?: { admins: Set<string>; logins: Map<string, string>; signup?: 'open' | 'allowlist' }
   /** The player's account: their privacy, the export's parts and their rows, and whether it was deleted. */
-  account?: { isPublic: boolean; hidden: Array<string>; parts: Record<string, number>; deleted: boolean; deleteStatus?: number }
+  account?: { isPublic: boolean; hidden: Array<string>; parts: Record<string, number>; deleted: boolean; deleteStatus?: number; profileStatus?: number; profileTakes?: number }
 }
 
 /** What the player owns in the fake server: entries, their definitions, and what is equipped where. */
@@ -141,7 +141,12 @@ const snapshot = (
 })
 
 /** A snapshot as the server sends it for `playerId`. */
-const withPlayer = (playerId: string, shot: ReturnType<typeof snapshot>) => ({ ...shot, character: { ...shot.character, playerId } })
+const withPlayer = (playerId: string, login: string | null, shot: ReturnType<typeof snapshot>) => ({
+  ...shot,
+  // The player as an online server names them; a local one's snapshot here names nobody.
+  ...(login === null ? {} : { player: { id: playerId, githubUserId: 1, githubLogin: login, displayName: 'Mona', createdAt: '2026-10-09T08:00:00.000Z' } }),
+  character: { ...shot.character, playerId },
+})
 
 const reply = (status: number, body: unknown) => ({ value: { status, ok: status < 300, headers: {}, text: JSON.stringify(body) } })
 const ran = (exitCode: number, stdout: string) => ({
@@ -235,6 +240,8 @@ type ServerOptions = {
   streamsOn?: string
   /** GitHub, for a sign-in. */
   github?: GitHubFake
+  /** The login a local server's snapshot names its player by; it names nobody when unset. */
+  localLogin?: string
   /** The online server's accounts, which hold every https request to a token. */
   accounts?: Accounts
 }
@@ -357,7 +364,10 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
       const account = accounts.account
       if (account !== undefined && path.startsWith('/v1/account/')) {
         const sections = ['pet', 'streak', 'stats']
-        const settings = () => ({ isPublic: account.isPublic, hidden: sections.filter((one) => account.hidden.includes(one)), sections, url: null })
+        const url = `https://pathof.dev/u/${accounts.login.toLowerCase()}`
+        const settings = () => ({ isPublic: account.isPublic, hidden: sections.filter((one) => account.hidden.includes(one)), sections, url })
+        if (path === '/v1/account/profile' && account.profileTakes !== undefined) await clock.sleep(account.profileTakes)
+        if (path === '/v1/account/profile' && account.profileStatus !== undefined) return reply(account.profileStatus, {})
         if (path === '/v1/account/profile' && method === 'GET') return reply(200, settings())
         if (path === '/v1/account/profile') {
           const kind = isRecord(body) ? body['kind'] : undefined
@@ -412,7 +422,7 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
     }
     if (path === '/v1/sessions')
       return reply(200, {
-        snapshot: withPlayer(options.accounts?.player ?? '01K6ZQ8W3J5V7XKQ2M4N6P8R9T', snapshot(
+        snapshot: withPlayer(options.accounts?.player ?? '01K6ZQ8W3J5V7XKQ2M4N6P8R9T', e.url.startsWith('https://') ? options.accounts?.login ?? null : options.localLogin ?? null, snapshot(
           options.level ?? 0,
           null,
           0,
@@ -4174,6 +4184,31 @@ describe('the welcome', () => {
     await ui.unmount()
   })
 
+  test('online, its last step says where your page is, and that it stays private until you share it', { options: { server: 'online' } }, async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on, { 'token@https://api.pathof.dev': 'pod_player' })
+    mock.env(on, { HOME: '/home/player' })
+    const account = { isPublic: false, hidden: [], parts: {}, deleted: false }
+    const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat', account }
+    const { sent } = fakeServer(on, clock, { level: 4, accounts, rules: welcomeRules, kept: { welcome: fresh() } })
+    await $.session.start(start)
+    // Opened on its own, which asks the server once whether the page is public.
+    await until(clock, () => sent.some((one) => one.path === '/v1/account/profile'))
+    await clock.settle()
+    for (let i = 0; i < 4; i++) {
+      const { ui } = await look($)
+      await ui.press({ key: 'welcome:next' })
+      await ui.unmount()
+    }
+    const { ui, texts } = await look($)
+    expect(texts).toContain("You're all set, Player")
+    expect(texts).toContain(
+      "You also have a page of your own, at pathof.dev/u/octocat. It's private, so nobody sees it until you share it " +
+        'with /pathofdev profile public.',
+    )
+    await ui.unmount()
+  })
+
   test('stays shut on a server older than it, which /pathofdev welcome and the tab say to restart', async ($, on) => {
     const { opened, sent } = await streaming($, on, ownedOf())
     expect(opened).toEqual([])
@@ -4964,6 +4999,35 @@ describe('switching servers', () => {
     expect(told(kept, sent)).toContain('"additions":10')
   })
 
+  test("review fix: a local snapshot that lands after a switch to online leaves the online player's page alone", async ($, on) => {
+    settings(on)
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    const kept = new Map<string, unknown>([['explored', ['acme/widgets']], [`token@${origin}`, 'pod_player']])
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    // The local server's rubric is written slowly: the switch lands while its refresh waits on it.
+    on('store.set', async ($, e) => {
+      if (e.key === 'rubric') await clock.sleep(5_000)
+      kept.set(e.key, e.value)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat' }
+    const { sent } = fakeServer(on, clock, { level: 4, accounts, localLogin: 'localdev', counted: playing })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/sessions'))
+    const answer = run($, 'server online')
+    await clock.advance(1_000)
+    expect((await answer).text).toMatch(/^Now playing on the online server/)
+    await clock.advance(5_000)
+    await clock.settle()
+    await openStats($)
+    const ui = await mountPane($)
+    const texts = await textsOf(ui)
+    await ui.unmount()
+    expect(texts).toContain('Your page: pathof.dev/u/octocat')
+    expect(texts).not.toContain('localdev')
+  })
+
   test('review fix: a commit right after a switch to online names no repo there', async ($, on) => {
     settings(on)
     const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
@@ -5550,8 +5614,14 @@ describe('the account', () => {
   const origin = 'https://api.pathof.dev'
   const t0 = Date.parse('2026-10-09T08:00:00Z')
 
-  /** A session on the online server, holding `token` (none when null), with the account `account`. */
-  const online = async ($: Parameters<TestBody>[0], on: On, token: string | null, account: NonNullable<Accounts['account']>) => {
+  /** A session on the online server, holding `token` (none when null), with the account `account`, and `more`. */
+  const online = async (
+    $: Parameters<TestBody>[0],
+    on: On,
+    token: string | null,
+    account: NonNullable<Accounts['account']>,
+    more: ServerOptions = {},
+  ) => {
     const clock = mock.clock(on, { now: t0 })
     const kept = new Map<string, unknown>([[`explored@${origin}`, ['acme/widgets']], ['queue', ['local-event']]])
     if (token !== null) kept.set(`token@${origin}`, token)
@@ -5571,7 +5641,7 @@ describe('the account', () => {
     })
     mock.env(on, { HOME: '/home/player' })
     const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat', account }
-    const server = fakeServer(on, clock, { level: 4, accounts })
+    const server = fakeServer(on, clock, { ...more, level: 4, accounts })
     await $.session.start(start)
     await until(clock, async () => /offline|Lv 4/.test((await band($).catch(() => ({ all: '' }))).all))
     const asked = () => server.sent.filter((one) => one.path.startsWith('/v1/account'))
@@ -5582,14 +5652,16 @@ describe('the account', () => {
   test('shows the profile, makes it public, and hides and shows a section', { options: { server: 'online' } }, async ($, on) => {
     const { asked } = await online($, on, 'pod_player', fresh())
     expect((await run($, 'profile')).text).toBe(
-      'Your profile is private: nobody sees it. /pathofdev profile public shows your level, pet, streak and stats. ' +
-        'Sections: pet, streak, stats.',
+      'Your profile at https://pathof.dev/u/octocat is private: nobody sees it. /pathofdev profile public shows your ' +
+        'level, pet, streak and stats. Sections: pet, streak, stats.',
     )
     expect((await run($, 'profile public')).text).toBe(
-      'Your profile is public: your page shows your level, pet, streak and stats. Sections: pet, streak, stats.',
+      'Your profile is public: https://pathof.dev/u/octocat shows your level, pet, streak and stats. Sections: pet, ' +
+        'streak, stats.',
     )
     expect((await run($, 'profile hide pet')).text).toBe(
-      'Your profile is public: your page shows your level, streak and stats. Hidden: pet. Sections: pet, streak, stats.',
+      'Your profile is public: https://pathof.dev/u/octocat shows your level, streak and stats. Hidden: pet. ' +
+        'Sections: pet, streak, stats.',
     )
     expect((await run($, 'profile hide hat')).text).toBe(
       'That names no section to hide or show: the sections are pet, streak, stats. Your public profile, on the online ' +
@@ -5661,6 +5733,74 @@ describe('the account', () => {
     for (const args of ['profile', 'account export', 'account delete octocat'])
       expect((await run($, args)).text).toBe(`You're not signed in to ${origin}: /pathofdev login signs you in.`)
     expect(asked()).toEqual([])
+  })
+
+  /** The Stats tab's texts, drawn afresh. */
+  const statsNow = async ($: Parameters<TestBody>[0]) => {
+    const ui = await mountPane($)
+    const texts = await textsOf(ui)
+    await ui.unmount()
+    return texts
+  }
+
+  test('the Stats tab says where the page is, asks as the pane opens and not on a draw, and follows a profile ask', { options: { server: 'online' } }, async ($, on) => {
+    const { clock, asked } = await online($, on, 'pod_player', fresh(), { counted: playing })
+    await openStats($)
+    // At the pane's 70 cells the hint's last words give way.
+    const shared = 'Your page: pathof.dev/u/octocat · private: /pathofdev profile public\n'
+    await until(clock, async () => (await statsNow($)).includes(shared))
+    for (let i = 0; i < 3; i++) await statsNow($)
+    // Nor again for a /pathofdev while the pane is up.
+    await run($, '')
+    await clock.settle()
+    expect(asked().map((one) => [one.method, one.path])).toEqual([['GET', '/v1/account/profile']])
+    await run($, 'profile public')
+    expect(await statsNow($)).toContain('Your page: pathof.dev/u/octocat · public')
+    expect(await statsNow($)).not.toContain('private')
+    expect(asked()).toHaveLength(2)
+  })
+
+  test('review fix: a profile answer that lands after a sign-in as someone else is not kept for the pane', { options: { server: 'online' } }, async ($, on) => {
+    const { clock, kept, asked } = await online($, on, 'pod_player', { ...fresh(), profileTakes: 1_000 }, { counted: playing })
+    await openStats($)
+    await until(clock, () => asked().length === 1)
+    await clock.advance(1_000)
+    await until(clock, async () => (await statsNow($)).includes('Your page: pathof.dev/u/octocat · private'))
+    const answer = run($, 'profile public')
+    await until(clock, () => asked().length === 2)
+    // Another player's token lands while the ask is out: what it answers is the last player's.
+    kept.set(`token@${origin}`, 'pod_other')
+    await clock.advance(1_000)
+    await answer
+    expect(await statsNow($)).not.toContain('· public')
+  })
+
+  test('before the server says whether the page is public, the Stats tab gives the address alone', { options: { server: 'online' } }, async ($, on) => {
+    const { clock, asked } = await online($, on, 'pod_player', { ...fresh(), profileStatus: 503 }, { counted: playing })
+    await openStats($)
+    await until(clock, () => asked().length === 1)
+    await clock.settle()
+    const texts = await statsNow($)
+    expect(texts).toMatch(/^Your page: pathof\.dev\/u\/octocat$/m)
+  })
+
+  test('signed out, the Stats tab says to sign in for a page', { options: { server: 'online' } }, async ($, on) => {
+    const { clock } = await online($, on, 'pod_player', fresh(), { counted: playing })
+    await openStats($)
+    await until(clock, async () => (await statsNow($)).includes('Your page: pathof.dev/u/octocat'))
+    await run($, 'logout')
+    const texts = await statsNow($)
+    expect(texts).toContain('Sign in with /pathofdev login to get a public page')
+    expect(texts).not.toContain('Your page')
+  })
+
+  test('on a local server, the Stats tab says nothing of a page, and asks nothing', async ($, on) => {
+    const { sent } = await streaming($, on, ownedOf(), false, { counted: playing })
+    await openStats($)
+    const texts = await statsNow($)
+    expect(texts).toContain('Your stats')
+    expect(texts).not.toMatch(/Your page|public page/)
+    expect(sent.filter((one) => one.path.startsWith('/v1/account'))).toEqual([])
   })
 
   test('on a local server, there is no profile or account to keep', async ($, on) => {
