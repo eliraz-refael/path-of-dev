@@ -237,9 +237,11 @@ const applyClient = (state: PlayerState, event: ClientEvent, context: Context): 
       measureQuests(run, event.sessionId, event.data.pct, day)
       break
     }
+    case "change.merged":
+      grant(run, event.type, day, { xp: mergeXp(context.rules.xp["change.merged"], event.data) })
+      break
     case "commit.made":
     case "change.opened":
-    case "change.merged":
     case "issue.closed":
     case "repo.explored":
       grant(run, event.type, day)
@@ -256,6 +258,22 @@ const applyClient = (state: PlayerState, event: ClientEvent, context: Context): 
   }
   prune(run)
   return finish(run)
+}
+
+/**
+ * What a merge pays: `ownRepoXp` in a repo its author owns, else `xp`, and `tinyDiffPct` percent of that for a change
+ * of fewer lines than `tinyDiffLines`. A merge from a mod that sends neither fact, as every logged one before rules 14,
+ * pays `xp`, so a replay prices it as it was; a rule without the numbers prices by `xp` alone too.
+ */
+export const mergeXp = (
+  rule: XpRule,
+  merged: { readonly additions?: number; readonly deletions?: number; readonly isOwnRepo?: boolean },
+): number => {
+  const xp = merged.isOwnRepo === true && rule.ownRepoXp !== undefined ? rule.ownRepoXp : rule.xp
+  const { additions, deletions } = merged
+  const lines = additions === undefined || deletions === undefined ? null : additions + deletions
+  const isTiny = lines !== null && rule.tinyDiffLines !== undefined && lines < rule.tinyDiffLines
+  return isTiny && rule.tinyDiffPct !== undefined ? (xp * rule.tinyDiffPct) / 100 : xp
 }
 
 const statEvents: ReadonlyArray<ClientEvent["type"]> = [

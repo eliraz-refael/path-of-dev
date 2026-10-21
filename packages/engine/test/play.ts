@@ -33,7 +33,10 @@ export const flat = (score: number): Record<GradeDimension, number> => ({
   regret: score,
 })
 
-/** An event of `type`; `n`, 0-10, varies its data: a prompt's scores, a context fill of n * 10%, and so on. */
+/**
+ * An event of `type`; `n`, 0-10, varies its data: a prompt's scores, a context fill of n * 10%, a merge's size, and so
+ * on.
+ */
 export const client = (type: ClientEvent["type"], minutes = 0, sessionId = session, n = 10): Input => {
   const base = { id: nextId(), occurredAt: minutesLater(minutes), sessionId }
   const event = ((): ClientEvent => {
@@ -43,8 +46,16 @@ export const client = (type: ClientEvent["type"], minutes = 0, sessionId = sessi
       case "commit.made":
         return { ...base, type, data: { commit: { ...repo, sha: "a".repeat(40) } } }
       case "change.opened":
-      case "change.merged":
         return { ...base, type, data: { change: { ...repo, number: 7 } } }
+      case "change.merged":
+        // At 10, as a mod before rules 14 sent it; below, with its size and whether it is in the author's own repo.
+        return n === 10
+          ? { ...base, type, data: { change: { ...repo, number: 7 } } }
+          : {
+              ...base,
+              type,
+              data: { change: { ...repo, number: n }, additions: n, deletions: n % 3, isOwnRepo: n % 2 === 1 },
+            }
       case "review.submitted":
         return { ...base, type, data: { change: { ...repo, number: 7 }, state: "approved" } }
       case "issue.closed":

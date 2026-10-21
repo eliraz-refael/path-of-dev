@@ -41,10 +41,12 @@ export const XpRule = Schema.Struct({
   xp: Count,
   tier: XpTier,
   dailyCap: Schema.NullOr(Count),
-  /** change.merged: 120 in your own or your org's repo, 250 elsewhere. */
+  /** change.merged: what a change pays in a repo its author owns, in place of `xp`. */
   ownRepoXp: Schema.optionalKey(Count),
-  /** change.merged: 25% under 3 changed lines. */
+  /** change.merged: the percent of its XP a tiny change pays, one of fewer lines than `tinyDiffLines`. */
   tinyDiffPct: Schema.optionalKey(Count),
+  /** change.merged: a change that adds and deletes fewer lines than this, together, is tiny. */
+  tinyDiffLines: Schema.optionalKey(Count),
 })
 export interface XpRule extends Schema.Schema.Type<typeof XpRule> {}
 

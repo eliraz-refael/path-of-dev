@@ -12,6 +12,7 @@ import type {
   RulesConfig,
   Slot,
   Step,
+  XpRule,
 } from "@pathofdev/schema"
 import { ItemDef, RulesConfig as RulesSchema, Step as StepSchema } from "@pathofdev/schema"
 import { Schema } from "effect"
@@ -74,6 +75,36 @@ describe("step: XP", () => {
     const { state } = play([client("change.opened"), client("change.merged", 5)])
     expect(state.progress.xp.reported).toBe(10 + 250)
     expect(state.progress.totals).toMatchObject({ "change.opened": 1, "change.merged": 1 })
+  })
+
+  it("pays a merge in the author's own repo its own XP, and a tiny one a quarter, whatever the mod's age", () => {
+    const merged = (data: Partial<{ additions: number; deletions: number; isOwnRepo: boolean }>, minutes: number) => {
+      const input = client("change.merged", minutes)
+      return input.kind === "client" && input.event.type === "change.merged"
+        ? { ...input, event: { ...input.event, data: { ...input.event.data, ...data } } }
+        : input
+    }
+    const priced = (input: Input) => play([input]).state.progress.xp.reported - 10
+    // An old mod's merge, with neither fact, pays as every merge did.
+    expect(priced(client("change.merged"))).toBe(250)
+    expect(priced(merged({ isOwnRepo: true }, 0))).toBe(120)
+    expect(priced(merged({ isOwnRepo: false, additions: 40, deletions: 2 }, 0))).toBe(250)
+    // Fewer than 3 lines in all is tiny: a quarter, rounded down once.
+    expect(priced(merged({ isOwnRepo: false, additions: 1, deletions: 1 }, 0))).toBe(62)
+    expect(priced(merged({ isOwnRepo: true, additions: 2, deletions: 0 }, 0))).toBe(30)
+    expect(priced(merged({ isOwnRepo: true, additions: 2, deletions: 1 }, 0))).toBe(120)
+    // A size with one side missing says nothing of it.
+    expect(priced(merged({ additions: 1 }, 0))).toBe(250)
+    // Rules without the numbers price by `xp` alone.
+    const bare = { xp: 250, tier: "reported", dailyCap: null } satisfies XpRule
+    const plain = { ...starterRules, xp: { ...starterRules.xp, "change.merged": bare } } satisfies RulesConfig
+    const tinyOwn = merged({ isOwnRepo: true, additions: 1, deletions: 0 }, 0)
+    expect(play([tinyOwn], plain).state.progress.xp.reported - 10).toBe(250)
+    // A log of merges from both mods replays to the state it was played to.
+    const inputs = [client("change.merged"), merged({ isOwnRepo: true, deletions: 1, additions: 0 }, 5), merged({ isOwnRepo: true }, 9)]
+    const { state, steps } = play(inputs)
+    expect(state.progress.xp.reported).toBe(10 + 250 + 30 + 120)
+    expect(replay(inputs, steps, starterRules).state).toEqual(state)
   })
 
   it("leaves verified-tier hints to the verifier", () => {
