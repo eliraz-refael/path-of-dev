@@ -193,7 +193,7 @@ const commands: Array<CommandInfo> = [
 type Clock = ReturnType<typeof mock.clock>
 
 /** What a command on the host answers, from a test's own fake of it; undefined leaves it to the usual answers. */
-type Run = (argv: ReadonlyArray<string>) => ReturnType<typeof ran> | undefined
+type Run = (argv: ReadonlyArray<string>) => ReturnType<typeof ran> | Promise<ReturnType<typeof ran> | undefined> | undefined
 
 type ServerOptions = {
   /** Commands on the host the test answers itself, git's and ssh's, before the repo the server's tests run in. */
@@ -449,8 +449,8 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
     const cursor = Math.max(0, ...events.map((event) => event.seq))
     return reply(200, { events, cursor, rulesVersion: 1, minClientVersion: '0.0.0' })
   })
-  on('process.run', ($, e) => {
-    const answered = options.run?.(e.argv)
+  on('process.run', async ($, e) => {
+    const answered = await options.run?.(e.argv)
     if (answered !== undefined) return answered
     const args = e.argv.join(' ')
     if (args === 'git rev-parse --show-toplevel') return ran(0, '/work/widgets\n')
@@ -543,6 +543,33 @@ describe('the band', () => {
     expect(await ui.find({ type: 'Text', text: /Lv 2/ })).toBeDefined()
     await ui.unmount()
   })
+})
+
+/**
+ * `gh` beneath the mod, signed in to `logins`, the first one active: each change's view by `repo#number` from
+ * `views` (a failure for one not there). Not installed, it fails to start; too old, it has no `auth status --json`.
+ */
+const fakeGh = (
+  views: Map<string, unknown>,
+  asked: Array<string>,
+  logins: ReadonlyArray<string> | null = ['ada'],
+  isOld = false,
+): Run => {
+  return (argv) => {
+    if (argv[0] !== 'gh') return undefined
+    if (logins === null) throw new Error('spawn gh ENOENT')
+    asked.push(argv.slice(1, 4).join(' '))
+    if (argv[1] === 'auth') return isOld ? ran(1, '') : ran(0, logins.map((login) => `${login}\n`).join(''))
+    if (argv[1] === 'api') return ran(0, `${logins[0] ?? ''}\n`)
+    const view = views.get(`${argv[5] ?? ''}#${argv[3] ?? ''}`)
+    return view === undefined ? ran(1, '') : ran(0, JSON.stringify(view))
+  }
+}
+const merged = (author: string, additions: number, deletions: number) => ({
+  state: 'MERGED',
+  author: { login: author, name: 'Ada' },
+  additions,
+  deletions,
 })
 
 describe('reporting work', () => {
@@ -843,24 +870,6 @@ describe('reporting work', () => {
     return kept
   }
 
-  /**
-   * `gh` beneath the mod, signed in as `login`: each change's view by `repo#number` from `views` (a failure for one
-   * not there). Not installed, it fails to start.
-   */
-  const fakeGh = (views: Map<string, unknown>, asked: Array<string>, login: string | null = 'ada'): Run => (argv) => {
-    if (argv[0] !== 'gh') return undefined
-    if (login === null) throw new Error('spawn gh ENOENT')
-    asked.push(argv.slice(1, 4).join(' '))
-    if (argv[1] === 'api') return ran(0, `${login}\n`)
-    const view = views.get(`${argv[5] ?? ''}#${argv[3] ?? ''}`)
-    return view === undefined ? ran(1, '') : ran(0, JSON.stringify(view))
-  }
-  const merged = (author: string, additions: number, deletions: number) => ({
-    state: 'MERGED',
-    author: { login: author, name: 'Ada' },
-    additions,
-    deletions,
-  })
   const day = 24 * 60 * 60 * 1000
   const now = Date.parse('2026-10-09T08:00:00Z')
   const merges = (sent: ReadonlyArray<Sent>) => eventsOf(sent).filter((event) => event['type'] === 'change.merged')
@@ -933,6 +942,85 @@ describe('reporting work', () => {
     // The month-old one is forgotten unasked; the open one stays.
     expect(asked).not.toContain('pr view 3')
     expect(kept.get('prs')).toEqual([{ repo: 'acme/widgets', number: 5, openedAt: now - day }])
+  })
+
+  test('review fix: pays a merge by any account gh is signed in to, the active one or not', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    const prs = [
+      { repo: 'acme/widgets', number: 1, openedAt: now - day },
+      { repo: 'acme/widgets', number: 2, openedAt: now - day },
+    ]
+    keptStore(on, { explored: ['acme/widgets'], prs })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([
+      ['acme/widgets#1', merged('ada', 10, 0)],
+      ['acme/widgets#2', merged('bob', 10, 0)],
+    ])
+    const { sent } = fakeServer(on, clock, { run: fakeGh(views, [], ['work-account', 'ada']) })
+    await $.session.start(start)
+    await clock.advance(30_000)
+    await until(clock, () => merges(sent).length === 1)
+    expect(merges(sent)[0]).toMatchObject({ data: { change: { number: 1 } } })
+  })
+
+  test('review fix: an old gh pays by its active account', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    keptStore(on, { explored: ['acme/widgets'], prs: [{ repo: 'acme/widgets', number: 1, openedAt: now - day }] })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([['acme/widgets#1', merged('ada', 10, 0)]])
+    const { sent } = fakeServer(on, clock, { run: fakeGh(views, [], ['ada'], true) })
+    await $.session.start(start)
+    await clock.advance(30_000)
+    await until(clock, () => merges(sent).length === 1)
+  })
+
+  test('review fix: a change opened under another repo goes by that name, opened and merged', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    keptStore(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock, { run: fakeGh(new Map(), []) })
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      const pr = e.command.includes('create')
+        ? { number: 7, url: 'https://github.com/upstream/widgets/pull/7', action: 'created' }
+        : { number: 7, url: 'https://github.com/upstream/widgets/pull/7', action: 'merged' }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation: { pr } } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.tool.call({ tool: 'Bash', command: 'gh pr create --repo upstream/widgets --fill' })
+    // gh can't view it: the merge still goes by the change's own name.
+    await $.tool.call({ tool: 'Bash', command: 'gh pr merge 7 --repo upstream/widgets' })
+    await clock.advance(30_000)
+    await until(clock, () => merges(sent).length === 1)
+    const opens = eventsOf(sent).filter((event) => event['type'] === 'change.opened')
+    expect(opens).toMatchObject([{ data: { change: { repo: 'upstream/widgets', number: 7 } } }])
+    expect(merges(sent)).toMatchObject([{ data: { change: { repo: 'upstream/widgets', number: 7 } } }])
+  })
+
+  test('review fix: a session outside a repo keeps no change by the last one\'s repo', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    const kept = keptStore(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const repos: Repos = {
+      '': { top: '/work/widgets', remote: 'git@github.com:acme/widgets.git', head: null, parents: new Map() },
+    }
+    const git = fakeGit(repos)
+    const { sent } = fakeServer(on, clock, { run: (argv) => fakeGh(new Map(), [])(argv) ?? git.run(argv) })
+    on('tool.call', { tool: 'Bash' }, () => {
+      const pr = { number: 9, action: 'created' }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation: { pr } } }
+    })
+    const opened = () => sent.filter((one) => one.path === '/v1/sessions')
+    await $.session.start(start)
+    await until(clock, () => opened().length === 1)
+    // The next session runs in a folder with no repo.
+    delete repos['']
+    await $.session.end({ reason: 'clear', sessionId: 'first', resume: { id: 'first' } })
+    await until(clock, () => opened().length === 2)
+    await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
+    await clock.advance(30_000)
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'change.opened'))
+    expect(kept.get('prs')).toBeUndefined()
   })
 
   test('without gh, checks nothing and keeps every change', async ($, on) => {
@@ -4697,6 +4785,107 @@ describe('switching servers', () => {
     return { kept, slow }
   }
   const origin = 'https://api.pathof.dev'
+
+  const prAt = Date.parse('2026-10-09T08:00:00Z')
+  const opened = (number: number) => ({ repo: 'acme/widgets', number, openedAt: prAt - 60_000 })
+  const numbersKept = (kept: Map<string, unknown>, key: string) => {
+    const prs = kept.get(key)
+    return Array.isArray(prs) ? prs.map((pr) => (isRecord(pr) ? pr['number'] : null)) : []
+  }
+  const told = (kept: Map<string, unknown>, sent: ReadonlyArray<Sent>) =>
+    JSON.stringify([kept.get('queue'), kept.get('queue@dev'), eventsOf(sent)])
+
+  test('review fix: a change opened while a check writes the kept ones back stays kept, the merged one gone', async ($, on) => {
+    const clock = mock.clock(on, { now: prAt })
+    // Each read of the kept changes takes a second, and answers what the store held when it began: the check's two
+    // reads, and the open's.
+    const kept = new Map<string, unknown>([['explored', ['acme/widgets']], ['prs', [opened(1)]]])
+    on('store.get', async ($, e) => {
+      const value = kept.get(e.key)
+      if (e.key === 'prs') await clock.sleep(1_000)
+      return { value }
+    })
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([['acme/widgets#1', merged('ada', 10, 0)]])
+    fakeServer(on, clock, { run: fakeGh(views, []) })
+    on('tool.call', { tool: 'Bash' }, () => {
+      const pr = { number: 9, url: 'https://github.com/acme/widgets/pull/9', action: 'created' }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation: { pr } } }
+    })
+    await $.session.start(start)
+    // The check has read the kept changes, settled #1 and is reading them again to write them back.
+    await clock.advance(1_500)
+    const call = $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
+    await clock.advance(3_000)
+    await call
+    await clock.advance(3_000)
+    expect(numbersKept(kept, 'prs')).toEqual([9])
+  })
+
+  test('review fix: a switch mid-check keeps what it settled, and the new server checks its own at once', async ($, on) => {
+    settings(on)
+    const clock = mock.clock(on, { now: prAt })
+    const { kept } = storeOf(on, clock, { prs: [opened(1), opened(2)], 'prs@dev': [opened(3)] })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([
+      ['acme/widgets#1', merged('ada', 10, 0)],
+      ['acme/widgets#3', merged('ada', 5, 5)],
+    ])
+    const gh = fakeGh(views, [])
+    const { sent } = fakeServer(on, clock, {
+      run: async (argv) => {
+        // #2 is slow to answer, and still open.
+        if (argv[0] === 'gh' && argv[3] === '2') {
+          await clock.sleep(10_000)
+          return ran(0, JSON.stringify({ state: 'OPEN', author: { login: 'ada' }, additions: 1, deletions: 0 }))
+        }
+        return gh(argv)
+      },
+    })
+    await $.session.start(start)
+    await until(clock, () => told(kept, sent).includes('"number":1'))
+    const answer = run($, 'server dev')
+    await clock.advance(1_000)
+    await answer
+    await until(clock, () => told(kept, sent).includes('"number":3'))
+    await clock.advance(10_000)
+    await until(clock, () => numbersKept(kept, 'prs').length === 1)
+    expect(numbersKept(kept, 'prs')).toEqual([2])
+  })
+
+  test('review fix: a gh pr merge still goes when the server switches while gh answers', async ($, on) => {
+    settings(on)
+    const clock = mock.clock(on, { now: prAt })
+    const { kept } = storeOf(on, clock)
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([['acme/widgets#7', merged('ada', 10, 0)]])
+    const gh = fakeGh(views, [])
+    const { sent } = fakeServer(on, clock, {
+      run: async (argv) => {
+        if (argv[0] === 'gh' && argv[2] === 'view') await clock.sleep(2_000)
+        return gh(argv)
+      },
+    })
+    on('tool.call', { tool: 'Bash' }, () => {
+      const pr = { number: 7, action: 'merged' }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation: { pr } } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.tool.call({ tool: 'Bash', command: 'gh pr merge 7 --squash' })
+    // gh is asked about the merge before the switch.
+    await clock.advance(100)
+    const answer = run($, 'server dev')
+    await clock.advance(1_000)
+    await answer
+    await clock.advance(2_000)
+    await until(clock, () => told(kept, sent).includes('change.merged'))
+    expect(told(kept, sent)).toContain('"additions":10')
+  })
 
   test('review fix: a commit right after a switch to online names no repo there', async ($, on) => {
     settings(on)

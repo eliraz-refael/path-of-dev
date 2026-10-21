@@ -47,7 +47,8 @@ plugins can read, nor in its store on disk, so a reload of the mod forgets them.
 
 The mod keeps the pull requests it saw opened in a Claude Code session, by repo and number, in its own store on your
 machine, for 30 days. At a session's start and every half hour it asks `gh` on your machine whether each one is still
-open. When one your GitHub account wrote has merged, the `change.merged` event carries the change's opaque keys and:
+open. When one written by a GitHub account `gh` is signed in to has merged, or a `gh pr merge` in a session merges
+any change, the `change.merged` event carries the change's opaque keys and:
 
 - `additions` and `deletions`: how many lines it adds and deletes, as GitHub counts them.
 - `isOwnRepo`: true or false, whether the repo belongs to the account that wrote it.

@@ -74,11 +74,12 @@ export const prViewOf = (stdout: string): View | null => {
   return { state, author: login, additions, deletions }
 }
 
-/** The login `gh api user --jq .login` printed, or null. */
-export const loginOf = (stdout: string): string | null => {
-  const login = stdout.trim()
-  return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(login) ? login : null
-}
+/** The logins `gh` printed, one a line (`gh auth status --json hosts --jq …`, `gh api user --jq .login`). */
+export const loginsOf = (stdout: string): Array<string> =>
+  stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((login) => /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(login))
 
 /** Whether `login` names the same GitHub account as `other`: logins are told apart by no case. */
 export const isLogin = (login: string | null, other: string | null): boolean =>
