@@ -24,7 +24,7 @@ import type { Admitted } from "./edge.ts"
 import { admit } from "./edge.ts"
 import { minClientVersion, nowIso, rules } from "./game.ts"
 import { StreamHub } from "./hub.ts"
-import { limitWrite } from "./limits.ts"
+import { limitSnapshot, limitWrite } from "./limits.ts"
 import { Players } from "./players.ts"
 import { Presence } from "./presence.ts"
 import { RateLimiter } from "./rate-limit.ts"
@@ -76,12 +76,12 @@ const modHandlers = Effect.gen(function* () {
   const presence = yield* Presence
   const limiter = yield* RateLimiter
 
-  /**
-   * The request's player within their limits for a request of `events` events (none for a command or a snapshot):
-   * over one, a 429, nothing read or written.
-   */
+  /** The request's player within their limits for a write of `events` events: over one, a 429, nothing written. */
   const limited = (events: number) =>
     Effect.flatMap(CurrentPlayer, (player) => limitWrite(limiter, player.id, events))
+
+  /** The request's player within their limit on snapshots, apart from their writes: over it, a 429, nothing read. */
+  const snapshotLimited = Effect.flatMap(CurrentPlayer, (player) => limitSnapshot(limiter, player.id))
 
   return {
     openSession: ({ payload, request }: {
@@ -163,7 +163,7 @@ const modHandlers = Effect.gen(function* () {
       }).pipe(Effect.scoped, goneAsUnauthorized, Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die })),
 
     snapshot: () =>
-      Effect.andThen(limited(0), Effect.gen(function* () {
+      Effect.andThen(snapshotLimited, Effect.gen(function* () {
         const player = yield* CurrentPlayer
         // The session's snapshot, less its writes: no missions rolled, no session opened. A save a newer build wrote
         // is answered 503 as the session's is, rather than drawn by rules that may not read it right.
