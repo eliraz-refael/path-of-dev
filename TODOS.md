@@ -1,48 +1,35 @@
 # TODOs
 
-Work deferred from the plan for Path of Dev online v1 (the closed beta), reviewed on 2026-10-13. Each entry says what
-the work is, why it matters, where things stand and what it waits on.
+Work deferred from the plan for Path of Dev online v1 (planned as a closed beta, now open), reviewed on 2026-10-13. Each
+entry says what the work is, why it matters, where things stand and what it waits on.
 
-## Before opening signup
+## Now that signup is open
 
 ### Protect volume badges against faked counts
 
 - **What:** stop a player unlocking the volume badges (100 commits, 50 merged PRs, 500 graded prompts) by posting
-  made-up events: count them from verified work once the verifier exists, or bound them with the per-player event
-  rate cap that open signup adds.
+  made-up events: count them from verified work once the verifier exists, or cap how fast a total grows toward one.
 - **Why:** badges show on public profiles. `grant` counts `progress.totals` even past the daily XP cap
   (engine/src/step.ts, `grant`), and the private form's subject key is made by the mod, so a script can post 100
   distinct `commit.made` events in a minute. XP is bounded by the caps; the badges are not.
-- **Context:** accepted for the closed beta, where the allowlist bounds who can do it (docs/plans/achievements.md,
-  decision A1A). The public server now caps each player's events (server/src/limits.ts: 1000 at once, then 600 a
-  minute, set so a player with many parallel sessions never meets it), which bounds how fast a made-up total grows,
-  not whether it can: a script still reaches 100 commits in seconds. Options left: a badge metric over verified facts
-  only, or a per-day cap on how much a total can grow toward a badge.
+- **Context:** accepted for the closed beta, where the allowlist bounded who could do it (docs/plans/achievements.md,
+  decision A1A); signup is open now. The public server caps each player's events (server/src/limits.ts: 1000 at once,
+  then 600 a minute, set so a player with many parallel sessions never meets it), which bounds how fast a made-up total
+  grows, not whether it can: a script still reaches 100 commits in seconds. Options left: a badge metric over verified
+  facts only, or a per-day cap on how much a total can grow toward a badge.
 - **Depends on:** achievements (PR 7a); the verifier, for counting from verified work.
-
-### Open signup
-
-- **What:** drop the allowlist check (`Allowlist.allows`: `ALLOWED_LOGINS`, the `beta_logins` table and the admins)
-  from sign-in and from `BearerAuth`. Keep `ADMIN_GITHUB_IDS` for what admins do next. The per-player cap on events
-  and the limits per client address are in (server/src/limits.ts).
-- **Why:** to let anyone play once abuse and growth are bounded.
-- **Context:** the allowlist is checked in two places on purpose (sign-in and every request), so removing someone locks
-  them out at once. Opening up removes both checks. Publish the privacy note (what's stored, export, delete, the game
-  token at rest in the mod's `$.store`) before opening.
-- **Depends on:** export and delete (PR 6).
 
 ## Known gaps from the review
 
-### Dev commands out of the public build
+### The engine's dev handling out of the public build
 
-- **What:** leave the dev commands out of what the public server decodes and runs: a command schema without them for
-  its route, or the engine's dev handling in a module only the local server loads.
-- **Why:** an online server can't be in dev mode (`devModeOf`, in server/services.ts), so the engine refuses every dev
-  command there, but the commands still decode and the code that runs them still ships. A bug in that one check would
-  let a player grant themselves XP, gold or items.
-- **Context:** `Command` (schema/commands.ts) holds the dev commands, and `step` runs them when its context says `dev`.
-  public.test.ts has a property that the public server refuses every dev command and its save stays as it was.
-- **Depends on:** nothing; worth it before open signup.
+- **What:** move what `step` does for a dev command into a module only the local server loads.
+- **Why:** the public server no longer decodes a dev command (its route takes `PlayCommand`, which has none, and answers
+  400), so none reaches the engine; but the code that runs them still ships in its image.
+- **Context:** `Command` (schema/commands.ts) holds the dev commands and `step` runs them when its context says `dev`.
+  public.test.ts has a property that the public server answers every dev command 400 and its save, rolls and event log
+  stay as they were.
+- **Depends on:** nothing.
 
 ### Change a session and log its event in one transaction
 
@@ -64,7 +51,7 @@ the work is, why it matters, where things stand and what it waits on.
 - **Context:** nothing private leaks: only what the old holder made public, under a name they no longer hold. The
   options are a periodic `GET /user/{id}` for public players, which takes one GitHub call per public player, or showing
   a page only for a sign-in within some recent window.
-- **Depends on:** open signup.
+- **Depends on:** nothing; more likely now that signup is open.
 
 ## Later features
 
@@ -115,11 +102,11 @@ the work is, why it matters, where things stand and what it waits on.
 - **What:** a Cloudflare cache rule on `pathof.dev/u/*` with `s-maxage=60`, plus an API purge of
   `pathof.dev/u/<login>` after a privacy change or a delete commits.
 - **Why:** v1 sends `Cache-Control: no-store` (PR 6), so a hide or a delete takes effect at once, but every view
-  renders. That is fine for a closed beta, not for real traffic.
+  renders, under the 60-a-minute limit per address. That is fine while traffic is small, not once it grows.
 - **Context:** needs a Cloudflare API token scoped to cache purge on the pathof.dev zone, as a server secret. Ship the
   rule and the purge together, never the rule alone: a cache without purge shows a hidden section or a deleted account
   for up to a minute. A failed purge only logs, as the TTL still bounds staleness.
-- **Depends on:** open signup.
+- **Depends on:** nothing.
 
 ### Link a local save to an online account
 

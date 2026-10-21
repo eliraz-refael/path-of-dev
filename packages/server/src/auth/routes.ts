@@ -2,7 +2,7 @@ import { OnlineApi, Unauthorized } from "@pathofdev/schema"
 import { Effect, Layer, Option, Redacted } from "effect"
 import { HttpApiBuilder, HttpApiSecurity } from "effect/http-api"
 import { AccountHandlers } from "../account.ts"
-import { ModHandlers } from "../http.ts"
+import { OnlineModHandlers } from "../http.ts"
 import { limitAddress, limits } from "../limits.ts"
 import type { GithubIdentity, NewPlayer } from "../players.ts"
 import { Players } from "../players.ts"
@@ -22,6 +22,7 @@ import { Tokens } from "./tokens.ts"
 //     └─▶ GitHub.user(githubToken) ─── not ours, or no token ───────────────▶ 401, nothing written
 //           │                       └─ down, slow, limited ────────────────────▶ 503, nothing written
 //           └─▶ Allowlist.allows(id, login) ── no ───────────────────────────▶ 401 "not in the beta", nothing written
+//                 │   (never while signup is open: then every GitHub account signs in)
 //                 └─▶ Players.findOrCreate(id, login, timezone) ─▶ Tokens.mint ─▶ 200 { token, player }
 //
 //   POST /v1/auth/logout   Authorization: Bearer <token>
@@ -78,5 +79,5 @@ export const AuthHandlers = HttpApiBuilder.group(
 
 /** The public server's routes with their handlers: the mod's, signing in and out, the beta list, and the account. */
 export const OnlineRoutes = HttpApiBuilder.layer(OnlineApi).pipe(
-  Layer.provide([ModHandlers, AuthHandlers, BetaHandlers, AccountHandlers]),
+  Layer.provide([OnlineModHandlers, AuthHandlers, BetaHandlers, AccountHandlers]),
 )

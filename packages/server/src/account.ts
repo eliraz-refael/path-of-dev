@@ -26,7 +26,7 @@ import { ProfileOrigin } from "./profile.ts"
 import { lockPlayer, PlayerGone } from "./writer.ts"
 
 // The player's own account on the public server, from the mod: what their public page shows, an export of everything
-// kept of them, and deleting it all. Each route acts for the token's player (AccountAuth), whether or not the beta
+// kept of them, and deleting it all. Each route acts for the token's player (AccountAuth), whether or not the server
 // still lets them in. `playerTables` names every table that holds a player's rows, once: what an export takes of each
 // and what it never takes, and the order a delete empties them in. Tables and columns reach SQL only as identifiers.
 //
@@ -54,7 +54,7 @@ import { lockPlayer, PlayerGone } from "./writer.ts"
 //     └─▶ erase: lockPlayer (player_state FOR UPDATE) ─▶ players FOR UPDATE
 //           ─▶ DELETE api_tokens, sessions, quarantine, rolls, server_events, event_log, player_state, players
 //           ─▶ commit ─▶ StreamHub.notify: held polls wake, find no player, answer 401
-//     └─▶ 200 {deleted, onBetaList}: beta_logins is the admins' list, and stays
+//     └─▶ 200 {deleted, onBetaList}: true while signup is open; beta_logins is the admins' list, and stays
 
 /** How a part's rows are bounded by the head: by a column up to one of its counters, by the log, or not at all. */
 type Bound =

@@ -28,6 +28,8 @@ export const betaUsage =
   'Beta list, for the online server\'s admins: /pathofdev beta list | add <github-login> | remove <github-login>.'
 
 export const onlyAdmins = "Only the server's admins can see or change the beta list."
+export const signupOpen =
+  'Signup is open: anyone with a GitHub account signs in, and the list waits for SIGNUP=allowlist to close it.'
 
 /** A GitHub login: 1 to 39 letters, digits and hyphens, no hyphen first; older accounts may end in or double one. */
 export const isGithubLogin = (text: string): boolean => /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(text)
@@ -66,7 +68,10 @@ const dayOf = (at: unknown): string => {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : ''
 }
 
-/** The list, a line for each source: added (with the day), `ALLOWED_LOGINS`, and the admins. */
+/**
+ * The list, a line for each source: added (with the day), `ALLOWED_LOGINS`, and the admins; and, while signup is open,
+ * that the list lets in no one who isn't in already. A server from before the open beta says nothing of signup.
+ */
 export const listText = (list: BetaList, origin: string): string => {
   const entries: ReadonlyArray<unknown> = list.entries
   const of = (source: BetaEntry['source']) =>
@@ -87,6 +92,7 @@ export const listText = (list: BetaList, origin: string): string => {
     `- added from the mod: ${line(added)}`,
     `- ALLOWED_LOGINS (a redeploy changes these): ${line(listed)}`,
     `- admins, always in (ADMIN_GITHUB_IDS): ${line(admins)}`,
+    ...(list.signup === 'open' ? [signupOpen] : []),
   ].join('\n')
 }
 

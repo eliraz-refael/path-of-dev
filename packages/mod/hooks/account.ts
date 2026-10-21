@@ -76,7 +76,7 @@ export const deleteTextOf = (response: Pick<HttpResponse, 'ok' | 'status' | 'tex
   }
   const again = body['onBetaList'] === true
     ? ' /pathofdev login starts a new one, if you like.'
-    : ' The beta no longer lets this GitHub account in.'
+    : ' The server no longer lets this GitHub account in.'
   return `Your account on ${origin} is deleted, and this mod is signed out of it.${again}`
 }
 

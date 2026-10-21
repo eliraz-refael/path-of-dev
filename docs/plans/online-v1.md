@@ -12,7 +12,8 @@ profiles at pathof.dev/u/:login, deployed on Coolify behind CI. Local PGlite pla
 - Closed beta: an allowlist, checked at sign-in AND on every request (BearerAuth). One Cloudflare rate rule
   on api.pathof.dev/v1/auth/*. Server-side limiter deferred (TODOS). (Since the beta list: ALLOWED_LOGINS ∪ the
   beta_logins table the admins keep with `/pathofdev beta` ∪ the admins of ADMIN_GITHUB_IDS, by GitHub user id;
-  see docs/deploy.md.)
+  see docs/deploy.md.) (Since the open beta: signup is open by default, `SIGNUP=open`, and the allowlist waits behind
+  `SIGNUP=allowlist`; the server-side limiter is in, docs/deploy.md "Rate limits".)
 - Online starts fresh at level 0; no local-save linking (TODOS).
 - Profiles private by default (`/pathofdev profile public|private|hide <section>`); a missing section key = shown.
 - Export + delete ship in v1.

@@ -1,3 +1,4 @@
+import type { BetaList } from "@pathofdev/schema"
 import { CurrentPlayer, Forbidden, InvalidLogin, isGithubLogin, OnlineApi } from "@pathofdev/schema"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
@@ -14,11 +15,17 @@ import { Allowlist } from "./allowlist.ts"
 //                                                            └─ yes ─▶ Allowlist: the table, then the Ref at once
 //
 // Adding a login on the list, or removing one off it, is no error: the answer says nothing changed. A login that
-// `ALLOWED_LOGINS` lists, or an admin's, stays in whatever the table says, and the answer says so.
+// `ALLOWED_LOGINS` lists, or an admin's, stays in whatever the table says, and the answer says so. While signup is open
+// (the open beta) the list lets in no one who isn't in already: it waits for `SIGNUP=allowlist`, and every answer
+// says so.
 
 export const onlyAdmins = "Only the server's admins can see or change the beta list"
 export const notALogin =
   "That is not a GitHub login: 1 to 39 letters, digits and hyphens, not starting with a hyphen"
+
+/** What every change to the list adds while signup is open. */
+export const openNote =
+  " Signup is open, so anyone can sign in: the list lets people in only once SIGNUP=allowlist closes signup."
 
 /** What still lets a login in that the API can't take off, or null when nothing does. */
 const stillIn = (standing: Standing): string | null =>
@@ -61,14 +68,21 @@ export const BetaHandlers = HttpApiBuilder.group(
       isGithubLogin(login) ? Effect.succeed(login) : Effect.fail(new InvalidLogin({ message: notALogin }))
 
     return handlers.handleAll({
-      listBeta: () => Effect.andThen(admin, Effect.map(Effect.orDie(allowlist.entries), (entries) => ({ entries }))),
+      listBeta: () =>
+        Effect.andThen(
+          admin,
+          Effect.map(Effect.orDie(allowlist.entries), (entries): BetaList => ({
+            entries,
+            signup: allowlist.isOpen ? "open" : "allowlist",
+          })),
+        ),
 
       addToBeta: ({ payload }) =>
         Effect.gen(function* () {
           const by = yield* admin
           const login = yield* checked(payload.login)
           const isAdded = yield* Effect.orDie(allowlist.add(login, by))
-          return { login, changed: isAdded, message: addedText(login, isAdded) }
+          return { login, changed: isAdded, message: addedText(login, isAdded) + (allowlist.isOpen ? openNote : "") }
         }),
 
       removeFromBeta: ({ params }) =>
@@ -77,7 +91,8 @@ export const BetaHandlers = HttpApiBuilder.group(
           const login = yield* checked(params.login)
           const isRemoved = yield* Effect.orDie(allowlist.remove(login))
           const standing = yield* Effect.orDie(allowlist.standing(login))
-          return { login, changed: isRemoved, message: removedText(login, isRemoved, standing) }
+          const message = removedText(login, isRemoved, standing) + (allowlist.isOpen ? openNote : "")
+          return { login, changed: isRemoved, message }
         }),
     })
   }),

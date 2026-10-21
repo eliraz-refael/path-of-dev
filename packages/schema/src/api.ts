@@ -122,8 +122,14 @@ export const BetaEntry = Schema.Union([
 ])
 export type BetaEntry = typeof BetaEntry.Type
 
-/** `GET /v1/beta`: the logins added, oldest first, then those `ALLOWED_LOGINS` lists, then the admins. */
-export const BetaList = Schema.Struct({ entries: Schema.Array(BetaEntry) })
+/**
+ * `GET /v1/beta`: the logins added, oldest first, then those `ALLOWED_LOGINS` lists, then the admins; and whether
+ * signup is open, when the list lets in no one who isn't in already (a server from before the open beta leaves it out).
+ */
+export const BetaList = Schema.Struct({
+  entries: Schema.Array(BetaEntry),
+  signup: Schema.optionalKey(Schema.Literals(["open", "allowlist"])),
+})
 export interface BetaList extends Schema.Schema.Type<typeof BetaList> {}
 
 /**
@@ -167,7 +173,10 @@ export const ExportHead = Schema.Struct({
   player: Schema.Unknown,
   state: Schema.Unknown,
   tokens: Schema.Array(Schema.Unknown),
-  /** Whether the beta still lets this GitHub account in: kept by the admins, it outlives a delete. */
+  /**
+   * Whether the server still lets this GitHub account in: always while signup is open; while it is closed, whether the
+   * beta list names it, which the admins keep, so it outlives a delete.
+   */
   onBetaList: Schema.Boolean,
   parts: Schema.Array(ExportPartHead),
 })
@@ -184,6 +193,6 @@ export interface ExportPage extends Schema.Schema.Type<typeof ExportPage> {}
 export const DeleteRequest = Schema.Struct({ login: Schema.String })
 export interface DeleteRequest extends Schema.Schema.Type<typeof DeleteRequest> {}
 
-/** The account is gone, every row of it; whether the beta still lets the GitHub account in, to start afresh. */
+/** The account is gone, every row of it; whether the server still lets the GitHub account in, to start afresh. */
 export const Deleted = Schema.Struct({ deleted: Schema.Literal(true), onBetaList: Schema.Boolean })
 export interface Deleted extends Schema.Schema.Type<typeof Deleted> {}

@@ -20,7 +20,7 @@ import {
   StreamResponse,
 } from "./api.ts"
 import { EventsRequest } from "./client-events.ts"
-import { Command } from "./commands.ts"
+import { Command, PlayCommand } from "./commands.ts"
 import type { Player } from "./domain.ts"
 import { Count, Ulid } from "./primitives.ts"
 import { ProfileChangeRequest, ProfileSettings } from "./profile.ts"
@@ -130,36 +130,49 @@ export class AccountAuthentication extends HttpApiMiddleware.Service<
   { provides: CurrentPlayer }
 >()("pathofdev/AccountAuthentication", { security: { bearer: HttpApiSecurity.bearer }, error: Unauthorized }) {}
 
-// Every route that acts for a player answers 401 too once the account is deleted under a request still in flight.
-export class ModApi extends HttpApiGroup.make("mod", { topLevel: true })
-  .add(
-    HttpApiEndpoint.post("openSession", "/v1/sessions", {
-      payload: SessionRequest,
-      success: SessionResponse,
-      error: [ServerBehind, Unauthorized],
-    }),
-    HttpApiEndpoint.delete("closeSession", "/v1/sessions/:id", {
-      params: { id: Ulid },
-      success: SessionClosed,
-      error: [ServerBehind, Unauthorized],
-    }),
-    HttpApiEndpoint.post("sendEvents", "/v1/events", {
-      payload: EventsRequest,
-      success: EventsResponse,
-      error: [ServerBehind, Unauthorized, RateLimited],
-    }),
-    HttpApiEndpoint.post("runCommand", "/v1/commands", {
-      payload: Command,
-      success: CommandResponse,
-      error: [ServerBehind, Unauthorized, RateLimited],
-    }),
-    HttpApiEndpoint.get("stream", "/v1/stream", {
-      query: { after: Count, session: Schema.optionalKey(Ulid) },
-      success: StreamResponse,
-      error: Unauthorized,
-    }),
-  )
-  .middleware(Authentication) {}
+/**
+ * The mod's routes, taking `command` on `/v1/commands`. Every route that acts for a player answers 401 too once the
+ * account is deleted under a request still in flight.
+ */
+const modGroup = <C extends Schema.Top>(command: C) =>
+  HttpApiGroup.make("mod", { topLevel: true })
+    .add(
+      HttpApiEndpoint.post("openSession", "/v1/sessions", {
+        payload: SessionRequest,
+        success: SessionResponse,
+        error: [ServerBehind, Unauthorized],
+      }),
+      HttpApiEndpoint.delete("closeSession", "/v1/sessions/:id", {
+        params: { id: Ulid },
+        success: SessionClosed,
+        error: [ServerBehind, Unauthorized],
+      }),
+      HttpApiEndpoint.post("sendEvents", "/v1/events", {
+        payload: EventsRequest,
+        success: EventsResponse,
+        error: [ServerBehind, Unauthorized, RateLimited],
+      }),
+      HttpApiEndpoint.post("runCommand", "/v1/commands", {
+        payload: command,
+        success: CommandResponse,
+        error: [ServerBehind, Unauthorized, RateLimited],
+      }),
+      HttpApiEndpoint.get("stream", "/v1/stream", {
+        query: { after: Count, session: Schema.optionalKey(Ulid) },
+        success: StreamResponse,
+        error: Unauthorized,
+      }),
+    )
+    .middleware(Authentication)
+
+/** The mod's routes on a local server: every command, the dev commands among them for a server in dev mode. */
+export class ModApi extends modGroup(Command) {}
+
+/**
+ * The mod's routes on the public server: the commands of play alone. A dev command is not one it decodes, so it is
+ * answered 400 before any handler runs, and nothing of it is read or written.
+ */
+export class OnlineModApi extends modGroup(PlayCommand) {}
 
 /**
  * Signing in to the public server, which needs no game token yet: the mod trades a GitHub token for one, and gives it
@@ -226,5 +239,8 @@ export class AccountApi extends HttpApiGroup.make("account", { topLevel: true })
 /** The local server's routes: the mod's alone. */
 export class PathOfDevApi extends HttpApi.make("pathofdev").add(ModApi) {}
 
-/** The public server's routes: the mod's, the sign-in that gives it a game token, the beta list, and the account. */
-export class OnlineApi extends HttpApi.make("pathofdev").add(ModApi).add(AuthApi).add(BetaApi).add(AccountApi) {}
+/**
+ * The public server's routes: the mod's, with the commands of play alone, the sign-in that gives it a game token, the
+ * beta list, and the account.
+ */
+export class OnlineApi extends HttpApi.make("pathofdev").add(OnlineModApi).add(AuthApi).add(BetaApi).add(AccountApi) {}
