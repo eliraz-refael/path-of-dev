@@ -83,6 +83,17 @@ export class ConfirmMismatch extends Schema.TaggedError<ConfirmMismatch>()(
   { httpApiStatus: 400 },
 ) {}
 
+/**
+ * The request is over one of the public server's rate limits: it was turned away before it wrote anything. Its body is
+ * an `ApiError`, `code` "rate_limited", and `retryAfterMs` says how long until the same request would be let through;
+ * the mod keeps what it sent and tries again then. Never on the local server.
+ */
+export class RateLimited extends Schema.TaggedError<RateLimited>()(
+  "RateLimited",
+  { code: Schema.Literal("rate_limited"), message: Schema.String, retryAfterMs: Count },
+  { httpApiStatus: 429 },
+) {}
+
 /** What a request for an account the player deleted, from any of their tokens, is told with its 401. */
 export const accountDeleted = "This account was deleted: sign in again"
 
@@ -135,12 +146,12 @@ export class ModApi extends HttpApiGroup.make("mod", { topLevel: true })
     HttpApiEndpoint.post("sendEvents", "/v1/events", {
       payload: EventsRequest,
       success: EventsResponse,
-      error: [ServerBehind, Unauthorized],
+      error: [ServerBehind, Unauthorized, RateLimited],
     }),
     HttpApiEndpoint.post("runCommand", "/v1/commands", {
       payload: Command,
       success: CommandResponse,
-      error: [ServerBehind, Unauthorized],
+      error: [ServerBehind, Unauthorized, RateLimited],
     }),
     HttpApiEndpoint.get("stream", "/v1/stream", {
       query: { after: Count, session: Schema.optionalKey(Ulid) },
@@ -153,15 +164,15 @@ export class ModApi extends HttpApiGroup.make("mod", { topLevel: true })
 /**
  * Signing in to the public server, which needs no game token yet: the mod trades a GitHub token for one, and gives it
  * back to sign out. A token that names no player is answered 401 on either, and a sign-in GitHub can't check right now
- * 503, which leaves the mod's sign-in as it was.
+ * 503, which leaves the mod's sign-in as it was. Too many from one address is answered 429 before either runs.
  */
 export class AuthApi extends HttpApiGroup.make("auth", { topLevel: true }).add(
   HttpApiEndpoint.post("signIn", "/v1/auth/github", {
     payload: SignInRequest,
     success: SignInResponse,
-    error: [Unauthorized, GitHubUnavailable],
+    error: [Unauthorized, GitHubUnavailable, RateLimited],
   }),
-  HttpApiEndpoint.post("signOut", "/v1/auth/logout", { success: SignedOut, error: Unauthorized }),
+  HttpApiEndpoint.post("signOut", "/v1/auth/logout", { success: SignedOut, error: [Unauthorized, RateLimited] }),
 ) {}
 
 /**

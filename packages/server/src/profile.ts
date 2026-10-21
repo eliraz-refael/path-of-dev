@@ -12,18 +12,21 @@ import type { BadgeProgress, Gauge } from "@pathofdev/engine"
 import { happyBonusPct } from "@pathofdev/engine"
 import { isGithubLogin, isShown, Player, privacyOf, profileUrlOf } from "@pathofdev/schema"
 import { Cause, Context, Effect, Layer, Option, Schema } from "effect"
-import { HttpRouter, HttpServerResponse } from "effect/http"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { SqlClient, SqlSchema } from "effect/sql"
 import type { SqlError } from "effect/sql/SqlError"
 import { Allowlist } from "./auth/allowlist.ts"
 import { rules } from "./game.ts"
+import { limitAddress, limitedResponse, limits } from "./limits.ts"
 import { gaugeOf, notFoundPage, pageContentType, pageHeaders, profilePage, unavailablePage } from "./pages.ts"
 import type { ProfileRead } from "./players.ts"
 import { playerColumns, Players } from "./players.ts"
+import { RateLimiter } from "./rate-limit.ts"
 
 // A player's public page, `pathof.dev/u/<login>`: read-only, no sign-in, rendered from their snapshot. Traefik sends
 // `/u/*` on pathof.dev to the public server, its prefix kept; everything else there is the landing page.
 //
+//   GET /u/*, first ─ over the client address's limit (limits.ts) ─▶ 429, nothing read
 //   GET /u/<anything deeper> ────────────────────▶ 404
 //   GET /u/:login
 //     ├─ not a GitHub login ─────────────────────▶ 404
@@ -252,6 +255,15 @@ export const ProfilePages = HttpRouter.use((router) =>
     const players = yield* Players
     const allowlist = yield* Allowlist
     const { origin } = yield* ProfileOrigin
+    const limiter = yield* RateLimiter
+
+    /** `page`, once the client address is within its limit on pages: over it, the 429, and nothing read. */
+    const limited = <E, R>(page: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>) =>
+      Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+        Effect.matchEffect(limitAddress(limiter, request, limits.pages), {
+          onFailure: (refused) => Effect.succeed(limitedResponse(refused)),
+          onSuccess: () => page,
+        }))
 
     const pageOf = (raw: string) =>
       Effect.gen(function* () {
@@ -274,8 +286,9 @@ export const ProfilePages = HttpRouter.use((router) =>
         ),
       )
 
-    yield* router.add("GET", "/u/:login", Effect.flatMap(HttpRouter.params, ({ login }) => pageOf(login ?? "")))
+    const byLogin = Effect.flatMap(HttpRouter.params, ({ login }) => pageOf(login ?? ""))
+    yield* router.add("GET", "/u/:login", limited(byLogin))
     // Any other path under /u (`/u`, `/u/a/b`) is the same 404 page, not the router's bare one.
-    yield* router.add("GET", "/u/*", Effect.succeed(notFound))
+    yield* router.add("GET", "/u/*", limited(Effect.succeed(notFound)))
   })
 )

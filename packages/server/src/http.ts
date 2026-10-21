@@ -8,8 +8,10 @@ import type { Admitted } from "./edge.ts"
 import { admit } from "./edge.ts"
 import { minClientVersion, nowIso, rules } from "./game.ts"
 import { StreamHub } from "./hub.ts"
+import { limitWrite } from "./limits.ts"
 import { Players } from "./players.ts"
 import { Presence } from "./presence.ts"
+import { RateLimiter } from "./rate-limit.ts"
 import type { Applied, PlayerGone } from "./writer.ts"
 import { PlayerWriter } from "./writer.ts"
 
@@ -17,7 +19,8 @@ import { PlayerWriter } from "./writer.ts"
 // input is idempotent by id. A write to a save that a newer build of the server wrote is answered 503, and writes
 // nothing; a request for a player deleted since their token was read is answered 401, and writes nothing. Each
 // handler reads the player it acts for from its own request, which the server's `Authentication` provides: the
-// services are built once and shared by every player.
+// services are built once and shared by every player. On the public server a player's events and commands are
+// rate-limited (limits.ts) before anything is written: over a limit is a 429 that says when to try again.
 
 /** A held stream answers with nothing after this long, under the proxies' 30-second limit. */
 export const streamTimeout = Duration.seconds(25)
@@ -54,6 +57,11 @@ export const ModHandlers = HttpApiBuilder.group(
     const writer = yield* PlayerWriter
     const hub = yield* StreamHub
     const presence = yield* Presence
+    const limiter = yield* RateLimiter
+
+    /** The request's player within their limits for a write of `events` events: over one, a 429, nothing written. */
+    const limited = (events: number) =>
+      Effect.flatMap(CurrentPlayer, (player) => limitWrite(limiter, player.id, events))
 
     return handlers.handleAll({
       openSession: ({ payload, request }) =>
@@ -76,7 +84,7 @@ export const ModHandlers = HttpApiBuilder.group(
         }).pipe(asModErrors),
 
       sendEvents: ({ payload }) =>
-        Effect.gen(function* () {
+        Effect.andThen(limited(payload.events.length), Effect.gen(function* () {
           const player = yield* CurrentPlayer
           const now = yield* nowIso
           const admissions = payload.events.map((raw) => admit(raw, now))
@@ -91,10 +99,10 @@ export const ModHandlers = HttpApiBuilder.group(
           })
           const events: Array<ServerEvent> = applied.flatMap((one) => (one.status === "accepted" ? one.events : []))
           return { results, events }
-        }).pipe(asModErrors),
+        }).pipe(asModErrors)),
 
       runCommand: ({ payload }) =>
-        Effect.gen(function* () {
+        Effect.andThen(limited(0), Effect.gen(function* () {
           const player = yield* CurrentPlayer
           const now = yield* nowIso
           const applied = yield* writer.apply(player.id, now, [
@@ -108,7 +116,7 @@ export const ModHandlers = HttpApiBuilder.group(
                 ? { status: "refused", ...done.refusal }
                 : { status: "ok", events: done.events }
           return response
-        }).pipe(asModErrors),
+        }).pipe(asModErrors)),
 
       stream: ({ query }) =>
         Effect.gen(function* () {

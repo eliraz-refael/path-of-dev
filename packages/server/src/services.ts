@@ -10,6 +10,7 @@ import { Players } from "./players.ts"
 import { Presence } from "./presence.ts"
 import { QuestPacks } from "./quest-packs.ts"
 import { ServerRandom } from "./random.ts"
+import { RateLimiter } from "./rate-limit.ts"
 import type { Stepper } from "./writer.ts"
 import { PlayerWriter } from "./writer.ts"
 
@@ -18,6 +19,7 @@ import { PlayerWriter } from "./writer.ts"
 //
 //   ServerRandom (seeded once) ─┐
 //   DevMode (local only) ───────┤
+//   RateLimiter (online only) ──┤
 //   Database ─▶ migrate ────────┼─▶ QuestPacks ─▶ StreamHub ─▶ PlayerWriter ─▶ Players(kind), Presence (+ sweep)
 //                               ┘
 
@@ -36,6 +38,12 @@ export interface CoreOptions {
  */
 export const devModeOf = (kind: ServerKind, options: CoreOptions): boolean => kind === "local" && options.dev === true
 
+/**
+ * The rate limits of a `kind` server: an online one's buckets (limits.ts); a local one lets everything through, as its
+ * one player is the machine's own.
+ */
+export const rateLimiterOf = (kind: ServerKind) => (kind === "online" ? RateLimiter.layer : RateLimiter.unlimited)
+
 /** The server's randomness, seeded once, then the database, migrated. */
 const Base = (database: Database, seed: string | undefined) =>
   Layer.effectDiscard(migrate).pipe(
@@ -44,8 +52,8 @@ const Base = (database: Database, seed: string | undefined) =>
   )
 
 /**
- * The services behind the routes of a `kind` server, over `database`: migrated, with the presence sweep running, and
- * in dev mode only as `devModeOf` allows.
+ * The services behind the routes of a `kind` server, over `database`: migrated, with the presence sweep running, in
+ * dev mode only as `devModeOf` allows, and rate-limited only online.
  */
 export const core = (kind: ServerKind, database: Database, options: CoreOptions = {}) => {
   const Live = Presence.sweeper.pipe(Layer.provideMerge(Presence.layer))
@@ -55,5 +63,6 @@ export const core = (kind: ServerKind, database: Database, options: CoreOptions 
     Layer.provideMerge(QuestPacks.layer),
     Layer.provideMerge(Base(database, options.seed)),
     Layer.provideMerge(DevMode.layer(devModeOf(kind, options))),
+    Layer.provideMerge(rateLimiterOf(kind)),
   )
 }

@@ -5,22 +5,6 @@ the work is, why it matters, where things stand and what it waits on.
 
 ## Before opening signup
 
-### Server-side rate limiter
-
-- **What:** a token-bucket limiter in the public server, keyed per client IP on `/v1/auth/*` and `/u/*`, and per
-  player token on `/v1/events` and `/v1/commands`, answering 429 with the existing `ApiError.retryAfterMs`.
-- **Why:** the closed beta leans on its allowlist (`ALLOWED_LOGINS`, the beta list, the admins) and one Cloudflare
-  rate rule on `api.pathof.dev/v1/auth/*`. With open signup anyone can create a player and flood writes or profile
-  renders, and one Cloudflare rule can't tell players apart.
-- **Context:** keep the decision pure: `take(rule, bucket, now) => { allowed, bucket, retryAfterMs }` plus
-  `prune(buckets, now, rule)`, held in a `Ref` and wrapped by a `RateLimiter.check(key, rule)` service. The client IP
-  comes from a pure `clientIpOf(trust, headers, remote)`: trust `CF-Connecting-IP` only when the peer is in
-  Cloudflare's published ranges (configure Traefik's `trustedIPs` to match), otherwise use the socket address. Never
-  take the leftmost `X-Forwarded-For` entry, which the client controls. Properties: the number allowed in any window is
-  at most capacity plus refill × window; a forged header from an untrusted peer never changes the key.
-- **Depends on:** the public server entry (PR 5). Profile pages send `no-store` and render a snapshot per view with
-  no cache (PR 6, decision 12A), so `/u/*` per client IP matters as soon as they are linked anywhere.
-
 ### Protect volume badges against faked counts
 
 - **What:** stop a player unlocking the volume badges (100 commits, 50 merged PRs, 500 graded prompts) by posting
@@ -30,20 +14,22 @@ the work is, why it matters, where things stand and what it waits on.
   (engine/src/step.ts, `grant`), and the private form's subject key is made by the mod, so a script can post 100
   distinct `commit.made` events in a minute. XP is bounded by the caps; the badges are not.
 - **Context:** accepted for the closed beta, where the allowlist bounds who can do it (docs/plans/achievements.md,
-  decision A1A). Options: a badge metric over verified facts only, a per-day cap on how much a total can grow toward
-  a badge, or relying on the events-per-minute cap from "Open signup".
-- **Depends on:** achievements (PR 7a); before open signup.
+  decision A1A). The public server now caps each player's events (server/src/limits.ts: 1000 at once, then 600 a
+  minute, set so a player with many parallel sessions never meets it), which bounds how fast a made-up total grows,
+  not whether it can: a script still reaches 100 commits in seconds. Options left: a badge metric over verified facts
+  only, or a per-day cap on how much a total can grow toward a badge.
+- **Depends on:** achievements (PR 7a); the verifier, for counting from verified work.
 
 ### Open signup
 
 - **What:** drop the allowlist check (`Allowlist.allows`: `ALLOWED_LOGINS`, the `beta_logins` table and the admins)
-  from sign-in and from `BearerAuth`, and add a per-player cap on events per minute. Keep `ADMIN_GITHUB_IDS` for what
-  admins do next.
+  from sign-in and from `BearerAuth`. Keep `ADMIN_GITHUB_IDS` for what admins do next. The per-player cap on events
+  and the limits per client address are in (server/src/limits.ts).
 - **Why:** to let anyone play once abuse and growth are bounded.
 - **Context:** the allowlist is checked in two places on purpose (sign-in and every request), so removing someone locks
   them out at once. Opening up removes both checks. Publish the privacy note (what's stored, export, delete, the game
   token at rest in the mod's `$.store`) before opening.
-- **Depends on:** the server-side rate limiter; export and delete (PR 6).
+- **Depends on:** export and delete (PR 6).
 
 ## Known gaps from the review
 

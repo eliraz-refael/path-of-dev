@@ -86,6 +86,46 @@ COMMIT;
 
 Backups keep a deleted account for up to 14 days (step 4 below keeps 14 daily backups).
 
+## Rate limits
+
+The server limits itself, in memory, with the numbers in
+[`packages/server/src/limits.ts`](../packages/server/src/limits.ts) (one place, with the reasoning beside them):
+
+| What | Keyed by | Lets through |
+| --- | --- | --- |
+| `/v1/auth/*` (sign-in, sign-out) | client address | 30 at once, then 20 a minute |
+| `/u/*` (profile pages) | client address | 60 at once, then 60 a minute |
+| `POST /v1/events` and `/v1/commands` | player | 300 requests at once, then 600 a minute |
+| the events in those batches | player | 1000 at once, then 600 a minute |
+
+Past a limit the answer is 429 with `Retry-After` and an `ApiError` body whose `retryAfterMs` says how long to wait;
+nothing is written, GitHub is not asked, no page is rendered. The mod keeps its events queued and sends them once the
+wait is over. The buckets live in the process, so a deploy starts them full; that is fine with one replica.
+
+The client address comes from `clientIpOf` (`packages/server/src/client-ip.ts`). The server's socket peer is always
+Traefik, on a private Docker address, and Traefik appends the address that reached it to `X-Forwarded-For` whatever
+its `trustedIPs` say. So the server reads only that last entry, and only from a private peer: when it is in
+Cloudflare's published ranges (kept in that file, from https://www.cloudflare.com/ips-v4 and /ips-v6), the client is
+`CF-Connecting-IP`; otherwise it is that address. No earlier `X-Forwarded-For` entry, nor `X-Real-IP`, is ever read.
+Nothing in Traefik or Coolify needs changing for this; leave Traefik's `trustedIPs` as they are. Two things to keep:
+
+- **Don't publish the server's port on the host.** Coolify's app → Network → "Ports Mappings" stays empty ("Ports
+  Exposes: 3000" is fine: that is the Docker network only). A published port could let a client reach the server from
+  a private Docker address and pick its own key.
+- **When Cloudflare changes its ranges**, update `cloudflareRanges` in `client-ip.ts`. Until then a request through a
+  new edge address is keyed by that edge address, shared by everyone behind it: too strict, never too loose.
+
+To check it after a deploy, from one machine (61 page views, one past the limit):
+
+```sh
+for i in $(seq 61); do curl -s -o /dev/null -w '%{http_code}\n' https://pathof.dev/u/nobody; done | sort | uniq -c
+# 60 404, then 1 429; a minute later, or from another network (a phone off Wi-Fi), the page answers 404 again
+```
+
+If every client is turned away together (a 429 from a network that never asked), the server is keying everyone by one
+address: Traefik's own, or one edge's. Check that Traefik reaches the server from a private address, and that the
+ranges are current.
+
 ## What is left to do by hand
 
 Each step is done once, in Coolify, Cloudflare or GitHub. The Postgres resource `pathofdev-db` (postgres:18-alpine,
@@ -122,7 +162,7 @@ on the `coolify` network) already exists.
 2. A rate limiting rule (Security → WAF → Rate limiting rules) on
    `(http.host eq "api.pathof.dev" and starts_with(http.request.uri.path, "/v1/auth/"))`, counted per IP, blocking
    when exceeded. On the Free plan the period and the block are 10 seconds: 5 requests per 10 seconds is plenty for
-   sign-ins.
+   sign-ins. It stops a flood at the edge; the server's own limits ("Rate limits" above) are the ones per player.
 3. Bot Fight Mode challenges clients that aren't browsers, and the mod is one. With Super Bot Fight Mode (Pro and up),
    add a custom rule `http.host eq "api.pathof.dev"` → Skip → all Super Bot Fight Mode rules. On the Free plan Bot
    Fight Mode can't be skipped per host: leave it off for the zone.

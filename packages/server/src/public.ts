@@ -32,20 +32,23 @@ import { core } from "./services.ts"
 //   Cloudflare (TLS; rate rule on /v1/auth/*) ─▶ Traefik (Coolify): api.pathof.dev, and pathof.dev/u ─▶ :PORT
 //     ├─ GET  /healthz ─────────────▶ SELECT 1 ─▶ 200, or 503 while the database doesn't answer
 //     ├─ GET  /u/:login ────────────▶ ProfilePages (profile.ts): a public player's page, else the one 404; no-store
+//     │                                 first, the client address's limit (limits.ts) ─▶ 429, nothing rendered
 //     ├─ POST /v1/auth/github ──────▶ GitHub.user ─▶ Allowlist ─▶ Players.findOrCreate ─▶ Tokens.mint
 //     ├─ POST /v1/auth/logout ──────▶ Tokens.revoke
+//     │                                 both first the client address's limit ─▶ 429: GitHub never asked
 //     ├─ /v1/beta ──────────────────▶ BearerAuth ─▶ an admin? ─▶ Allowlist: the table, and its copy in memory
 //     ├─ /v1/account/* ─────────────▶ AccountAuth (token ─▶ player; no allowlist) ─▶ AccountHandlers ─▶ AccountData:
 //     │                                 privacy, the export's head and pages, the delete (one transaction)
 //     └─ /v1/sessions, /v1/events, /v1/commands, /v1/stream
 //          └─▶ BearerAuth (token ─▶ player ─▶ allowlist) ─▶ ModHandlers ─▶ PlayerWriter (version guard) ─▶ Postgres
 //                 a player deleted under the request ─▶ PlayerGone ─▶ 401
-//   every 503 leaves with Retry-After
+//                 events and commands over the player's limits ─▶ 429, nothing written
+//   every 503 and 429 leaves with Retry-After
 //
 // The log has each response's method, path (no query) and status, never a header, a body or a client address: the
-// Authorization header, game tokens, GitHub tokens and the client secret stay out of it. Nothing here reads the
-// client's address; when something does (a rate limiter), it takes CF-Connecting-IP, since Cloudflare proxies
-// api.pathof.dev, and only from Cloudflare's own ranges.
+// Authorization header, game tokens, GitHub tokens and the client secret stay out of it. The limits per address read
+// the client's address in memory only, by `clientIpOf` (client-ip.ts): CF-Connecting-IP only from Cloudflare's own
+// ranges, as Traefik saw them, and never the client's own X-Forwarded-For entries.
 
 /** The public server's settings. */
 export interface PublicConfig {
