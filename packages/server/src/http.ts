@@ -28,6 +28,7 @@ import { limitSnapshot, limitWrite } from "./limits.ts"
 import { Players } from "./players.ts"
 import { Presence } from "./presence.ts"
 import { RateLimiter } from "./rate-limit.ts"
+import { ModRelease } from "./release.ts"
 import type { Applied, PlayerGone } from "./writer.ts"
 import { PlayerWriter } from "./writer.ts"
 
@@ -75,6 +76,7 @@ const modHandlers = Effect.gen(function* () {
   const hub = yield* StreamHub
   const presence = yield* Presence
   const limiter = yield* RateLimiter
+  const release = yield* ModRelease
 
   /** The request's player within their limits for a write of `events` events: over one, a 429, nothing written. */
   const limited = (events: number) =>
@@ -97,7 +99,9 @@ const modHandlers = Effect.gen(function* () {
           yield* presence.open(player.id, payload.sessionId, clientOf(request.headers))
         }
         const snapshot = yield* players.snapshot(player)
-        return { snapshot, rules, minClientVersion, acceptedEventTypes: clientEventTypes }
+        // The mod's latest version, on a server that tells it: a mod behind it tells the player there is an update.
+        const latest = release.latest === null ? {} : { latestModVersion: release.latest }
+        return { snapshot, rules, minClientVersion, acceptedEventTypes: clientEventTypes, ...latest }
       }).pipe(asModErrors),
 
     closeSession: ({ params }: { readonly params: { readonly id: string } }) =>

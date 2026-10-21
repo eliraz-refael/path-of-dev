@@ -244,6 +244,10 @@ type ServerOptions = {
   localLogin?: string
   /** The online server's accounts, which hold every https request to a token. */
   accounts?: Accounts
+  /** The mod's latest version the session answer names, as the public server's does; none when unset. */
+  latestModVersion?: string
+  /** The oldest mod the session answer says the server talks to; 0.0.0 when unset. */
+  minClientVersion?: string
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
@@ -434,8 +438,9 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
           options.kept,
         )),
         rules: options.rules ?? {},
-        minClientVersion: '0.0.0',
+        minClientVersion: options.minClientVersion ?? '0.0.0',
         acceptedEventTypes: [],
+        ...(options.latestModVersion === undefined ? {} : { latestModVersion: options.latestModVersion }),
       })
     if (path === '/v1/events') {
       if (options.eventsTake !== undefined) await clock.sleep(options.eventsTake)
@@ -5814,5 +5819,97 @@ describe('the account', () => {
         'You play on your own save (~/.pathofdev), which has no account to export or delete: its save is on your own ' +
           'disk. /pathofdev server online switches to the online server.',
       )
+  })
+})
+
+describe('an update to the mod', () => {
+  const origin = 'https://api.pathof.dev'
+  const t0 = Date.parse('2026-10-09T08:00:00Z')
+  const newer = 'Update available: 0.10.0 → 0.11.0 · claude plugin update pathofdev@path-of-dev'
+  const inFull =
+    'Update available: 0.10.0 → 0.11.0 · run claude plugin update pathofdev@path-of-dev in a shell, then restart ' +
+    'Claude Code'
+
+  /** A session on the online server, signed in, its session answer saying `more`; the store holds `entries` too. */
+  const online = async ($: Parameters<TestBody>[0], on: On, more: ServerOptions, entries: Record<string, unknown> = {}) => {
+    const clock = mock.clock(on, { now: t0 })
+    const kept = new Map<string, unknown>(
+      Object.entries({ [`explored@${origin}`]: ['acme/widgets'], [`token@${origin}`]: 'pod_player', ...entries }),
+    )
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat' }
+    const server = fakeServer(on, clock, { ...more, level: 4, accounts })
+    await $.session.start(start)
+    await until(clock, () => server.sent.some((one) => one.path === '/v1/stream'))
+    await clock.settle()
+    return { clock, kept, ...server }
+  }
+
+  /** The pane's texts, opened on its inventory. */
+  const paneNow = async ($: Parameters<TestBody>[0]) => {
+    await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
+    const ui = await mountPane($)
+    const texts = await textsOf(ui)
+    await ui.unmount()
+    return texts
+  }
+
+  test('a newer one shows on the band once, and stays a line in the pane', { options: { server: 'online' } }, async ($, on) => {
+    const { clock, kept, sent } = await online($, on, { latestModVersion: '0.11.0' })
+    expect((await band($)).all).toContain(newer)
+    expect(kept.get('updateSeen')).toBe('0.11.0')
+    expect(await paneNow($)).toContain(inFull)
+    // A minute on, the band's line fades; the pane keeps its own.
+    await clock.advance(61_000)
+    expect((await band($)).all).not.toContain('Update available')
+    expect(await paneNow($)).toContain(inFull)
+    // Nor does a new session say it again on the band, though the server still does.
+    await $.session.end({ reason: 'clear', sessionId: 'first', resume: { id: 'first' } })
+    await until(clock, () => sent.filter((one) => one.path === '/v1/sessions').length === 2)
+    await clock.settle()
+    expect((await band($)).all).not.toContain('Update available')
+    expect(await paneNow($)).toContain(inFull)
+  })
+
+  test('a version the player was shown in an earlier session is the pane\'s line alone', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, { latestModVersion: '0.11.0' }, { updateSeen: '0.11.0' })
+    expect((await band($)).all).not.toContain('Update available')
+    expect(await paneNow($)).toContain(inFull)
+  })
+
+  test('a version newer than the one shown before goes on the band again', { options: { server: 'online' } }, async ($, on) => {
+    const { kept } = await online($, on, { latestModVersion: '0.11.0' }, { updateSeen: '0.10.5' })
+    expect((await band($)).all).toContain(newer)
+    expect(kept.get('updateSeen')).toBe('0.11.0')
+  })
+
+  for (const [latestModVersion, is] of [['0.10.0', 'at'], ['0.9.1', 'past']]) {
+    test(`the mod ${is} the latest version says nothing`, { options: { server: 'online' } }, async ($, on) => {
+      const { kept } = await online($, on, { latestModVersion })
+      expect((await band($)).all).not.toContain('Update')
+      expect(await paneNow($)).not.toContain('Update')
+      expect(kept.has('updateSeen')).toBe(false)
+    })
+  }
+
+  test('on a local server, whatever it says, the mod says nothing', async ($, on) => {
+    const { toasts } = await streaming($, on, ownedOf(), false, { latestModVersion: '0.11.0', minClientVersion: '0.11.0' })
+    expect((await band($)).all).not.toContain('Update')
+    expect(await paneNow($)).not.toContain('Update')
+    expect(toasts.join('\n')).not.toContain('Update')
+  })
+
+  test('a version the server needs is worded so, and goes on the band every session', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, { latestModVersion: '0.11.0', minClientVersion: '0.11.0' }, { updateSeen: '0.11.0' })
+    expect((await band($)).all).toContain('Update needed: 0.10.0 → 0.11.0 · claude plugin update pathofdev@path-of-dev')
+    expect(await paneNow($)).toContain(
+      'Update needed: 0.10.0 → 0.11.0: the server needs 0.11.0 or later · run claude plugin update ' +
+        'pathofdev@path-of-dev in a shell, then restart Claude Code',
+    )
   })
 })

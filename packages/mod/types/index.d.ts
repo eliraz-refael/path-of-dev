@@ -501,6 +501,15 @@ export type Wizard = {
  */
 export type PageView = { origin: string; login: string | null; url: string | null; isPublic: boolean | null }
 
+/**
+ * A newer mod than this one, as the online server told it (update.ts): `from` this mod's version, `to` the one to
+ * update to, and `needs` the oldest the server talks to when this mod is under it, else null.
+ */
+export type ModUpdate = { from: string; to: string; needs: string | null }
+
+/** The band's line about an update, shown until `until` (clock ms), when it fades. */
+export type Notice = { text: string; until: number }
+
 declare module 'claude-code' {
   interface PluginState {
     // Under the mod's plugin id: the engine keys the mod's state, its store and the player's options by it.
@@ -546,6 +555,10 @@ declare module 'claude-code' {
       scoresOpen: boolean
       /** The player's public page on the online server, for the Stats tab and the welcome; null before it is known. */
       page: PageView | null
+      /** A newer mod the online server told of, for the pane's line; null when there is none, or on a local server. */
+      modUpdate: ModUpdate | null
+      /** The band's line about that update, once a version, until it fades. */
+      notice: Notice | null
     }
   }
 }

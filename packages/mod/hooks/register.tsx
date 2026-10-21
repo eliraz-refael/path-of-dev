@@ -17,6 +17,7 @@ import type {
   Gain,
   Link,
   Loop,
+  ModUpdate,
   Motion,
   OfflineHint,
   Opening,
@@ -169,6 +170,7 @@ import {
 import type { Repo } from './observe'
 import {
   answerOf,
+  clientVersion,
   failureOf,
   idOf,
   isClosed,
@@ -191,6 +193,7 @@ import {
   tokenOf,
 } from './server'
 import type { Online, Route, Target } from './server'
+import { isAnnounced, sameUpdate, updateLine, updateOf, updateText } from './update'
 import { loops as isLooping, ownedLooks, ratesOf, wornLooks } from './looks'
 import type { MissionEntry } from './missions'
 import { knowsTogether, missionChip, missionsLayout, missionsViewOf, roomBeside, runningCount } from './missions'
@@ -299,6 +302,8 @@ const hinted = atom({ plugin: 'pathofdev', key: 'hinted' }, false)
 const scored = atom({ plugin: 'pathofdev', key: 'scored' }, null)
 const scoresOpen = atom({ plugin: 'pathofdev', key: 'scoresOpen' }, false)
 const page = atom({ plugin: 'pathofdev', key: 'page' }, null)
+const modUpdate = atom({ plugin: 'pathofdev', key: 'modUpdate' }, null)
+const notice = atom({ plugin: 'pathofdev', key: 'notice' }, null)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -374,6 +379,10 @@ let pricing: Pricing | null = null
 let toCheck: { id: string; words: ReadonlyArray<string> } | null = null
 /** Takes the gain's line down once it has stood a minute. */
 let fadeTimer: Timer | null = null
+/** Takes the band's line about an update down once it has stood a minute. */
+let noticeTimer: Timer | null = null
+/** The version this copy of the mod told the band of, so a refresh tells it no more this session. */
+let announced: string | null = null
 let sessionId = ''
 /** The socket the server last answered on, then the other places it may listen: see `socketPathsOf`. */
 let socket = ''
@@ -639,6 +648,49 @@ const resumeFade = async ($: EngineInterface) => {
   if (shown === null) return
   const left = Number.isFinite(shown.until) ? shown.until - (await $.clock.now()) : 0
   fadeAt($, left, shown.until)
+}
+
+/** Takes the band's line about an update down in `ms`, unless a newer one has taken its place by then. */
+const fadeNoticeAt = ($: EngineInterface, ms: number, until: number) => {
+  noticeTimer?.cancel()
+  noticeTimer = $.clock.after(Math.max(0, ms), () => {
+    noticeTimer = null
+    update($, notice, (shown) => (shown?.until === until ? null : shown)).catch(() => undefined)
+  })
+}
+
+/** A fresh copy of the mod fades the update's line the last one left, when its minute is up. */
+const resumeNotice = async ($: EngineInterface) => {
+  noticeTimer?.cancel()
+  noticeTimer = null
+  const shown = await read($, notice)
+  if (shown === null) return
+  fadeNoticeAt($, Number.isFinite(shown.until) ? shown.until - (await $.clock.now()) : 0, shown.until)
+}
+
+/**
+ * What the online server's session answer said of the mod's own version: a newer one, or one it needs, is the pane's
+ * line for as long as the mod plays there, and the band's for a minute, once a session; a version the player was shown
+ * before (the store keeps the last) is not told again, unless the server needs it. A local server tells no version,
+ * and the mod says nothing there.
+ */
+const noteUpdate = async ($: EngineInterface, found: ModUpdate | null) => {
+  const shown = target.kind === 'online' ? found : null
+  if (!sameUpdate(await read($, modUpdate), shown)) await update($, modUpdate, () => shown)
+  if (shown === null || announced === shown.to) return
+  announced = shown.to
+  if (!isAnnounced(shown, await $.store.get('updateSeen'))) return
+  await $.store.set('updateSeen', shown.to)
+  const text = updateLine(shown)
+  // In `line` the band never opens: the update is a toast there.
+  if (bandMode === 'line') {
+    $.ui.toast(text)
+    return
+  }
+  const until = (await $.clock.now()) + fadeMs
+  await update($, notice, () => ({ text, until }))
+  fadeNoticeAt($, fadeMs, until)
+  await openBand($)
 }
 
 /** Keeps what waits to play, the one playing first, in the session's state, where a reload of the mod finds it. */
@@ -1222,6 +1274,8 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
     pricing = pricingOf(opened.rules?.prompt?.v2)
   }
   await learnOwner($, opened.snapshot.character.playerId)
+  // Whether the mod is behind the online server's word on it. Not after a switch meanwhile: that was the last server.
+  if (at === generation) await noteUpdate($, updateOf(clientVersion, opened.latestModVersion, opened.minClientVersion))
   // The login the page's address is made from, online: the server's word on the page waits for the pane to open.
   // Not after a switch meanwhile: this snapshot's player is the last server's.
   if (target.kind === 'online' && at === generation) {
@@ -1753,6 +1807,8 @@ const whereNow = async ($: EngineInterface): Promise<string> => {
 const forget = async ($: EngineInterface) => {
   fadeTimer?.cancel()
   fadeTimer = null
+  noticeTimer?.cancel()
+  noticeTimer = null
   frame?.cancel()
   frame = null
   reconnect?.cancel()
@@ -1770,6 +1826,8 @@ const forget = async ($: EngineInterface) => {
   await update($, wizard, () => null)
   await update($, abandoning, () => null)
   await update($, gain, () => null)
+  await update($, notice, () => null)
+  await update($, modUpdate, () => null)
   await update($, stage, () => null)
   await update($, queue, () => [])
   await syncLoop($)
@@ -2463,6 +2521,7 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     await resumeCelebrations($)
     await resumeFade($)
+    await resumeNotice($)
     // A reload keeps the session's id: a new one would leave the old open beside it, as if two sessions ran.
     await begin($, e.cwd, await read($, session))
     flushTimer?.cancel()
@@ -2728,6 +2787,7 @@ export const register: Register = (on, options) => {
     const status = await read($, link)
     const current = await read($, view)
     const last = await read($, gain)
+    const told = await read($, notice)
     const looks = wornLooks(await read($, wardrobe))
     // A running turn draws every look still, whatever the clock says.
     const moving = e.props.isWorking ? null : await read($, loops)
@@ -2760,11 +2820,13 @@ export const register: Register = (on, options) => {
     const hasCard = (await read($, scored)) !== null
     const card = hasCard && (await read($, scoresOpen)) ? await cardNow($) : null
     const scoresButton = hasCard ? [scoresCells] : []
-    const cardRoom = Math.max(0, e.props.maxRows - ownRows - 1)
+    // The update's line, while it shows, is a row of the band's own.
+    const own = ownRows + (told === null ? 0 : 1)
+    const cardRoom = Math.max(0, e.props.maxRows - own - 1)
     const cardShown = card === null ? [] : cardRows(card, columns).slice(0, cardRoom)
     const cardTaken = cardShown.length === 0 ? 0 : cardShown.length + 1
     const rows =
-      shown === null ? [] : stageRows(shown, columns, Math.max(0, e.props.maxRows - ownRows - cardTaken))
+      shown === null ? [] : stageRows(shown, columns, Math.max(0, e.props.maxRows - own - cardTaken))
     const slot = shown === null ? null : slotRow(shown, rows.length > 0)
     const pet = current.pet
     const barLook = looks.xpBar ?? null
@@ -2841,6 +2903,11 @@ export const register: Register = (on, options) => {
             )}
             {hasCard ? <Button key="band:scores" label={scoresLabel} onPress={() => void toggleCard($)} /> : null}
           </Box>
+          {told === null ? null : (
+            <Text key="band:update" color="warning" wrap="truncate">
+              {told.text}
+            </Text>
+          )}
           {cardShown.length === 0 ? null : (
             <Box key="band:card" flexDirection="column" marginTop={1}>
               {cardShown.map((row, i) => draw(Text, row, `card-${i}`))}
@@ -2894,6 +2961,7 @@ export const register: Register = (on, options) => {
     )
     // Beside the title, the server when it is not the player's own save, so dev mode and online play read apart.
     const where = tagOf(target)
+    const behind = await read($, modUpdate)
     const beside = current === null ? '' : headerOf(current, columns - (where === '' ? 0 : cellsOf(where) + 1))
     const header = (
       <Box flexDirection="column">
@@ -2909,6 +2977,11 @@ export const register: Register = (on, options) => {
             </Text>
           )}
         </Text>
+        {behind === null ? null : (
+          <Text key="update" color="warning">
+            {updateText(behind)}
+          </Text>
+        )}
         <Text> </Text>
         {tabBar}
         <Text dimColor wrap="truncate">
