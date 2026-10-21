@@ -1,9 +1,10 @@
-import type { QualityDimension } from "@pathofdev/schema"
+import type { Gauge } from "@pathofdev/engine"
+import type { Criterion, QualityDimension, Rarity } from "@pathofdev/schema"
 import { petSprite } from "@pathofdev/schema"
 import { createHash } from "node:crypto"
 import type { Html } from "./html.ts"
 import { html, raw, spriteSvg } from "./html.ts"
-import type { PublicProfile } from "./profile.ts"
+import type { PublicBadge, PublicBadges, PublicProfile } from "./profile.ts"
 
 // The pages `/u/<login>` answers, from a PublicProfile (profile.ts), which holds only what the player shows:
 //
@@ -26,7 +27,8 @@ const css = `
 :root {
   --ground: #f5f6f8; --surface: #ffffff; --line: #e2e5eb; --ink: #151922; --muted: #5a6273;
   --accent: #b4720a; --pink: #e2557f; --track: #eceef2;
-  --common: #8b93a3; --rare: #2f7fe0;
+  --common: #8b93a3; --uncommon: #2f9e5f; --rare: #2f7fe0; --epic: #8a4fd8; --legendary: #c8740c;
+  --common-ink: #5d6574; --uncommon-ink: #1d7444; --rare-ink: #1f63bd; --epic-ink: #7238c2; --legendary-ink: #9a5200;
   --sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -34,7 +36,9 @@ const css = `
 @media (prefers-color-scheme: dark) {
   :root {
     --ground: #0e1116; --surface: #161a21; --line: #262b35; --ink: #e7eaf0; --muted: #98a1b1;
-    --accent: #f0b443; --pink: #ff86a8; --track: #232833; --common: #a3abba; --rare: #58a2ff;
+    --accent: #f0b443; --pink: #ff86a8; --track: #232833;
+    --common: #a3abba; --uncommon: #4cc47e; --rare: #58a2ff; --epic: #b083ff; --legendary: #ffa94d;
+    --common-ink: #a3abba; --uncommon-ink: #5fd08f; --rare-ink: #6aaeff; --epic-ink: #bb94ff; --legendary-ink: #ffab5c;
     color-scheme: dark;
   }
 }
@@ -43,7 +47,7 @@ body {
   margin: 0; background: var(--ground); color: var(--ink); font: 400 1rem/1.55 var(--sans);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-h1, h2, p, dl, dd, ul { margin: 0; }
+h1, h2, h3, p, dl, dd, ul { margin: 0; }
 ul { padding: 0; list-style: none; }
 h1, h2 { text-wrap: balance; }
 a { color: inherit; }
@@ -81,14 +85,30 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .head h2 { font: 700 1.05rem/1.2 var(--display); }
 .count, .sub, .empty { color: var(--muted); font-size: 0.88rem; }
 .sub { margin-top: 10px; }
-.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 16px 12px; }
-.badges li { display: grid; justify-items: center; text-align: center; gap: 4px; min-width: 0; }
-.badges svg { width: 52px; height: 57px; }
-.badges b { font-size: 0.86rem; line-height: 1.2; overflow-wrap: anywhere; }
-.badges span { font-size: 0.76rem; color: var(--muted); }
-.badge-fill { fill: color-mix(in srgb, var(--common) 16%, var(--surface)); }
-.badge-edge { fill: none; stroke: var(--common); stroke-width: 2.2; }
-.badge-mark { fill: var(--common); font: 700 15px/1 var(--sans); }
+.count b { color: var(--ink); }
+.group { font: 600 0.75rem/1 var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 22px 0 12px; }
+.common { --tier: var(--common); --tier-ink: var(--common-ink); }
+.uncommon { --tier: var(--uncommon); --tier-ink: var(--uncommon-ink); }
+.rare { --tier: var(--rare); --tier-ink: var(--rare-ink); }
+.epic { --tier: var(--epic); --tier-ink: var(--epic-ink); }
+.legendary { --tier: var(--legendary); --tier-ink: var(--legendary-ink); }
+.medals { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+.medal { display: grid; justify-items: center; align-content: start; text-align: center; gap: 4px; min-width: 0; padding: 16px 10px 14px; border: 1px solid color-mix(in srgb, var(--tier) 38%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--tier) 7%, var(--surface)); }
+.medal.locked { border-color: var(--line); background: var(--surface); }
+.seal { display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 6px; }
+.seal > * { grid-area: 1 / 1; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .face { fill: color-mix(in srgb, var(--tier) 14%, var(--surface)); }
+.ring .track { fill: none; stroke: var(--track); stroke-width: 4; }
+.ring .arc { fill: none; stroke: var(--tier); stroke-width: 4; stroke-linecap: round; }
+.locked .ring .face { fill: var(--ground); }
+.mark { font-size: 1.55rem; line-height: 1; }
+.locked .mark { opacity: 0.38; filter: grayscale(1); }
+.what { display: grid; justify-items: inherit; gap: 2px; min-width: 0; }
+.what b { font-size: 0.875rem; line-height: 1.25; overflow-wrap: anywhere; }
+.about { display: none; }
+.tag { font-size: 0.72rem; line-height: 1.5; font-weight: 700; color: var(--tier-ink); border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent); background: color-mix(in srgb, var(--tier) 8%, transparent); border-radius: 99px; padding: 0 9px; margin-block: 2px; }
+.when { font-size: 0.76rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .big { font: 700 2.4rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .big small { font: 400 1rem/1 var(--sans); color: var(--muted); }
@@ -115,6 +135,16 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
   .xp, .mini { grid-column: 1 / -1; }
   .name { margin-top: 0; font-size: 1.35rem; }
   .stats { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .medals { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .medal { grid-template-columns: 48px minmax(0, 1fr) auto; justify-items: start; align-items: center; text-align: left; column-gap: 12px; row-gap: 2px; padding: 10px 12px; }
+  .seal { grid-area: 1 / 1 / 3 / 2; width: 48px; height: 48px; margin: 0; }
+  .what { grid-area: 1 / 2 / 3 / 3; }
+  .about { display: block; font-size: 0.8rem; line-height: 1.35; color: var(--muted); }
+  .tag { grid-area: 1 / 3; justify-self: end; }
+  .when { grid-area: 2 / 3; justify-self: end; }
+  .mark { font-size: 1.25rem; }
 }
 @media (max-width: 420px) {
   .quality { grid-template-columns: 6.4rem minmax(0, 1fr) 2.2rem; }
@@ -200,7 +230,7 @@ const side = (view: PublicProfile): Html => {
   const { character } = view
   const pet = view.pet ?? null
   const mini: ReadonlyArray<readonly [string, string]> = [
-    ...(view.badges === undefined ? [] : [["Badges", fmt(view.badges.length)] as const]),
+    ...(view.badges === undefined ? [] : [["Badges", fmt(view.badges.earned)] as const]),
     ...(view.streak === undefined ? [] : [["Streak", `${fmt(view.streak.days)}d`] as const]),
     ...(view.stats === undefined ? [] : [["Best grade", grade(view.stats.best)] as const]),
   ]
@@ -215,20 +245,64 @@ ${mini.length === 0 ? "" : html`<dl class="mini">${mini.map(([term, value]) => h
 </aside>`
 }
 
-const badgeShape = (mark: string): Html =>
-  html`<svg viewBox="0 0 40 44" aria-hidden="true"><path class="badge-fill" d="M20 2 37 11.5v21L20 42 3 32.5v-21Z"/><path class="badge-edge" d="M20 2 37 11.5v21L20 42 3 32.5v-21Z"/><text class="badge-mark" x="20" y="27.5" text-anchor="middle">${mark}</text></svg>`
+const rarityNames: Readonly<Record<Rarity, string>> = {
+  common: "Common",
+  uncommon: "Uncommon",
+  rare: "Rare",
+  epic: "Epic",
+  legendary: "Legendary",
+}
 
-const badgesCard = (badges: NonNullable<PublicProfile["badges"]>): Html =>
+/** A number as a goal reads, to a tenth at most: 8, 7.5. */
+const goal = (n: number): string => String(Math.round(n * 10) / 10)
+
+/**
+ * How far a locked badge is: the share of its ring (0 to 1, or null where a ring would mislead) and its line. A count
+ * fills its ring; an average says where it stands once it covers enough, and how many it covers until then.
+ */
+export const gaugeOf = (criterion: Criterion, gauges: ReadonlyArray<Gauge>): { share: number | null; text: string } => {
+  const [first, average] = gauges
+  if (first === undefined) return { share: null, text: "Locked" }
+  if (criterion.kind === "count") {
+    return { share: Math.min(1, first.current / first.goal), text: `${fmt(Math.min(first.current, first.goal))} / ${fmt(first.goal)}` }
+  }
+  const unit = criterion.of === "promptGrade" ? "prompts" : "sessions"
+  if (average === undefined || first.current < first.goal) return { share: null, text: `${fmt(first.current)} / ${fmt(first.goal)} ${unit}` }
+  return criterion.of === "promptGrade"
+    ? { share: null, text: `Avg ${grade(average.current)} · needs ${goal(average.goal)}` }
+    : { share: null, text: `Peak ${fmt(average.current)}% · needs < ${goal(average.goal)}%` }
+}
+
+/** The ring around a badge's glyph, `share` of the way round; none drawn for null or 0. */
+const ring = (share: number | null): Html => {
+  const arc = share === null || share <= 0 ? null : Math.round(Math.min(1, share) * 1000) / 10
+  return html`<svg class="ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="face" cx="32" cy="32" r="26"/><circle class="track" cx="32" cy="32" r="29"/>${
+    arc === null ? "" : html`<circle class="arc" cx="32" cy="32" r="29" pathLength="100" stroke-dasharray="${arc} 100"/>`
+  }</svg>`
+}
+
+const medal = (badge: PublicBadge): Html => {
+  const isEarned = badge.unlockedAt !== null
+  const gauge = badge.gauges === null ? null : gaugeOf(badge.criterion, badge.gauges)
+  const when = badge.unlockedAt !== null ? day(badge.unlockedAt) : (gauge?.text ?? "Locked")
+  return html`<li class="medal ${badge.rarity}${isEarned ? "" : " locked"}" title="${badge.about}">
+<span class="seal">${ring(isEarned ? 1 : (gauge?.share ?? null))}<span class="mark" aria-hidden="true">${badge.glyph}</span></span>
+<span class="what"><b>${badge.name}</b><span class="about">${badge.about}</span></span>
+<span class="tag">${rarityNames[badge.rarity]}</span><span class="when">${when}</span></li>`
+}
+
+const medals = (title: string, badges: ReadonlyArray<PublicBadge>): Html | null =>
+  badges.length === 0 ? null : html`<h3 class="group">${title}</h3><ul class="medals">${badges.map(medal)}</ul>`
+
+const badgesCard = (badges: PublicBadges): Html =>
   html`<section class="card" aria-labelledby="badges">
-<div class="head"><h2 id="badges">Badges</h2><span class="count">${plural(badges.length, "badge", "badges")}</span></div>
+<div class="head"><h2 id="badges">Badges</h2><span class="count"><b>${fmt(badges.earned)}</b> of ${fmt(badges.of)}</span></div>
 ${
-    badges.length === 0
+    badges.of === 0
       ? html`<p class="empty">No badges yet.</p>`
-      : html`<ul class="badges">${
-        badges.map((badge) =>
-          html`<li>${badgeShape(badge.id.slice(0, 1).toUpperCase())}<b>${badge.id}</b><span>${day(badge.unlockedAt)}</span></li>`
-        )
-      }</ul>`
+      : html`${bar(badges.earned / badges.of)}
+${medals("Earned", badges.list.filter((badge) => badge.unlockedAt !== null))}
+${medals("Locked", badges.list.filter((badge) => badge.unlockedAt === null))}`
   }
 </section>`
 
