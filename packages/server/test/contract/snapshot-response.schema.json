@@ -1,0 +1,3160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /v1/snapshot",
+  "type": "object",
+  "properties": {
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "serverId": {
+          "type": "string"
+        },
+        "streamEpoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "player": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+            },
+            "githubUserId": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "githubLogin": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            }
+          },
+          "required": [
+            "id",
+            "githubUserId",
+            "githubLogin",
+            "displayName",
+            "createdAt"
+          ],
+          "additionalProperties": true
+        },
+        "character": {
+          "type": "object",
+          "properties": {
+            "playerId": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "level": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "xp": {
+              "type": "object",
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "verified": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reported": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "intoLevel": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "forNextLevel": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "total",
+                "verified",
+                "reported",
+                "intoLevel",
+                "forNextLevel"
+              ],
+              "additionalProperties": true
+            },
+            "title": {
+              "type": "string"
+            },
+            "glyph": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8
+            },
+            "prestige": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gold": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "shards": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uncommon": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rare": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epic": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "legendary": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "streak": {
+              "type": "object",
+              "properties": {
+                "days": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "restDaysLeftThisWeek": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lastDay": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "best": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "days",
+                "restDaysLeftThisWeek",
+                "lastDay",
+                "best"
+              ],
+              "additionalProperties": true
+            },
+            "equipped": {
+              "type": "object",
+              "properties": {
+                "levelUpEffect": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                },
+                "scene": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                },
+                "xpBar": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                },
+                "levelDisplay": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                },
+                "topEdge": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                },
+                "goldDisplay": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                },
+                "sigil": {
+                  "type": "string",
+                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "playerId",
+            "name",
+            "level",
+            "xp",
+            "title",
+            "glyph",
+            "prestige",
+            "gold",
+            "shards",
+            "streak",
+            "equipped"
+          ],
+          "additionalProperties": true
+        },
+        "pet": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "species": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "form": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "mood": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "equipped": {
+                  "type": "object",
+                  "properties": {
+                    "head": {
+                      "type": "string",
+                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    },
+                    "neck": {
+                      "type": "string",
+                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    },
+                    "back": {
+                      "type": "string",
+                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    },
+                    "hand": {
+                      "type": "string",
+                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    },
+                    "aura": {
+                      "type": "string",
+                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "species",
+                "name",
+                "form",
+                "mood",
+                "equipped"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "egg": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "species": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "species",
+                "name"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "welcome": {
+          "type": "object",
+          "properties": {
+            "done": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "done"
+          ],
+          "additionalProperties": true
+        },
+        "inventory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+              },
+              "itemId": {
+                "type": "string"
+              },
+              "acquiredAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "drop",
+                      "quest",
+                      "shop",
+                      "craft",
+                      "achievement",
+                      "dev"
+                    ]
+                  },
+                  "ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ref"
+                ],
+                "additionalProperties": true
+              },
+              "dye": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "itemId",
+              "acquiredAt",
+              "source",
+              "dye"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rarity": {
+                "type": "string",
+                "enum": [
+                  "common",
+                  "uncommon",
+                  "rare",
+                  "epic",
+                  "legendary"
+                ]
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "food",
+                  "wearable",
+                  "scene",
+                  "title",
+                  "artefact",
+                  "levelUpEffect",
+                  "bandStyle",
+                  "sigil"
+                ]
+              },
+              "slot": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "head",
+                      "neck",
+                      "back",
+                      "hand",
+                      "aura",
+                      "levelUpEffect",
+                      "scene",
+                      "xpBar",
+                      "levelDisplay",
+                      "topEdge",
+                      "goldDisplay",
+                      "sigil"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sprite": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "lore": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "effect": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "xpBoostPct": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "minutes": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "xpBoostPct",
+                      "minutes"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "look": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "glyphs": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 8
+                        }
+                      },
+                      "colors": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "frames": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "glyphs": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 8
+                                  }
+                                },
+                                "colors": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9a-fA-F]{6}$"
+                                  }
+                                },
+                                "marks": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "at": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      },
+                                      "dx": {
+                                        "type": "integer",
+                                        "minimum": -8,
+                                        "maximum": 8
+                                      },
+                                      "glyph": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 8
+                                      },
+                                      "color": {
+                                        "type": "string",
+                                        "pattern": "^#[0-9a-fA-F]{6}$"
+                                      }
+                                    },
+                                    "required": [
+                                      "at"
+                                    ],
+                                    "additionalProperties": true
+                                  }
+                                }
+                              },
+                              "additionalProperties": true
+                            },
+                            "minItems": 2,
+                            "maxItems": 48
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "fps": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 6
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sheen": {
+                        "type": "object",
+                        "properties": {
+                          "colors": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^#[0-9a-fA-F]{6}$"
+                            },
+                            "minItems": 2,
+                            "maxItems": 6
+                          },
+                          "rest": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 48
+                          }
+                        },
+                        "required": [
+                          "colors",
+                          "rest"
+                        ],
+                        "additionalProperties": true
+                      }
+                    },
+                    "required": [
+                      "glyphs",
+                      "colors",
+                      "frames",
+                      "fps"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sigil": {
+                "type": "object",
+                "properties": {
+                  "multiplier": {
+                    "type": "number",
+                    "minimum": 1
+                  },
+                  "glyph": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  }
+                },
+                "required": [
+                  "multiplier",
+                  "glyph",
+                  "color"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "rarity",
+              "category",
+              "slot",
+              "sprite",
+              "lore",
+              "effect",
+              "look"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "quests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "questId": {
+                "type": "string"
+              },
+              "packId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cadence": {
+                "type": "string",
+                "enum": [
+                  "daily",
+                  "weekly",
+                  "chain",
+                  "bounty",
+                  "seasonal"
+                ]
+              },
+              "start": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "pick"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "offered",
+                  "active",
+                  "completed",
+                  "expired"
+                ]
+              },
+              "progress": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "goal": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "goalKind": {
+                "type": "string",
+                "enum": [
+                  "fact",
+                  "clears",
+                  "compactions",
+                  "command",
+                  "context",
+                  "parallel"
+                ]
+              },
+              "rewards": {
+                "type": "object",
+                "properties": {
+                  "xp": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "gold": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "xpBoost": {
+                    "type": "object",
+                    "properties": {
+                      "pct": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": 0
+                      },
+                      "minutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "pct",
+                      "minutes"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "loot": {
+                    "type": "object",
+                    "properties": {
+                      "rarity": {
+                        "type": "string",
+                        "enum": [
+                          "common",
+                          "uncommon",
+                          "rare",
+                          "epic",
+                          "legendary"
+                        ]
+                      },
+                      "pool": {
+                        "type": "string",
+                        "enum": [
+                          "food",
+                          "wearable",
+                          "scene",
+                          "title",
+                          "artefact",
+                          "levelUpEffect",
+                          "bandStyle",
+                          "sigil"
+                        ]
+                      },
+                      "item": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "rarity"
+                    ],
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": true
+              },
+              "expiresAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "questId",
+              "packId",
+              "title",
+              "description",
+              "cadence",
+              "start",
+              "status",
+              "progress",
+              "goal",
+              "rewards",
+              "expiresAt"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "claimId": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "change.merged",
+                  "review.submitted",
+                  "issue.closed"
+                ]
+              },
+              "subject": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "verified",
+                  "needs_signin",
+                  "unverifiable",
+                  "expired"
+                ]
+              }
+            },
+            "required": [
+              "claimId",
+              "kind",
+              "subject",
+              "status"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "shop": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "offerId": {
+                "type": "string"
+              },
+              "itemId": {
+                "type": "string"
+              },
+              "price": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "stock": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "endsAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+              }
+            },
+            "required": [
+              "offerId",
+              "itemId",
+              "price",
+              "stock",
+              "endsAt"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "boosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "food",
+                  "quest"
+                ]
+              },
+              "source": {
+                "type": "string"
+              },
+              "xpBoostPct": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "endsAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+              }
+            },
+            "required": [
+              "kind",
+              "source",
+              "xpBoostPct",
+              "endsAt"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "pity": {
+          "type": "object",
+          "properties": {
+            "sinceRare": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sinceEpic": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "sinceRare",
+            "sinceEpic"
+          ],
+          "additionalProperties": true
+        },
+        "achievements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "unlockedAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+              }
+            },
+            "required": [
+              "id",
+              "unlockedAt"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "clears": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compactions": {
+              "type": "object",
+              "properties": {
+                "manual": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "auto": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "manual",
+                "auto"
+              ],
+              "additionalProperties": true
+            },
+            "commands": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "contextCrossed": {
+              "type": "object",
+              "properties": {
+                "pct50": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "pct75": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "pct100": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "pct50",
+                "pct75",
+                "pct100"
+              ],
+              "additionalProperties": true
+            },
+            "contextPeak": {
+              "type": "object",
+              "properties": {
+                "lastSession": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "average": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "lastSession",
+                "average"
+              ],
+              "additionalProperties": true
+            },
+            "prompts": {
+              "type": "object",
+              "properties": {
+                "graded": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "gradedToday": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "averageScore": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10
+                },
+                "regretted": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "graded",
+                "gradedToday",
+                "averageScore",
+                "regretted"
+              ],
+              "additionalProperties": true
+            },
+            "grades": {
+              "type": "object",
+              "properties": {
+                "best": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10
+                },
+                "dimensions": {
+                  "type": "object",
+                  "properties": {
+                    "clarity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "grammar": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "specificity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "instructive": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "context": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "doneCriteria": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "focus": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    }
+                  },
+                  "required": [
+                    "clarity",
+                    "grammar",
+                    "specificity",
+                    "instructive",
+                    "context",
+                    "doneCriteria",
+                    "focus"
+                  ],
+                  "additionalProperties": true
+                },
+                "measures": {
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "grounding": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "why": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "successShape": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "scope": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "forward": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "craft": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "tone": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "best",
+                "dimensions"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "clears",
+            "compactions",
+            "commands",
+            "contextCrossed",
+            "contextPeak",
+            "prompts",
+            "grades"
+          ],
+          "additionalProperties": true
+        },
+        "cursor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dev": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        }
+      },
+      "required": [
+        "serverId",
+        "streamEpoch",
+        "player",
+        "character",
+        "pet",
+        "egg",
+        "welcome",
+        "inventory",
+        "items",
+        "quests",
+        "claims",
+        "shop",
+        "boosts",
+        "pity",
+        "achievements",
+        "stats",
+        "cursor"
+      ],
+      "additionalProperties": true
+    },
+    "rules": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "appliesFrom": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "levelCurve": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "exponent": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "base",
+            "exponent"
+          ],
+          "additionalProperties": true
+        },
+        "titles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fromLevel": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "fromLevel",
+              "title"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "glyphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fromLevel": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "glyph": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              }
+            },
+            "required": [
+              "fromLevel",
+              "glyph"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 1
+        },
+        "xp": {
+          "type": "object",
+          "properties": {
+            "change.merged": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "change.opened": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "commit.made": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "review.acted_on": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "issue.closed": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "bug.fixed": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "first.contribution": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "tests.green": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "repo.explored": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            },
+            "streak.day": {
+              "type": "object",
+              "properties": {
+                "xp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "verified",
+                    "reported"
+                  ]
+                },
+                "dailyCap": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownRepoXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffPct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tinyDiffLines": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "xp",
+                "tier",
+                "dailyCap"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "change.merged",
+            "change.opened",
+            "commit.made",
+            "review.acted_on",
+            "issue.closed",
+            "bug.fixed",
+            "first.contribution",
+            "tests.green",
+            "repo.explored",
+            "streak.day"
+          ],
+          "additionalProperties": true
+        },
+        "loot": {
+          "type": "object",
+          "properties": {
+            "chancePerTurn": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "promptChanceAtTen": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "promptGreatAt": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "promptGreatRareFactor": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "chanceOnVerified": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "weights": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uncommon": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rare": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epic": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "legendary": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "sigilShare": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "uncommon": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "rare": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "epic": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "legendary": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "onLevelUp": {
+              "type": "object",
+              "properties": {
+                "weights": {
+                  "type": "object",
+                  "properties": {
+                    "common": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "uncommon": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "rare": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "epic": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "legendary": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "common",
+                    "uncommon",
+                    "rare",
+                    "epic",
+                    "legendary"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "weights"
+              ],
+              "additionalProperties": true
+            },
+            "pity": {
+              "type": "object",
+              "properties": {
+                "rareAfter": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epicAfter": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "rareAfter",
+                "epicAfter"
+              ],
+              "additionalProperties": true
+            },
+            "gold": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uncommon": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rare": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epic": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "legendary": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "shardsToCraft": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "salvageShards": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uncommon": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rare": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epic": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "legendary": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "rerollGold": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uncommon": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rare": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epic": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "legendary": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "chancePerTurn",
+            "promptChanceAtTen",
+            "promptGreatAt",
+            "promptGreatRareFactor",
+            "chanceOnVerified",
+            "weights",
+            "sigilShare",
+            "onLevelUp",
+            "pity",
+            "gold",
+            "shardsToCraft",
+            "salvageShards",
+            "rerollGold"
+          ],
+          "additionalProperties": true
+        },
+        "pet": {
+          "type": "object",
+          "properties": {
+            "moodDecayPerDay": {
+              "type": "number"
+            },
+            "happyAbove": {
+              "type": "number"
+            },
+            "happyXpBonusPct": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "evolveAt": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "care": {
+              "type": "object",
+              "properties": {
+                "fed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "petted": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "pettedPerHour": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "fed",
+                "petted",
+                "pettedPerHour"
+              ],
+              "additionalProperties": true
+            },
+            "species": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "about": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "about"
+                ],
+                "additionalProperties": true
+              },
+              "minItems": 1
+            },
+            "egg": {
+              "type": "object",
+              "properties": {
+                "species": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "species",
+                "name"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "moodDecayPerDay",
+            "happyAbove",
+            "happyXpBonusPct",
+            "evolveAt",
+            "care",
+            "species",
+            "egg"
+          ],
+          "additionalProperties": true
+        },
+        "shop": {
+          "type": "object",
+          "properties": {
+            "offers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rarities": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "common",
+                  "uncommon",
+                  "rare",
+                  "epic",
+                  "legendary"
+                ]
+              }
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "food",
+                  "wearable",
+                  "scene",
+                  "title",
+                  "artefact",
+                  "levelUpEffect",
+                  "bandStyle",
+                  "sigil"
+                ]
+              }
+            },
+            "stock": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "prices": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "uncommon": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rare": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "epic": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "legendary": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "food": {
+              "type": "object",
+              "properties": {
+                "stock": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "prices": {
+                  "type": "object",
+                  "properties": {
+                    "common": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "uncommon": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "rare": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "epic": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "legendary": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "common",
+                    "uncommon",
+                    "rare",
+                    "epic",
+                    "legendary"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "stock",
+                "prices"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "offers",
+            "rarities",
+            "categories",
+            "stock",
+            "prices",
+            "food"
+          ],
+          "additionalProperties": true
+        },
+        "streak": {
+          "type": "object",
+          "properties": {
+            "xpPerDay": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxXp": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "restDaysPerWeek": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "xpPerDay",
+            "maxXp",
+            "restDaysPerWeek"
+          ],
+          "additionalProperties": true
+        },
+        "prompt": {
+          "type": "object",
+          "properties": {
+            "rubricVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "weights": {
+              "type": "object",
+              "properties": {
+                "clarity": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "grammar": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "specificity": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "instructive": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "context": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "doneCriteria": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "focus": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "clarity",
+                "grammar",
+                "specificity",
+                "instructive",
+                "context",
+                "doneCriteria",
+                "focus"
+              ],
+              "additionalProperties": true
+            },
+            "maxXp": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "perDay": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "upTo": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pct": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "upTo",
+                  "pct"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "regretAt": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "sigilMultiplier": {
+              "type": "object",
+              "properties": {
+                "common": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                },
+                "uncommon": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                },
+                "rare": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                },
+                "epic": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                },
+                "legendary": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 1
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                }
+              },
+              "required": [
+                "common",
+                "uncommon",
+                "rare",
+                "epic",
+                "legendary"
+              ],
+              "additionalProperties": true
+            },
+            "v2": {
+              "type": "object",
+              "properties": {
+                "maxXp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "weights": {
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "grounding": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "why": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "successShape": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "scope": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "forward": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "intent",
+                    "grounding",
+                    "why",
+                    "successShape",
+                    "scope",
+                    "forward"
+                  ],
+                  "additionalProperties": true
+                },
+                "craft": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "span": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "span",
+                    "max"
+                  ],
+                  "additionalProperties": true
+                },
+                "spelling": {
+                  "type": "object",
+                  "properties": {
+                    "fullAtWords": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "fullAtWords",
+                    "max"
+                  ],
+                  "additionalProperties": true
+                },
+                "tone": {
+                  "type": "object",
+                  "properties": {
+                    "upFrom": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "upPer": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "downFrom": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "downPer": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "upFrom",
+                    "upPer",
+                    "downFrom",
+                    "downPer"
+                  ],
+                  "additionalProperties": true
+                },
+                "caps": {
+                  "type": "object",
+                  "properties": {
+                    "hostile": {
+                      "type": "object",
+                      "properties": {
+                        "toneAtMost": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10
+                        },
+                        "grade": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10
+                        }
+                      },
+                      "required": [
+                        "toneAtMost",
+                        "grade"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "steer": {
+                      "type": "object",
+                      "properties": {
+                        "grade": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10
+                        }
+                      },
+                      "required": [
+                        "grade"
+                      ],
+                      "additionalProperties": true
+                    }
+                  },
+                  "required": [
+                    "hostile",
+                    "steer"
+                  ],
+                  "additionalProperties": true
+                },
+                "loot": {
+                  "type": "object",
+                  "properties": {
+                    "chanceAtTen": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "greatAt": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    }
+                  },
+                  "required": [
+                    "chanceAtTen",
+                    "greatAt"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "maxXp",
+                "weights",
+                "craft",
+                "spelling",
+                "tone",
+                "caps",
+                "loot"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "rubricVersion",
+            "weights",
+            "maxXp",
+            "perDay",
+            "regretAt",
+            "sigilMultiplier",
+            "v2"
+          ],
+          "additionalProperties": true
+        },
+        "catalogVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missions": {
+          "type": "object",
+          "properties": {
+            "daily": {
+              "type": "object",
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "common",
+                    "uncommon",
+                    "rare",
+                    "epic",
+                    "legendary"
+                  ]
+                }
+              },
+              "required": [
+                "count",
+                "tier"
+              ],
+              "additionalProperties": true
+            },
+            "weekly": {
+              "type": "object",
+              "properties": {
+                "offered": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "active": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "common",
+                    "uncommon",
+                    "rare",
+                    "epic",
+                    "legendary"
+                  ]
+                }
+              },
+              "required": [
+                "offered",
+                "active",
+                "tier"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "daily",
+            "weekly"
+          ],
+          "additionalProperties": true
+        },
+        "questPacks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "achievements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "about": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "rarity": {
+                "type": "string",
+                "enum": [
+                  "common",
+                  "uncommon",
+                  "rare",
+                  "epic",
+                  "legendary"
+                ]
+              },
+              "glyph": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "criterion": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "count"
+                        ]
+                      },
+                      "of": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "fact"
+                                ]
+                              },
+                              "fact": {
+                                "type": "string",
+                                "enum": [
+                                  "change.merged",
+                                  "change.opened",
+                                  "commit.made",
+                                  "review.acted_on",
+                                  "issue.closed",
+                                  "bug.fixed",
+                                  "first.contribution",
+                                  "tests.green",
+                                  "repo.explored",
+                                  "streak.day",
+                                  "prompt.graded"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "fact"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "streak"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "level"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "missions"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "hatched"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "bestGrade"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "owned"
+                                ]
+                              },
+                              "rarity": {
+                                "type": "string",
+                                "enum": [
+                                  "common",
+                                  "uncommon",
+                                  "rare",
+                                  "epic",
+                                  "legendary"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "rarity"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "bandSlots"
+                                ]
+                              },
+                              "slots": {
+                                "type": "array",
+                                "prefixItems": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "xpBar",
+                                      "levelDisplay",
+                                      "topEdge",
+                                      "goldDisplay"
+                                    ]
+                                  }
+                                ],
+                                "minItems": 1,
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "xpBar",
+                                    "levelDisplay",
+                                    "topEdge",
+                                    "goldDisplay"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "slots"
+                            ],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "calmSessions"
+                                ]
+                              },
+                              "under": {
+                                "type": "string",
+                                "enum": [
+                                  "pct50",
+                                  "pct75",
+                                  "pct100"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "under"
+                            ],
+                            "additionalProperties": true
+                          }
+                        ]
+                      },
+                      "atLeast": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "of",
+                      "atLeast"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "average"
+                        ]
+                      },
+                      "of": {
+                        "type": "string",
+                        "enum": [
+                          "promptGrade"
+                        ]
+                      },
+                      "atLeast": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10
+                      },
+                      "over": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "of",
+                      "atLeast",
+                      "over"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "average"
+                        ]
+                      },
+                      "of": {
+                        "type": "string",
+                        "enum": [
+                          "contextPeak"
+                        ]
+                      },
+                      "below": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "over": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "of",
+                      "below",
+                      "over"
+                    ],
+                    "additionalProperties": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "about",
+              "rarity",
+              "glyph",
+              "criterion"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "version",
+        "schemaVersion",
+        "appliesFrom",
+        "levelCurve",
+        "titles",
+        "glyphs",
+        "xp",
+        "loot",
+        "pet",
+        "shop",
+        "streak",
+        "prompt",
+        "catalogVersion",
+        "missions",
+        "questPacks",
+        "achievements"
+      ],
+      "additionalProperties": true
+    },
+    "minClientVersion": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot",
+    "rules",
+    "minClientVersion"
+  ],
+  "additionalProperties": true
+}

@@ -1,0 +1,1077 @@
+{
+  "snapshot": {
+    "serverId": "local-01M4FTT600FDV0WK6SBPDSQW65",
+    "streamEpoch": 1,
+    "player": {
+      "id": "01M4FTT600FDV0WK6SBPDSQW65",
+      "githubUserId": null,
+      "githubLogin": null,
+      "displayName": "Player",
+      "createdAt": "2026-10-09T08:00:00.000Z"
+    },
+    "character": {
+      "playerId": "01M4FTT600FDV0WK6SBPDSQW65",
+      "name": "Player",
+      "level": 1,
+      "xp": {
+        "total": 260,
+        "verified": 0,
+        "reported": 260,
+        "intoLevel": 160,
+        "forNextLevel": 216
+      },
+      "title": "Apprentice",
+      "glyph": "⚔",
+      "prestige": 0,
+      "gold": 10,
+      "shards": {
+        "common": 0,
+        "uncommon": 0,
+        "rare": 0,
+        "epic": 0,
+        "legendary": 0
+      },
+      "streak": {
+        "days": 1,
+        "restDaysLeftThisWeek": 1,
+        "lastDay": "2026-10-09",
+        "best": 1
+      },
+      "equipped": {}
+    },
+    "pet": {
+      "species": "fox",
+      "name": "Pixel",
+      "form": 0,
+      "mood": 100,
+      "equipped": {}
+    },
+    "egg": null,
+    "welcome": {
+      "done": false
+    },
+    "inventory": [
+      {
+        "id": "01M4FTT600A7VMSZ7BFYKE1XYG",
+        "itemId": "trail-mix",
+        "acquiredAt": "2026-10-09T08:00:00.000Z",
+        "source": {
+          "kind": "drop",
+          "ref": "0"
+        },
+        "dye": null
+      }
+    ],
+    "items": [
+      {
+        "id": "honey-biscuit",
+        "name": "Honey Biscuit",
+        "rarity": "common",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Baked in the shape of a tiny paw.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "sugar-plum",
+        "name": "Sugar Plum",
+        "rarity": "uncommon",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Saved for a pet that sat through a long build.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "trail-mix",
+        "name": "Trail Mix",
+        "rarity": "common",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Nuts, seeds and the odd chocolate chip.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 60
+        },
+        "look": null
+      },
+      {
+        "id": "double-rule",
+        "name": "Double Rule",
+        "rarity": "common",
+        "category": "bandStyle",
+        "slot": "topEdge",
+        "sprite": null,
+        "lore": null,
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "line": "═",
+            "left": "╡",
+            "right": "╞",
+            "knot": "◇",
+            "dot": "═"
+          },
+          "colors": {
+            "line": "#808080",
+            "left": "#a8a8a8",
+            "right": "#a8a8a8",
+            "star": "#d0d0d0",
+            "title": "#e4e4e4",
+            "knot": "#a8a8a8",
+            "dot": "#808080"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "copper-purse",
+        "name": "Copper Purse",
+        "rarity": "common",
+        "category": "bandStyle",
+        "slot": "goldDisplay",
+        "sprite": null,
+        "lore": null,
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "icon": "●"
+          },
+          "colors": {
+            "icon": "#d7875f",
+            "amount": "#d7af87"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "squires-plate",
+        "name": "Squire's Plate",
+        "rarity": "uncommon",
+        "category": "bandStyle",
+        "slot": "levelDisplay",
+        "sprite": null,
+        "lore": null,
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "left": "⟦",
+            "right": "⟧"
+          },
+          "colors": {
+            "level": "#5fd75f",
+            "left": "#87af87",
+            "right": "#87af87",
+            "title": "#afd7af"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "meadow-rule",
+        "name": "Meadow Rule",
+        "rarity": "uncommon",
+        "category": "bandStyle",
+        "slot": "topEdge",
+        "sprite": null,
+        "lore": null,
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "line": "╌",
+            "knot": "✧",
+            "dot": "╌"
+          },
+          "colors": {
+            "line": "#5f875f",
+            "left": "#5f875f",
+            "right": "#5f875f",
+            "star": "#87d787",
+            "title": "#d7ffaf",
+            "knot": "#87d787",
+            "dot": "#5f875f"
+          },
+          "frames": null,
+          "fps": null
+        }
+      }
+    ],
+    "quests": [
+      {
+        "questId": "save-points",
+        "packId": "starter",
+        "title": "Save Points",
+        "description": "Make 3 commits today.",
+        "cadence": "daily",
+        "start": "auto",
+        "status": "active",
+        "progress": 0,
+        "goal": 3,
+        "goalKind": "fact",
+        "rewards": {
+          "xp": 30,
+          "gold": 20
+        },
+        "expiresAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "questId": "finish-line",
+        "packId": "starter",
+        "title": "Finish Line",
+        "description": "Write 3 prompts that say what done looks like (7 or more) today.",
+        "cadence": "daily",
+        "start": "auto",
+        "status": "active",
+        "progress": 0,
+        "goal": 3,
+        "goalKind": "fact",
+        "rewards": {
+          "xp": 40,
+          "gold": 25
+        },
+        "expiresAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "questId": "back-to-green",
+        "packId": "starter",
+        "title": "Back to Green",
+        "description": "Turn a red test suite green.",
+        "cadence": "daily",
+        "start": "auto",
+        "status": "active",
+        "progress": 0,
+        "goal": 1,
+        "goalKind": "fact",
+        "rewards": {
+          "xp": 40,
+          "gold": 30
+        },
+        "expiresAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "questId": "five-days",
+        "packId": "starter",
+        "title": "Five Days",
+        "description": "Play on 5 days this week.",
+        "cadence": "weekly",
+        "start": "pick",
+        "status": "offered",
+        "progress": 0,
+        "goal": 5,
+        "goalKind": "fact",
+        "rewards": {
+          "xp": 200,
+          "gold": 100
+        },
+        "expiresAt": "2026-10-12T00:00:00.000Z"
+      },
+      {
+        "questId": "clean-slate",
+        "packId": "starter",
+        "title": "Clean Slate",
+        "description": "Start fresh with /clear 5 times this week.",
+        "cadence": "weekly",
+        "start": "pick",
+        "status": "offered",
+        "progress": 0,
+        "goal": 5,
+        "goalKind": "clears",
+        "rewards": {
+          "xp": 120,
+          "gold": 60
+        },
+        "expiresAt": "2026-10-12T00:00:00.000Z"
+      },
+      {
+        "questId": "red-to-green",
+        "packId": "starter",
+        "title": "Red to Green",
+        "description": "Turn a red test suite green 5 times this week.",
+        "cadence": "weekly",
+        "start": "pick",
+        "status": "offered",
+        "progress": 0,
+        "goal": 5,
+        "goalKind": "fact",
+        "rewards": {
+          "xp": 200,
+          "gold": 100,
+          "loot": {
+            "rarity": "uncommon"
+          }
+        },
+        "expiresAt": "2026-10-12T00:00:00.000Z"
+      },
+      {
+        "questId": "juggler",
+        "packId": "starter",
+        "title": "Juggler",
+        "description": "Get a well-graded prompt in each of 3 sessions within 20 minutes, once this week.",
+        "cadence": "weekly",
+        "start": "pick",
+        "status": "offered",
+        "progress": 0,
+        "goal": 1,
+        "goalKind": "parallel",
+        "rewards": {
+          "xp": 200,
+          "gold": 100
+        },
+        "expiresAt": "2026-10-12T00:00:00.000Z"
+      },
+      {
+        "questId": "wordsmith-week",
+        "packId": "starter",
+        "title": "Wordsmith's Week",
+        "description": "Get 25 prompts graded very well this week.",
+        "cadence": "weekly",
+        "start": "pick",
+        "status": "offered",
+        "progress": 0,
+        "goal": 25,
+        "goalKind": "fact",
+        "rewards": {
+          "xp": 300,
+          "gold": 150,
+          "xpBoost": {
+            "pct": 15,
+            "minutes": 120
+          },
+          "loot": {
+            "rarity": "epic"
+          }
+        },
+        "expiresAt": "2026-10-12T00:00:00.000Z"
+      }
+    ],
+    "claims": [],
+    "shop": [
+      {
+        "offerId": "2026-10-09/copper-purse",
+        "itemId": "copper-purse",
+        "price": 120,
+        "stock": 1,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/double-rule",
+        "itemId": "double-rule",
+        "price": 120,
+        "stock": 1,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/meadow-rule",
+        "itemId": "meadow-rule",
+        "price": 250,
+        "stock": 1,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/squires-plate",
+        "itemId": "squires-plate",
+        "price": 250,
+        "stock": 1,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/honey-biscuit",
+        "itemId": "honey-biscuit",
+        "price": 15,
+        "stock": 3,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/sugar-plum",
+        "itemId": "sugar-plum",
+        "price": 35,
+        "stock": 3,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      }
+    ],
+    "boosts": [],
+    "pity": {
+      "sinceRare": 1,
+      "sinceEpic": 1
+    },
+    "achievements": [
+      {
+        "id": "first-merge",
+        "unlockedAt": "2026-10-09T08:00:00.000Z"
+      },
+      {
+        "id": "hatched",
+        "unlockedAt": "2026-10-09T08:00:00.000Z"
+      }
+    ],
+    "stats": {
+      "clears": 0,
+      "compactions": {
+        "manual": 0,
+        "auto": 0
+      },
+      "commands": {},
+      "contextCrossed": {
+        "pct50": 0,
+        "pct75": 0,
+        "pct100": 0
+      },
+      "contextPeak": {
+        "lastSession": 0,
+        "average": 0
+      },
+      "prompts": {
+        "graded": 0,
+        "gradedToday": 0,
+        "averageScore": 0,
+        "regretted": 0
+      },
+      "grades": {
+        "best": 0,
+        "dimensions": {
+          "clarity": 0,
+          "grammar": 0,
+          "specificity": 0,
+          "instructive": 0,
+          "context": 0,
+          "doneCriteria": 0,
+          "focus": 0
+        }
+      }
+    },
+    "cursor": 11
+  },
+  "rules": {
+    "version": 14,
+    "schemaVersion": 11,
+    "appliesFrom": null,
+    "levelCurve": {
+      "base": 100,
+      "exponent": 1.66
+    },
+    "titles": [
+      {
+        "fromLevel": 1,
+        "title": "Apprentice"
+      },
+      {
+        "fromLevel": 10,
+        "title": "Adept"
+      },
+      {
+        "fromLevel": 25,
+        "title": "Artisan"
+      },
+      {
+        "fromLevel": 50,
+        "title": "Master"
+      },
+      {
+        "fromLevel": 75,
+        "title": "Grandmaster"
+      },
+      {
+        "fromLevel": 100,
+        "title": "Legend"
+      }
+    ],
+    "glyphs": [
+      {
+        "fromLevel": 0,
+        "glyph": "⚔"
+      },
+      {
+        "fromLevel": 5,
+        "glyph": "🗡️"
+      },
+      {
+        "fromLevel": 10,
+        "glyph": "🛡️"
+      },
+      {
+        "fromLevel": 15,
+        "glyph": "👑"
+      },
+      {
+        "fromLevel": 20,
+        "glyph": "🐉"
+      }
+    ],
+    "xp": {
+      "change.merged": {
+        "xp": 250,
+        "tier": "reported",
+        "dailyCap": null,
+        "ownRepoXp": 120,
+        "tinyDiffPct": 25,
+        "tinyDiffLines": 3
+      },
+      "change.opened": {
+        "xp": 0,
+        "tier": "reported",
+        "dailyCap": null
+      },
+      "commit.made": {
+        "xp": 3,
+        "tier": "reported",
+        "dailyCap": 20
+      },
+      "review.acted_on": {
+        "xp": 80,
+        "tier": "verified",
+        "dailyCap": 10
+      },
+      "issue.closed": {
+        "xp": 60,
+        "tier": "verified",
+        "dailyCap": 5
+      },
+      "bug.fixed": {
+        "xp": 150,
+        "tier": "verified",
+        "dailyCap": 5
+      },
+      "first.contribution": {
+        "xp": 300,
+        "tier": "verified",
+        "dailyCap": null
+      },
+      "tests.green": {
+        "xp": 20,
+        "tier": "reported",
+        "dailyCap": 5
+      },
+      "repo.explored": {
+        "xp": 25,
+        "tier": "reported",
+        "dailyCap": 3
+      },
+      "streak.day": {
+        "xp": 10,
+        "tier": "reported",
+        "dailyCap": 1
+      }
+    },
+    "loot": {
+      "chancePerTurn": 0.12,
+      "promptChanceAtTen": 0.24,
+      "promptGreatAt": 9,
+      "promptGreatRareFactor": 2,
+      "chanceOnVerified": 1,
+      "weights": {
+        "common": 604,
+        "uncommon": 251,
+        "rare": 101,
+        "epic": 40,
+        "legendary": 4
+      },
+      "sigilShare": {
+        "common": 0.08,
+        "uncommon": 0.04,
+        "rare": 0.03,
+        "epic": 0.03,
+        "legendary": 0.06
+      },
+      "onLevelUp": {
+        "weights": {
+          "common": 503,
+          "uncommon": 302,
+          "rare": 151,
+          "epic": 40,
+          "legendary": 4
+        }
+      },
+      "pity": {
+        "rareAfter": 25,
+        "epicAfter": 80
+      },
+      "gold": {
+        "common": 10,
+        "uncommon": 25,
+        "rare": 70,
+        "epic": 175,
+        "legendary": 400
+      },
+      "shardsToCraft": 10,
+      "salvageShards": {
+        "common": 1,
+        "uncommon": 1,
+        "rare": 1,
+        "epic": 1,
+        "legendary": 1
+      },
+      "rerollGold": {
+        "common": 20,
+        "uncommon": 50,
+        "rare": 120,
+        "epic": 300,
+        "legendary": 800
+      }
+    },
+    "pet": {
+      "moodDecayPerDay": 10,
+      "happyAbove": 70,
+      "happyXpBonusPct": 5,
+      "evolveAt": [
+        10,
+        25,
+        50
+      ],
+      "care": {
+        "fed": 30,
+        "petted": 5,
+        "pettedPerHour": 3
+      },
+      "species": [
+        {
+          "id": "fox",
+          "name": "Fox",
+          "about": "quick, curious"
+        },
+        {
+          "id": "slime",
+          "name": "Slime",
+          "about": "soft, cheerful"
+        },
+        {
+          "id": "robot",
+          "name": "Robot",
+          "about": "steady, precise"
+        },
+        {
+          "id": "owl",
+          "name": "Owl",
+          "about": "calm, wise"
+        }
+      ],
+      "egg": {
+        "species": "fox",
+        "name": "Ember"
+      }
+    },
+    "shop": {
+      "offers": 4,
+      "rarities": [
+        "common",
+        "uncommon"
+      ],
+      "categories": [
+        "bandStyle"
+      ],
+      "stock": 1,
+      "prices": {
+        "common": 120,
+        "uncommon": 250,
+        "rare": 600,
+        "epic": 1500,
+        "legendary": 4000
+      },
+      "food": {
+        "stock": 3,
+        "prices": {
+          "common": 15,
+          "uncommon": 35,
+          "rare": 80,
+          "epic": 200,
+          "legendary": 500
+        }
+      }
+    },
+    "streak": {
+      "xpPerDay": 10,
+      "maxXp": 70,
+      "restDaysPerWeek": 1
+    },
+    "prompt": {
+      "rubricVersion": 2,
+      "weights": {
+        "clarity": 1,
+        "grammar": 1,
+        "specificity": 1,
+        "instructive": 1,
+        "context": 1,
+        "doneCriteria": 1,
+        "focus": 1
+      },
+      "maxXp": 20,
+      "perDay": [
+        {
+          "upTo": 20,
+          "pct": 100
+        },
+        {
+          "upTo": 40,
+          "pct": 50
+        },
+        {
+          "upTo": null,
+          "pct": 10
+        }
+      ],
+      "regretAt": 5,
+      "sigilMultiplier": {
+        "common": [
+          1.2,
+          1.3
+        ],
+        "uncommon": [
+          1.4,
+          1.6
+        ],
+        "rare": [
+          1.7,
+          1.9
+        ],
+        "epic": [
+          2,
+          2.2
+        ],
+        "legendary": [
+          2.3,
+          2.5
+        ]
+      },
+      "v2": {
+        "maxXp": 15,
+        "weights": {
+          "intent": 1.5,
+          "grounding": 1,
+          "why": 1,
+          "successShape": 1,
+          "scope": 1,
+          "forward": 1.5
+        },
+        "craft": {
+          "from": 6,
+          "span": 4,
+          "max": 0.5
+        },
+        "spelling": {
+          "fullAtWords": 60,
+          "max": 0.4
+        },
+        "tone": {
+          "upFrom": 6,
+          "upPer": 0.075,
+          "downFrom": 4,
+          "downPer": 0.6
+        },
+        "caps": {
+          "hostile": {
+            "toneAtMost": 2,
+            "grade": 3.5
+          },
+          "steer": {
+            "grade": 8
+          }
+        },
+        "loot": {
+          "chanceAtTen": 0.175,
+          "greatAt": 9
+        }
+      }
+    },
+    "catalogVersion": 6,
+    "missions": {
+      "daily": {
+        "count": 3,
+        "tier": "uncommon"
+      },
+      "weekly": {
+        "offered": 5,
+        "active": 3,
+        "tier": "rare"
+      }
+    },
+    "questPacks": [
+      "starter"
+    ],
+    "achievements": [
+      {
+        "id": "first-commit",
+        "name": "First commit",
+        "about": "Make your first commit.",
+        "rarity": "common",
+        "glyph": "📝",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "fact",
+            "fact": "commit.made"
+          },
+          "atLeast": 1
+        }
+      },
+      {
+        "id": "first-merge",
+        "name": "First merge",
+        "about": "Get a change merged.",
+        "rarity": "common",
+        "glyph": "🔀",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "fact",
+            "fact": "change.merged"
+          },
+          "atLeast": 1
+        }
+      },
+      {
+        "id": "hatched",
+        "name": "Hatchling",
+        "about": "Hatch your pet.",
+        "rarity": "common",
+        "glyph": "🥚",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "hatched"
+          },
+          "atLeast": 1
+        }
+      },
+      {
+        "id": "first-mission",
+        "name": "Mission accomplished",
+        "about": "Complete a mission.",
+        "rarity": "common",
+        "glyph": "🎯",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "missions"
+          },
+          "atLeast": 1
+        }
+      },
+      {
+        "id": "commits-100",
+        "name": "Committed",
+        "about": "Make 100 commits.",
+        "rarity": "uncommon",
+        "glyph": "💯",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "fact",
+            "fact": "commit.made"
+          },
+          "atLeast": 100
+        }
+      },
+      {
+        "id": "merges-50",
+        "name": "Merge train",
+        "about": "Get 50 changes merged.",
+        "rarity": "rare",
+        "glyph": "🚂",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "fact",
+            "fact": "change.merged"
+          },
+          "atLeast": 50
+        }
+      },
+      {
+        "id": "prompts-500",
+        "name": "Wordsmith",
+        "about": "Have 500 prompts graded.",
+        "rarity": "rare",
+        "glyph": "🪶",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "fact",
+            "fact": "prompt.graded"
+          },
+          "atLeast": 500
+        }
+      },
+      {
+        "id": "streak-7",
+        "name": "A week strong",
+        "about": "Keep a streak for 7 days.",
+        "rarity": "uncommon",
+        "glyph": "🔥",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "streak"
+          },
+          "atLeast": 7
+        }
+      },
+      {
+        "id": "streak-30",
+        "name": "Habit formed",
+        "about": "Keep a streak for 30 days.",
+        "rarity": "epic",
+        "glyph": "📅",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "streak"
+          },
+          "atLeast": 30
+        }
+      },
+      {
+        "id": "streak-100",
+        "name": "Unbroken",
+        "about": "Keep a streak for 100 days.",
+        "rarity": "legendary",
+        "glyph": "♾️",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "streak"
+          },
+          "atLeast": 100
+        }
+      },
+      {
+        "id": "perfect-prompt",
+        "name": "Perfect prompt",
+        "about": "Write a prompt graded 10.",
+        "rarity": "rare",
+        "glyph": "💎",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "bestGrade"
+          },
+          "atLeast": 10
+        }
+      },
+      {
+        "id": "sharp-prompter",
+        "name": "Sharp prompter",
+        "about": "Keep an average grade of 8 or more over at least 100 graded prompts.",
+        "rarity": "epic",
+        "glyph": "🧠",
+        "criterion": {
+          "kind": "average",
+          "of": "promptGrade",
+          "atLeast": 8,
+          "over": 100
+        }
+      },
+      {
+        "id": "light-context",
+        "name": "Light touch",
+        "about": "Keep a lifetime average context peak under 50% over at least 30 sessions.",
+        "rarity": "rare",
+        "glyph": "🍃",
+        "criterion": {
+          "kind": "average",
+          "of": "contextPeak",
+          "below": 50,
+          "over": 30
+        }
+      },
+      {
+        "id": "calm-25",
+        "name": "Never past 75",
+        "about": "Finish 25 sessions whose context never reached 75%.",
+        "rarity": "rare",
+        "glyph": "🧘",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "calmSessions",
+            "under": "pct75"
+          },
+          "atLeast": 25
+        }
+      },
+      {
+        "id": "level-10",
+        "name": "Level 10",
+        "about": "Reach level 10.",
+        "rarity": "common",
+        "glyph": "🌱",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "level"
+          },
+          "atLeast": 10
+        }
+      },
+      {
+        "id": "level-25",
+        "name": "Level 25",
+        "about": "Reach level 25.",
+        "rarity": "rare",
+        "glyph": "🌳",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "level"
+          },
+          "atLeast": 25
+        }
+      },
+      {
+        "id": "level-50",
+        "name": "Level 50",
+        "about": "Reach level 50.",
+        "rarity": "legendary",
+        "glyph": "🏔️",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "level"
+          },
+          "atLeast": 50
+        }
+      },
+      {
+        "id": "legendary-find",
+        "name": "Legendary find",
+        "about": "Own a legendary item.",
+        "rarity": "epic",
+        "glyph": "🏆",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "owned",
+            "rarity": "legendary"
+          },
+          "atLeast": 1
+        }
+      },
+      {
+        "id": "full-band",
+        "name": "Full band",
+        "about": "Own a band style for each of the band's four slots.",
+        "rarity": "epic",
+        "glyph": "🎨",
+        "criterion": {
+          "kind": "count",
+          "of": {
+            "kind": "bandSlots",
+            "slots": [
+              "xpBar",
+              "levelDisplay",
+              "topEdge",
+              "goldDisplay"
+            ]
+          },
+          "atLeast": 4
+        }
+      }
+    ]
+  },
+  "minClientVersion": "0.0.0"
+}
