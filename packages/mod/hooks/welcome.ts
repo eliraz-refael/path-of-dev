@@ -3,6 +3,8 @@ import type { BandView, GradingView, PaneTab, SpeciesView, WelcomeStep, WelcomeV
 import type { Row, Run } from './cells'
 import { blank, cellsOf, cellsOfRow, clip, dim } from './cells'
 import { rubricOf } from './grade'
+import type { PageFacts } from './profile'
+import { pageWords } from './profile'
 import { dimensions, measures } from './stats'
 import { sprite } from './view'
 
@@ -381,6 +383,8 @@ export type WelcomeInput = {
   hasInput: boolean
   /** The online server's origin, when the mod plays there rather than on this machine. */
   online?: string
+  /** What the last step says of the player's public page, online; none on a local server, or before it is known. */
+  page?: PageFacts | null
 }
 
 /** How to work the pane; `eggs` is how many egg cards carry a hotkey, on the pet step. */
@@ -525,6 +529,7 @@ export const welcomeLayout = (input: WelcomeInput): WelcomeLayout => {
             'This pane is /pathofdev: Inventory for your looks and your pet, Shop for the daily shelf, Stats for ' +
               'your prompting profile, and Missions for the dailies and weeklies.',
           ),
+          ...(input.page ? [pageWords(input.page)] : []),
           text(
             `${pet === null ? 'Once it hatches, /pet or a click on it' : '/pet, or a click on it,'} gives it a pat. ` +
               'Come back to this guide any time: its tab, last in the bar, or /pathofdev welcome.',
