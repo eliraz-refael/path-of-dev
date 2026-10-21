@@ -108,6 +108,7 @@ The server limits itself, in memory, with the numbers in
 | `/u/*` (profile pages) | client address | 60 at once, then 60 a minute |
 | `POST /v1/events` and `/v1/commands` | player | 300 requests at once, then 600 a minute |
 | the events in those batches | player | 1000 at once, then 600 a minute |
+| `GET /v1/snapshot` (a watcher's reads) | player | 300 at once, then 600 a minute, apart from the writes |
 
 Past a limit the answer is 429 with `Retry-After` and an `ApiError` body whose `retryAfterMs` says how long to wait;
 nothing is written, GitHub is not asked, no page is rendered. The mod keeps its events queued and sends them once the

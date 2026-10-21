@@ -17,6 +17,7 @@ import {
   SignedOut,
   SignInRequest,
   SignInResponse,
+  SnapshotResponse,
   StreamResponse,
 } from "./api.ts"
 import { EventsRequest } from "./client-events.ts"
@@ -132,7 +133,8 @@ export class AccountAuthentication extends HttpApiMiddleware.Service<
 
 /**
  * The mod's routes, taking `command` on `/v1/commands`. Every route that acts for a player answers 401 too once the
- * account is deleted under a request still in flight.
+ * account is deleted under a request still in flight. `/v1/snapshot` is the session's snapshot without the session,
+ * for a client that only watches: it writes nothing.
  */
 const modGroup = <C extends Schema.Top>(command: C) =>
   HttpApiGroup.make("mod", { topLevel: true })
@@ -161,6 +163,10 @@ const modGroup = <C extends Schema.Top>(command: C) =>
         query: { after: Count, session: Schema.optionalKey(Ulid) },
         success: StreamResponse,
         error: Unauthorized,
+      }),
+      HttpApiEndpoint.get("snapshot", "/v1/snapshot", {
+        success: SnapshotResponse,
+        error: [ServerBehind, Unauthorized, RateLimited],
       }),
     )
     .middleware(Authentication)

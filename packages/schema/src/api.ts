@@ -29,6 +29,17 @@ export const SessionResponse = Schema.Struct({
 })
 export interface SessionResponse extends Schema.Schema.Type<typeof SessionResponse> {}
 
+/**
+ * `GET /v1/snapshot`: the session's answer, read alone, for a client that only watches. It rolls no missions and opens
+ * no session, so it writes nothing: a new day's missions show once the player's own mod opens a session or sends.
+ */
+export const SnapshotResponse = Schema.Struct({
+  snapshot: Snapshot,
+  rules: RulesConfig,
+  minClientVersion: Schema.String,
+})
+export interface SnapshotResponse extends Schema.Schema.Type<typeof SnapshotResponse> {}
+
 /** `DELETE /v1/sessions/{id}` response: whether this request closed it, rather than finding it closed or unknown. */
 export const SessionClosed = Schema.Struct({ closed: Schema.Boolean })
 export interface SessionClosed extends Schema.Schema.Type<typeof SessionClosed> {}

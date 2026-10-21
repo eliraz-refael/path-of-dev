@@ -14,6 +14,7 @@ import { retryAfterSecondsOf, withRetryAfter } from "./rate-limit.ts"
 //   /u/*        per client address ─▶ pages    each view renders a snapshot, uncached (profile.ts)
 //   /v1/events  per player ─────────▶ writes, then events: one token per event in the batch
 //   /v1/commands per player ────────▶ writes
+//   /v1/snapshot per player ────────▶ snapshots  a watcher's read, in a bucket of its own: it never spends the mods'
 //
 // The mod's own pace, which the per-player numbers are set from. Every Claude Code session runs its own copy of the
 // mod, and they share one queue on disk. A copy sends what waits (a batch of up to 100 events a request) when a
@@ -22,7 +23,8 @@ import { retryAfterSecondsOf, withRetryAfter } from "./rate-limit.ts"
 // `context.measured`, a typed prompt's grade and command, and its subagents' commits and test runs. Ten such sessions
 // side by side make about 60 requests and 200 events a minute; thirty, with turns every 5 seconds, about 420 requests
 // (12 turn ends and 2 timer flushes a minute each) and 600 events. Copies flushing at once can send the same
-// events twice, and both count. Commands are a person's clicks and typed commands: a few a minute.
+// events twice, and both count. Commands are a person's clicks and typed commands: a few a minute. A watcher reads a
+// snapshot each time the stream answers it with events: about once for each batch the mods send.
 //
 // So `writes` lets 600 requests a minute through, and `events` 600 events a minute, with room for a burst of ten full
 // batches: the queue a mod kept while it was offline (5000 events at most) goes in about 7 minutes. Past either, the
@@ -40,6 +42,8 @@ export const limits = {
   writes: { name: "writes", capacity: 300, everyMs: 100 },
   /** The events in those requests, per player: 1000 at once (ten full batches), then 600 a minute. */
   events: { name: "events", capacity: 1_000, everyMs: 100 },
+  /** `GET /v1/snapshot`, per player: as many as `writes`, a watcher reading about once for each batch the mods send. */
+  snapshots: { name: "snapshots", capacity: 300, everyMs: 100 },
 } satisfies Record<string, Rule>
 
 const encodeLimited = Schema.encodeSync(RateLimited)
@@ -73,3 +77,7 @@ export const limitWrite = (limiter: RateLimiter["Service"], playerId: string, ev
       events === 0 ? Effect.void : limiter.check(playerId, limits.events, events),
     ),
   )
+
+/** A player's snapshot, against its own per-player limit: a watcher's reads never spend the mods' writes. */
+export const limitSnapshot = (limiter: RateLimiter["Service"], playerId: string) =>
+  withRetryAfter(limiter.check(playerId, limits.snapshots))

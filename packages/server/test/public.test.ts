@@ -323,7 +323,7 @@ describe("a string jsonb can't hold", () => {
 })
 
 describe("the version guard", () => {
-  const Write = Schema.Literals(["events", "command", "open", "close"])
+  const Write = Schema.Literals(["events", "command", "open", "close", "snapshot"])
 
   const requestOf = (write: typeof Write.Type, bearer: string): Request => {
     switch (write) {
@@ -335,12 +335,15 @@ describe("the version guard", () => {
         return request("/v1/sessions", "POST", bearer, { sessionId: session, presence: true })
       case "close":
         return request(`/v1/sessions/${session}`, "DELETE", bearer)
+      case "snapshot":
+        return request("/v1/snapshot", "GET", bearer)
     }
   }
 
   // The stream only reads: its heartbeat moves a session's last-heard time, outside the save, so it is left out here.
+  // The snapshot only reads too, but is guarded as the session is: this build may not draw a newer save right.
   it.effect.prop(
-    "answers every write 503 with Retry-After, and writes nothing, while a newer build saved the player, and only then",
+    "answers the writes and the snapshot 503, writing nothing, while a newer build saved the player, and only then",
     [
       Schema.Int.check(Schema.isBetween({ minimum: -2, maximum: 3 })),
       Schema.Array(Write).check(Schema.isMinLength(1), Schema.isMaxLength(6)),

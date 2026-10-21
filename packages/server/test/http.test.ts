@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
-import { clientEventTypes } from "@pathofdev/schema"
-import { Effect, Fiber } from "effect"
+import { engineVersion } from "@pathofdev/engine"
+import { clientEventTypes, SnapshotResponse } from "@pathofdev/schema"
+import { Effect, Fiber, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
@@ -10,12 +11,18 @@ import {
   commandUsed,
   commit,
   contextMeasured,
+  fakeGitHub,
   hatch,
+  json,
   merged,
   nextId,
   prompt,
+  publicWebHandler,
+  request,
   session,
+  signIn,
   start,
+  testPublicServices,
   untilAsleep,
   withoutQuests,
   withServer,
@@ -218,4 +225,105 @@ describe("GET /v1/stream", () => {
       }),
     ),
   )
+})
+
+/** Every row of every table, as Postgres prints it, so a read that changed a single byte anywhere shows. */
+const everyRow = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  const tables = yield* sql<{ readonly name: string }>`
+    SELECT table_name AS name FROM information_schema.tables
+    WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'
+    ORDER BY 1
+  `
+  return yield* Effect.forEach(tables, ({ name }) =>
+    Effect.map(sql<{ readonly row: string }>`SELECT t::text AS row FROM ${sql(name)} t ORDER BY 1`, (rows) => ({
+      name,
+      rows: rows.map(({ row }) => row),
+    })))
+})
+
+describe("GET /v1/snapshot", () => {
+  it.effect("answers what the session does, less the event types, and writes nothing however often it is asked", () =>
+    withServer(
+      Effect.gen(function* () {
+        const api = yield* client
+        yield* api.sendEvents({ payload: { events: [commit("a"), prompt(8)] } })
+        // A live session too, so a read that touched presence would show.
+        const opened = yield* api.openSession({ payload: { sessionId: session, presence: true } })
+        const before = yield* everyRow
+        const watched = ["event_log", "player_state", "server_events", "sessions"]
+        expect(before.map(({ name }) => name)).toEqual(expect.arrayContaining(watched))
+        const read = yield* api.snapshot()
+        const { acceptedEventTypes: _, ...sessionRead } = opened
+        expect(read).toEqual(sessionRead)
+        expect(read.snapshot.quests.length).toBeGreaterThan(0)
+        yield* TestClock.adjust("1 minute")
+        expect(yield* api.snapshot()).toEqual(read)
+        expect(yield* everyRow).toEqual(before)
+      }),
+    ))
+
+  it.effect("rolls no missions: a new day's come with the session, as before", () =>
+    withServer(
+      Effect.gen(function* () {
+        const api = yield* client
+        const before = yield* everyRow
+        const fresh = yield* api.snapshot()
+        expect(fresh.snapshot.cursor).toBe(0)
+        expect(fresh.snapshot.quests).toEqual([])
+        expect(yield* everyRow).toEqual(before)
+        const opened = yield* api.openSession({ payload: { sessionId: session } })
+        expect(opened.snapshot.cursor).toBe(2)
+        // The next day: the snapshot still shows the day the session rolled, and the next session rolls the new one.
+        yield* TestClock.adjust("1 day")
+        const nextDay = yield* everyRow
+        expect((yield* api.snapshot()).snapshot.cursor).toBe(2)
+        expect(yield* everyRow).toEqual(nextDay)
+        expect((yield* api.openSession({ payload: { sessionId: session } })).snapshot.cursor).toBeGreaterThan(2)
+      }),
+    ))
+
+  it.effect("answers 503 while a newer build saved the player, as the session does, and reads again after", () =>
+    withServer(
+      Effect.gen(function* () {
+        const api = yield* client
+        const sql = yield* SqlClient.SqlClient
+        yield* sql`UPDATE player_state SET engine_version = ${engineVersion + 1}`
+        const before = yield* everyRow
+        expect((yield* Effect.flip(api.snapshot()))._tag).toBe("ServerBehind")
+        expect((yield* Effect.flip(api.openSession({ payload: { sessionId: session } })))._tag).toBe("ServerBehind")
+        expect(yield* everyRow).toEqual(before)
+        yield* sql`UPDATE player_state SET engine_version = ${engineVersion}`
+        expect((yield* api.snapshot()).snapshot.cursor).toBe(0)
+      }),
+    ))
+
+  const ada = { id: 1, login: "Ada", name: "Ada Lovelace" }
+  const bob = { id: 2, login: "bob", name: null }
+
+  it.effect("on the public server, answers the signed-in player alone, and writes nothing", () =>
+    Effect.gen(function* () {
+      const handle = yield* publicWebHandler
+      const asAda = yield* signIn(handle, ada)
+      const asBob = yield* signIn(handle, bob)
+      const opened = yield* handle(request("/v1/sessions", "POST", asAda.bearer, { sessionId: session }))
+      expect(opened.status).toBe(200)
+      const before = yield* everyRow
+      const answered = yield* handle(request("/v1/snapshot", "GET", asAda.bearer))
+      expect(answered.status).toBe(200)
+      const read = yield* Schema.decodeUnknownEffect(SnapshotResponse)(yield* json(answered))
+      expect(read.snapshot.player.id).toBe(asAda.player.id)
+      expect(read.snapshot.cursor).toBe(2)
+      expect(read.snapshot.serverId).toBe(`online-${asAda.player.id}`)
+      const theirs = yield* handle(request("/v1/snapshot", "GET", asBob.bearer))
+      const bobs = yield* Schema.decodeUnknownEffect(SnapshotResponse)(yield* json(theirs))
+      expect(bobs.snapshot.player.id).toBe(asBob.player.id)
+      expect(bobs.snapshot.cursor).toBe(0)
+      expect((yield* handle(request("/v1/snapshot", "GET", null))).status).toBe(401)
+      expect(yield* everyRow).toEqual(before)
+    }).pipe(
+      Effect.provide(
+        testPublicServices({ signup: "open", allowedLogins: "", adminGithubIds: [] }, fakeGitHub([ada, bob])),
+      ),
+    ))
 })

@@ -293,7 +293,20 @@ const make = (stepper: Stepper) =>
         return yield* apply(playerId, now, [{ id, input, naturalKey }])
       })
 
-    const check = (playerId: string) => Effect.flatMap(headOf(playerId), (row) => guard(row.engine_version))
+    const versionOf = SqlSchema.findOneOption({
+      Request: Schema.String,
+      Result: Schema.Struct({ engine_version: Count }),
+      execute: (playerId) => sql`SELECT engine_version FROM player_state WHERE player_id = ${playerId}`,
+    })
+
+    // The guard alone reads the save's engine version and nothing else: the state can be large, and a snapshot reads
+    // it right after.
+    const check = (playerId: string) =>
+      Effect.gen(function* () {
+        const row = yield* Effect.orDie(versionOf(playerId))
+        if (Option.isNone(row)) return yield* new PlayerGone({ playerId })
+        yield* guard(row.value.engine_version)
+      })
 
     return PlayerWriter.of({ apply, refreshQuests, guard: check })
   })
