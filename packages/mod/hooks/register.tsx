@@ -137,11 +137,17 @@ import {
   checkoutRef,
   commandNameOf,
   commitRef,
+  commitsIn,
   compactionOf,
   exitIsTheRuns,
+  hostNameOf,
+  keptHostOf,
+  outcomeOf,
   repoIn,
   repoOf,
   repoRef,
+  sshAliasOf,
+  sshHostsOf,
   subjectFormOf,
   testRunner,
   workRef,
@@ -348,6 +354,10 @@ let sockets: ReadonlyArray<string> = []
 let secret = ''
 let repo: Repo | null = null
 let branch: string | null = null
+/** The player's home folder, for a `cd ~/…` before a commit. */
+let home: string | undefined
+/** The commits the mod has reported, newest last: two calls that commit at once each see the other's move of HEAD. */
+const reported: Array<string> = []
 let cursor = 0
 let toolCalls = 0
 let isFlushing = false
@@ -1233,13 +1243,102 @@ const git = async ($: EngineInterface, cwd: string, args: ReadonlyArray<string>)
   return ran.exitCode === 0 ? ran.stdout.trim() : null
 }
 
+/**
+ * The host name an ssh alias resolves to, as `ssh -G` reads the player's ssh config: no connection is made. Kept a
+ * day in the store; null when ssh can't say, or isn't there.
+ */
+const sshHostOf = async ($: EngineInterface, alias: string): Promise<string | null> => {
+  const now = await $.clock.now()
+  const hosts = sshHostsOf(await $.store.get('sshHosts'))
+  const kept = keptHostOf(hosts, alias, now)
+  if (kept !== undefined) return kept
+  const ran = await $.process.run(['ssh', '-G', alias], { timeoutMs: 3_000 }).catch(() => null)
+  const host = ran === null || ran.exitCode !== 0 ? null : hostNameOf(ran.stdout)
+  await $.store.set('sshHosts', { ...hosts, [alias]: { host, at: now } })
+  return host
+}
+
+/**
+ * The repo at `at` (git's `-C` arguments from `cwd`), as this target's subjects name it, or null outside one. A remote
+ * through an ssh alias whose host name is github.com is GitHub's.
+ */
+const repoAt = async ($: EngineInterface, cwd: string, at: ReadonlyArray<string>): Promise<Repo | null> => {
+  const top = await git($, cwd, [...at, 'rev-parse', '--show-toplevel'])
+  if (top === null) return null
+  const remote = await git($, cwd, [...at, 'remote', 'get-url', 'origin'])
+  const alias = remote === null ? null : sshAliasOf(remote)
+  const isGitHub = alias !== null && (await sshHostOf($, alias)) === 'github.com'
+  return repoIn(subjectFormOf(target), repoOf(remote, top, isGitHub ? alias : null))
+}
+
 /** The repo the session runs in, if any, and its branch. */
 const findRepo = async ($: EngineInterface, cwd: string) => {
-  const top = await git($, cwd, ['rev-parse', '--show-toplevel'])
-  if (top === null) return
-  repo = repoIn(subjectFormOf(target), repoOf(await git($, cwd, ['remote', 'get-url', 'origin']), top))
+  const found = await repoAt($, cwd, [])
+  if (found === null) return
+  repo = found
   const head = await git($, cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])
   branch = head === null || head === 'HEAD' ? null : head
+}
+
+/** A place a command commits at: git's `-C` arguments to it, how many commits the command runs there, and HEAD before. */
+type CommitPlace = { at: ReadonlyArray<string>; count: number; before: string | null }
+
+/** HEAD at each place the command commits, read before it runs. */
+const headsBefore = async ($: EngineInterface, cwd: string, commits: ReadonlyArray<ReadonlyArray<string>>) => {
+  const places: Array<CommitPlace> = []
+  for (const at of commits) {
+    const same = places.find((place) => place.at.join('\0') === at.join('\0'))
+    if (same !== undefined) same.count += 1
+    else places.push({ at, count: 1, before: await git($, cwd, [...at, 'rev-parse', '--verify', '-q', 'HEAD']) })
+  }
+  return places
+}
+
+/**
+ * The commits a command made at `place`: HEAD moved on to a descendant of where it stood, so an amend, a reset or a
+ * rebase (HEAD moved elsewhere) makes none. As many as the command ran `git commit`s there, the oldest first, those
+ * already reported left out.
+ */
+const commitsMade = async ($: EngineInterface, cwd: string, place: CommitPlace): Promise<ReadonlyArray<string>> => {
+  const after = await git($, cwd, [...place.at, 'rev-parse', '--verify', '-q', 'HEAD'])
+  if (after === null || after === place.before) return []
+  if (place.before !== null) {
+    const ran = await $.process.run(['git', ...place.at, 'merge-base', '--is-ancestor', place.before, after], {
+      cwd,
+      timeoutMs: 5_000,
+    })
+    if (ran.exitCode !== 0) return []
+  }
+  const range = place.before === null ? [after] : [`${place.before}..${after}`]
+  const listed = await git($, cwd, [...place.at, 'rev-list', '--first-parent', `--max-count=${place.count + 20}`, ...range])
+  const made = (listed ?? '').split('\n').filter((sha) => /^[0-9a-f]{40,64}$/.test(sha)).reverse()
+  return made.filter((sha) => !reported.includes(sha)).slice(0, place.count)
+}
+
+/** Reports a commit once, in the repo it was made in. */
+const reportCommit = async ($: EngineInterface, made: Repo, sha: string) => {
+  if (reported.includes(sha)) return
+  reported.push(sha)
+  if (reported.length > 200) reported.shift()
+  await enqueue($, { ...(await stamp($)), type: 'commit.made', data: { commit: await commitRef(secret, made, sha) } })
+}
+
+/**
+ * The commits a Bash call made, told by HEAD moving where it ran `git commit`, and the one the engine read off its
+ * output for a place the command line can't say: each in the repo it was made in.
+ */
+const observeCommits = async (
+  $: EngineInterface,
+  cwd: string,
+  places: ReadonlyArray<CommitPlace>,
+  told: { sha: string; kind: string } | undefined,
+) => {
+  for (const place of places) {
+    const made = await commitsMade($, cwd, place)
+    const at = made.length === 0 ? null : await repoAt($, cwd, place.at)
+    if (at !== null) for (const sha of made) await reportCommit($, at, sha)
+  }
+  if (told !== undefined && told.kind === 'committed' && repo !== null) await reportCommit($, repo, told.sha)
 }
 
 /** The first session in a repo explores it. */
@@ -1265,14 +1364,20 @@ const machineSecret = async ($: EngineInterface): Promise<string> => {
   return made
 }
 
-/** A test run that finished: a failing one arms the next green, which earns XP. */
-const observeTests = async ($: EngineInterface, command: string, failed: boolean, unfinished: boolean) => {
+/**
+ * A test run that finished: a failing one arms the next green, which earns XP. Its exit code says which when it is the
+ * run's own (`failed`); when a pipe or a list took it, the summary in the run's `output` says, and with none to read
+ * the run goes uncounted.
+ */
+const observeTests = async ($: EngineInterface, command: string, failed: boolean, unfinished: boolean, output: string) => {
   const runner = testRunner(command)
-  if (runner === null || unfinished || !exitIsTheRuns(command)) return
+  if (runner === null || unfinished) return
+  const outcome = exitIsTheRuns(command) ? (failed ? 'failed' : 'passed') : outcomeOf(output)
+  if (outcome === null) return
   const checkout = repo === null ? null : await checkoutRef(secret, repo, branch)
   await enqueue($, {
     ...(await stamp($)),
-    type: failed ? 'tests.failed' : 'tests.passed',
+    type: outcome === 'failed' ? 'tests.failed' : 'tests.passed',
     data: { checkout, runner },
   })
 }
@@ -2103,7 +2208,8 @@ const begin = async ($: EngineInterface, cwd: string, kept: string | null) => {
   sessionId = kept ?? ulid(await $.clock.now())
   await update($, session, () => sessionId)
   named = (await $.env.get('PATHOFDEV_HOME')) || (await $.env.get('QUESTLINE_HOME'))
-  sockets = socketPathsOf(named, await $.env.get('HOME'), server === 'dev')
+  home = await $.env.get('HOME')
+  sockets = socketPathsOf(named, home, server === 'dev')
   socket = sockets[0] ?? ''
   secret = await machineSecret($)
   $.clock.after(0, async () => {
@@ -2274,23 +2380,24 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    // HEAD where the command commits, read before it runs, in the directory it runs in (a subagent's own).
+    const commits = commitsIn(e.command, home)
+    const cwd = commits.length === 0 ? '' : await $.session.cwd()
+    const places = await headsBefore($, cwd, commits).catch(() => [])
     const result = await next(e)
-    if (result.deny !== undefined || result.isError === true) {
-      // A failing command can still be a failing test run.
-      if (result.deny === undefined) await observeTests($, e.command, true, false)
+    if (result.deny !== undefined) return result
+    if (result.isError === true) {
+      // A failing command can still have committed, or be a failing test run.
+      await observeCommits($, cwd, places, undefined).catch(() => undefined)
+      await observeTests($, e.command, true, false, result.text ?? (typeof result.result === 'string' ? result.result : ''))
       return result
     }
     const record = result.result
     const operation = record?.gitOperation
-    if (operation?.commit !== undefined && operation.commit.kind === 'committed' && repo !== null) {
+    if (operation?.commit !== undefined && operation.commit.kind === 'committed') {
       branch = operation.commit.branch ?? branch
-      const commit = await commitRef(secret, repo, operation.commit.sha)
-      await enqueue($, {
-        ...(await stamp($)),
-        type: 'commit.made',
-        data: { commit },
-      })
     }
+    await observeCommits($, cwd, places, operation?.commit).catch(() => undefined)
     if (operation?.pr !== undefined && repo !== null) {
       const type =
         operation.pr.action === 'created' ? 'change.opened' : operation.pr.action === 'merged' ? 'change.merged' : null
@@ -2302,7 +2409,7 @@ export const register: Register = (on, options) => {
         })
     }
     const finished = !record.interrupted && record.backgroundTaskId === undefined
-    await observeTests($, e.command, false, !finished)
+    await observeTests($, e.command, false, !finished, `${record.stdout}\n${record.stderr}`)
     return result
   }).catch(($, e, next) => next(e))
 
