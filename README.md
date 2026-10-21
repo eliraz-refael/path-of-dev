@@ -5,7 +5,8 @@ clear ask to what done looks like, and the grade earns XP, levels and loot. A pi
 terminal, quests point you at better habits, and milestones earn badges. Real outcomes pay the big bonuses: a merged
 pull request is worth 250 XP, an opened one nothing, and only work confirmed on GitHub ranks.
 
-> **Status:** closed beta. The online server at `api.pathof.dev` lets in GitHub accounts on its beta list.
+> **Status:** open beta. The online server at `api.pathof.dev` lets in anyone with a GitHub account.
+> [What it keeps, and how to export or delete it](docs/privacy.md).
 
 ## Play
 
@@ -22,8 +23,9 @@ Restart Claude Code, then:
 /pathofdev login
 ```
 
-`/pathofdev login` shows a code to enter on github.com. The server lets you in once your GitHub login is on the beta
-list: ask an admin to run `/pathofdev beta add <your-login>`. `/pathofdev logout` signs you out.
+`/pathofdev login` shows a code to enter on github.com, and you're in: GitHub tells the server only who you are.
+`/pathofdev logout` signs you out. [docs/privacy.md](docs/privacy.md) says what the server keeps, and how to export or
+delete it.
 
 On older Claude Code, add the marketplace first, then install from it:
 

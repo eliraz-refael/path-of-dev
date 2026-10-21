@@ -320,7 +320,7 @@ const countedGitHub = (asked: { count: number }) =>
   )
 
 const withPublic = <A, E, R>(effect: Effect.Effect<A, E, R>, asked = { count: 0 }) =>
-  effect.pipe(Effect.provide(testPublicServices({ allowedLogins: "ada", adminGithubIds: [] }, countedGitHub(asked))))
+  effect.pipe(Effect.provide(testPublicServices({ signup: "open", allowedLogins: "", adminGithubIds: [] }, countedGitHub(asked))))
 
 /** A request from the socket address `socket`, with `headers` beside it. */
 const from = (socket: string, path: string, headers: Record<string, string> = {}, body?: unknown) =>

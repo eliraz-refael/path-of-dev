@@ -60,6 +60,15 @@ describe('/pathofdev beta', () => {
     }
   })
 
+  prop.prop('review fix: shows a change answer whole, as long as the longest the server gives', [Login], ([login]) => {
+    const message =
+      `${login} was not on the beta list, so nothing changed, but they are one of the server's admins ` +
+      "(ADMIN_GITHUB_IDS), whom it always lets in: the API can't take them off, only a redeploy can. Signup is open, " +
+      'so anyone can sign in: the list counts only once SIGNUP=allowlist closes it.'
+    const response = { ok: true, status: 200, text: JSON.stringify({ login, changed: false, message }) }
+    expect(betaTextOf({ kind: 'remove', login }, response, origin)).toBe(message)
+  })
+
   prop.prop('reads any answer into printable text, and a 403 as for admins only', [Ask, Schema.NullOr(Response)], ([ask, response]) => {
     const text = betaTextOf(ask as BetaAsk, response === null ? null : { ...response, ok: response.status < 300 }, origin)
     expect(text.length).toBeGreaterThan(0)

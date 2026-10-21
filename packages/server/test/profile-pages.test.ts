@@ -31,7 +31,7 @@ const nextAda: GithubUser = { id: 3, login: "ada", name: null }
 
 const withPublic = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
-    Effect.provide(testPublicServices({ allowedLogins: "ada,bob", adminGithubIds: [] }, fakeGitHub([ada, bob, nextAda]))),
+    Effect.provide(testPublicServices({ signup: "allowlist", allowedLogins: "ada,bob", adminGithubIds: [] }, fakeGitHub([ada, bob, nextAda]))),
   )
 
 const get = (handle: Handle, path: string, headers: Record<string, string> = {}) =>

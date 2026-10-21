@@ -1,7 +1,23 @@
-import type { CommandResponse, EventResult, ServerBehind, ServerEvent } from "@pathofdev/schema"
-import { accountDeleted, clientEventTypes, CurrentPlayer, PathOfDevApi, Unauthorized } from "@pathofdev/schema"
+import type {
+  Command,
+  CommandResponse,
+  EventResult,
+  EventsRequest,
+  ServerBehind,
+  ServerEvent,
+  SessionRequest,
+} from "@pathofdev/schema"
+import {
+  accountDeleted,
+  clientEventTypes,
+  CurrentPlayer,
+  OnlineApi,
+  PathOfDevApi,
+  Unauthorized,
+} from "@pathofdev/schema"
 import type { Schema } from "effect"
 import { Clock, Duration, Effect, Layer } from "effect"
+import type { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 import type { SqlError } from "effect/sql/SqlError"
 import type { Admitted } from "./edge.ts"
@@ -49,97 +65,114 @@ const resultOf = (applied: Applied): EventResult => ({
   ...(applied.original === undefined ? {} : { original: applied.original }),
 })
 
+/**
+ * The mod's handlers, over the services. Each reads only what its route gives it, so the local server's routes and the
+ * public server's (whose `/v1/commands` decodes the commands of play alone) take the same ones.
+ */
+const modHandlers = Effect.gen(function* () {
+  const players = yield* Players
+  const writer = yield* PlayerWriter
+  const hub = yield* StreamHub
+  const presence = yield* Presence
+  const limiter = yield* RateLimiter
+
+  /** The request's player within their limits for a write of `events` events: over one, a 429, nothing written. */
+  const limited = (events: number) =>
+    Effect.flatMap(CurrentPlayer, (player) => limitWrite(limiter, player.id, events))
+
+  return {
+    openSession: ({ payload, request }: {
+      readonly payload: SessionRequest
+      readonly request: HttpServerRequest.HttpServerRequest
+    }) =>
+      Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        // A new local day or week rolls its missions first, so the snapshot shows them; the stream carries the offer.
+        yield* writer.refreshQuests(player.id, yield* nowIso)
+        // Only a mod that keeps its session live opens it: an older one would lapse between its polls.
+        if (payload.presence === true) {
+          yield* presence.open(player.id, payload.sessionId, clientOf(request.headers))
+        }
+        const snapshot = yield* players.snapshot(player)
+        return { snapshot, rules, minClientVersion, acceptedEventTypes: clientEventTypes }
+      }).pipe(asModErrors),
+
+    closeSession: ({ params }: { readonly params: { readonly id: string } }) =>
+      Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        return { closed: yield* presence.close(player.id, params.id) }
+      }).pipe(asModErrors),
+
+    sendEvents: ({ payload }: { readonly payload: EventsRequest }) =>
+      Effect.andThen(limited(payload.events.length), Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        const now = yield* nowIso
+        const admissions = payload.events.map((raw) => admit(raw, now))
+        const admitted = admissions.flatMap((one): Array<Admitted> => (one.kind === "admitted" ? [one.admitted] : []))
+        const applied = yield* writer.apply(player.id, now, admitted)
+        // Answer in the order sent: rejected events in place, the rest as the write path applied them.
+        let next = 0
+        const results = admissions.map((one): EventResult => {
+          if (one.kind === "rejected") return one.result
+          const done = applied[next++]
+          return done === undefined ? { id: one.admitted.id, status: "rejected", reason: "internal" } : resultOf(done)
+        })
+        const events: Array<ServerEvent> = applied.flatMap((one) => (one.status === "accepted" ? one.events : []))
+        return { results, events }
+      }).pipe(asModErrors)),
+
+    runCommand: ({ payload }: { readonly payload: Command }) =>
+      Effect.andThen(limited(0), Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        const now = yield* nowIso
+        const applied = yield* writer.apply(player.id, now, [
+          { id: payload.id, input: { kind: "command", command: payload }, naturalKey: null },
+        ])
+        const done = applied[0]
+        const response: CommandResponse =
+          done === undefined || done.status === "rejected"
+            ? { status: "refused", code: "not_allowed", message: "The server could not run this command" }
+            : done.refusal !== null
+              ? { status: "refused", ...done.refusal }
+              : { status: "ok", events: done.events }
+        return response
+      }).pipe(asModErrors)),
+
+    stream: ({ query }: { readonly query: { readonly after: number; readonly session?: string } }) =>
+      Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        // The timeout runs from the poll's arrival, so the reads before the wait count against it too.
+        const arrived = yield* Clock.currentTimeMillis
+        // The poll is the heartbeat: hearing from the session keeps it live, and opens a lapsed one again. A failure
+        // there is presence's alone: the stream still answers, and the next poll is heard again.
+        if (query.session !== undefined) {
+          yield* presence
+            .heard(player.id, query.session)
+            .pipe(Effect.catchCause((cause) => Effect.logWarning("Could not hear from the session", cause)))
+        }
+        // Listen before reading, so a commit between the read and the wait still wakes this poll.
+        const wakeup = yield* hub.listen(player.id)
+        const first = yield* players.streamAfter(player.id, query.after)
+        if (first.events.length > 0 || first.resync === true) return first
+        const waited = (yield* Clock.currentTimeMillis) - arrived
+        yield* Effect.timeoutOption(wakeup, Duration.millis(Math.max(0, Duration.toMillis(streamTimeout) - waited)))
+        return yield* players.streamAfter(player.id, query.after)
+      }).pipe(Effect.scoped, goneAsUnauthorized, Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die })),
+  }
+})
+
+/** The mod's routes on a local server, with their handlers. */
 export const ModHandlers = HttpApiBuilder.group(
   PathOfDevApi,
   "mod",
-  Effect.fn(function* (handlers) {
-    const players = yield* Players
-    const writer = yield* PlayerWriter
-    const hub = yield* StreamHub
-    const presence = yield* Presence
-    const limiter = yield* RateLimiter
+  (handlers) => Effect.map(modHandlers, (all) => handlers.handleAll(all)),
+)
 
-    /** The request's player within their limits for a write of `events` events: over one, a 429, nothing written. */
-    const limited = (events: number) =>
-      Effect.flatMap(CurrentPlayer, (player) => limitWrite(limiter, player.id, events))
-
-    return handlers.handleAll({
-      openSession: ({ payload, request }) =>
-        Effect.gen(function* () {
-          const player = yield* CurrentPlayer
-          // A new local day or week rolls its missions first, so the snapshot shows them; the stream carries the offer.
-          yield* writer.refreshQuests(player.id, yield* nowIso)
-          // Only a mod that keeps its session live opens it: an older one would lapse between its polls.
-          if (payload.presence === true) {
-            yield* presence.open(player.id, payload.sessionId, clientOf(request.headers))
-          }
-          const snapshot = yield* players.snapshot(player)
-          return { snapshot, rules, minClientVersion, acceptedEventTypes: clientEventTypes }
-        }).pipe(asModErrors),
-
-      closeSession: ({ params }) =>
-        Effect.gen(function* () {
-          const player = yield* CurrentPlayer
-          return { closed: yield* presence.close(player.id, params.id) }
-        }).pipe(asModErrors),
-
-      sendEvents: ({ payload }) =>
-        Effect.andThen(limited(payload.events.length), Effect.gen(function* () {
-          const player = yield* CurrentPlayer
-          const now = yield* nowIso
-          const admissions = payload.events.map((raw) => admit(raw, now))
-          const admitted = admissions.flatMap((one): Array<Admitted> => (one.kind === "admitted" ? [one.admitted] : []))
-          const applied = yield* writer.apply(player.id, now, admitted)
-          // Answer in the order sent: rejected events in place, the rest as the write path applied them.
-          let next = 0
-          const results = admissions.map((one): EventResult => {
-            if (one.kind === "rejected") return one.result
-            const done = applied[next++]
-            return done === undefined ? { id: one.admitted.id, status: "rejected", reason: "internal" } : resultOf(done)
-          })
-          const events: Array<ServerEvent> = applied.flatMap((one) => (one.status === "accepted" ? one.events : []))
-          return { results, events }
-        }).pipe(asModErrors)),
-
-      runCommand: ({ payload }) =>
-        Effect.andThen(limited(0), Effect.gen(function* () {
-          const player = yield* CurrentPlayer
-          const now = yield* nowIso
-          const applied = yield* writer.apply(player.id, now, [
-            { id: payload.id, input: { kind: "command", command: payload }, naturalKey: null },
-          ])
-          const done = applied[0]
-          const response: CommandResponse =
-            done === undefined || done.status === "rejected"
-              ? { status: "refused", code: "not_allowed", message: "The server could not run this command" }
-              : done.refusal !== null
-                ? { status: "refused", ...done.refusal }
-                : { status: "ok", events: done.events }
-          return response
-        }).pipe(asModErrors)),
-
-      stream: ({ query }) =>
-        Effect.gen(function* () {
-          const player = yield* CurrentPlayer
-          // The timeout runs from the poll's arrival, so the reads before the wait count against it too.
-          const arrived = yield* Clock.currentTimeMillis
-          // The poll is the heartbeat: hearing from the session keeps it live, and opens a lapsed one again. A failure
-          // there is presence's alone: the stream still answers, and the next poll is heard again.
-          if (query.session !== undefined) {
-            yield* presence
-              .heard(player.id, query.session)
-              .pipe(Effect.catchCause((cause) => Effect.logWarning("Could not hear from the session", cause)))
-          }
-          // Listen before reading, so a commit between the read and the wait still wakes this poll.
-          const wakeup = yield* hub.listen(player.id)
-          const first = yield* players.streamAfter(player.id, query.after)
-          if (first.events.length > 0 || first.resync === true) return first
-          const waited = (yield* Clock.currentTimeMillis) - arrived
-          yield* Effect.timeoutOption(wakeup, Duration.millis(Math.max(0, Duration.toMillis(streamTimeout) - waited)))
-          return yield* players.streamAfter(player.id, query.after)
-        }).pipe(Effect.scoped, goneAsUnauthorized, Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die })),
-    })
-  }),
+/** The mod's routes on the public server, with the same handlers: its `/v1/commands` never decodes a dev command. */
+export const OnlineModHandlers = HttpApiBuilder.group(
+  OnlineApi,
+  "mod",
+  (handlers) => Effect.map(modHandlers, (all) => handlers.handleAll(all)),
 )
 
 /** The HTTP routes with their handlers, needing the services the handlers read. */

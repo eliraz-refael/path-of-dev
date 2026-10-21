@@ -1,6 +1,6 @@
 {
   "name": "pathofdev",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Path of Dev: an RPG around your Claude Code work: XP, levels, loot and a pixel pet, drawn in a band above the prompt.",
   "types": "./types/index.d.ts",
   "author": { "name": "eliraz-refael" },
@@ -43,7 +43,7 @@
     "server": {
       "type": "string",
       "title": "Server",
-      "description": "Which server the mod plays on: your own local save (default), the local dev sandbox in ~/.pathofdev-dev for trying out band styles, XP and celebrations (start it with PATHOFDEV_DEV=1 pnpm --filter @pathofdev/server start), or online, the public server at the Online server URL (closed beta: /pathofdev login signs you in with GitHub). PATHOFDEV_HOME, when set, picks the home for either local one. Each server keeps its own queue of events. /pathofdev server says which one you play on, and /pathofdev server play, dev or online switches it here.",
+      "description": "Which server the mod plays on: your own local save (default), the local dev sandbox in ~/.pathofdev-dev for trying out band styles, XP and celebrations (start it with PATHOFDEV_DEV=1 pnpm --filter @pathofdev/server start), or online, the public server at the Online server URL (open beta: /pathofdev login signs you in with GitHub; what it keeps, and how to export or delete it: https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md). PATHOFDEV_HOME, when set, picks the home for either local one. Each server keeps its own queue of events. /pathofdev server says which one you play on, and /pathofdev server play, dev or online switches it here.",
       "options": ["default", "dev", "online"],
       "default": "default"
     },

@@ -4,9 +4,11 @@ import { Effect, Layer, Option, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
 import type { BetaConfig, GithubUser } from "../src/index.ts"
-import { adminIdsOf, GitHub, notALogin, notInBeta, onlyAdmins, refreshEvery } from "../src/index.ts"
+import { adminIdsOf, GitHub, notALogin, notInBeta, onlyAdmins, openNote, refreshEvery } from "../src/index.ts"
 import {
   dump,
+  nextId,
+  prompt,
   publicWebHandler,
   session,
   start,
@@ -30,7 +32,7 @@ const bob: GithubUser = { id: 2, login: "bob", name: null }
 /** Root's login in another case, on another account: someone who took it after a rename, say. Never an admin. */
 const mallory: GithubUser = { id: 8, login: "Root", name: null }
 
-const beta: BetaConfig = { allowedLogins: "bob", adminGithubIds: [root.id] }
+const beta: BetaConfig = { signup: "allowlist", allowedLogins: "bob", adminGithubIds: [root.id] }
 
 /** GitHub as the test fills it: each account signs in with the token `<login>@<id>`. */
 const FakeGitHub = (accounts: ReadonlyArray<GithubUser>) =>
@@ -395,4 +397,88 @@ describe("the beta list", () => {
       expect((yield* handle(request("/v1/beta", "POST", null, { login: "ada" }))).status).toBe(404)
       expect((yield* handle(request("/v1/beta/ada", "DELETE", null))).status).toBe(404)
     }).pipe(Effect.provide(testServices())))
+})
+
+// ── open signup ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+describe("open signup", () => {
+  /** The same beta, with signup open: the open beta, and the public server's default. */
+  const opened: BetaConfig = { ...beta, signup: "open" }
+  const withSignup = (config: BetaConfig, accounts: ReadonlyArray<GithubUser>) =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(Effect.provide(testPublicServices(config, FakeGitHub([root, bob, mallory, ...accounts]))))
+
+  it.effect.prop(
+    "lets in an account no list names, which then plays: a session, its events and a command",
+    [Login.check(Schema.makeFilter(isNewcomer))],
+    ([login]) => {
+      const newcomer: GithubUser = { id: 3, login, name: null }
+      return withSignup(opened, [newcomer])(
+        Effect.gen(function* () {
+          const handle = yield* publicWebHandler
+          const bearer = yield* signedIn(handle, newcomer)
+          expect((yield* open(handle, bearer)).status).toBe(200)
+          const sent = yield* handle(request("/v1/events", "POST", bearer, { events: [prompt(8)] }))
+          expect(sent.status).toBe(200)
+          const rename = { id: nextId(), type: "character.rename", data: { name: "Newcomer" } }
+          const ran = yield* answer(yield* handle(request("/v1/commands", "POST", bearer, rename)))
+          expect(ran).toMatchObject({ status: 200, body: { status: "ok" } })
+          const sql = yield* SqlClient.SqlClient
+          const players = yield* sql<{ github_login: string }>`SELECT github_login FROM players`
+          expect(players.map((player) => player.github_login)).toContain(login)
+          expect(yield* rows).toEqual([])
+        }),
+      )
+    },
+    serverRuns,
+  )
+
+  it.effect.prop(
+    "closed again by SIGNUP=allowlist, turns the same account away 401, and writes nothing",
+    [Login.check(Schema.makeFilter(isNewcomer))],
+    ([login]) => {
+      const newcomer: GithubUser = { id: 3, login, name: null }
+      return withSignup(beta, [newcomer])(
+        Effect.gen(function* () {
+          const handle = yield* publicWebHandler
+          const before = yield* dump
+          expect(yield* answer(yield* signInOf(handle, newcomer))).toMatchObject({
+            status: 401,
+            body: { message: notInBeta },
+          })
+          expect(yield* dump).toEqual(before)
+        }),
+      )
+    },
+    serverRuns,
+  )
+
+  it.effect("keeps the list for admins, says signup is open, and says on each change that the list waits", () =>
+    withSignup(opened, [])(
+      Effect.gen(function* () {
+        const handle = yield* publicWebHandler
+        const admin = yield* signedIn(handle, root)
+        expect(yield* answer(yield* list(handle, admin))).toMatchObject({ status: 200, body: { signup: "open" } })
+        const added = yield* answer(yield* add(handle, admin, "carol"))
+        expect(added).toMatchObject({ status: 200, body: { login: "carol", changed: true } })
+        expect(added.body["message"]).toBe(`carol is on the beta list now: they can sign in.${openNote}`)
+        const removed = yield* answer(yield* remove(handle, admin, "carol"))
+        expect(removed).toMatchObject({ status: 200, body: { login: "carol", changed: true } })
+        // Nobody is turned away for being off the list while signup is open, and the answer says no such thing.
+        expect(removed.body["message"]).toBe(`carol is off the beta list.${openNote}`)
+        expect((yield* rows).map((row) => row.login)).toEqual([])
+        // A player who is no admin still can't read it.
+        const player = yield* signedIn(handle, mallory)
+        expect((yield* list(handle, player)).status).toBe(403)
+      }),
+    ))
+
+  it.effect("answers the list closed with signup allowlist", () =>
+    withSignup(beta, [])(
+      Effect.gen(function* () {
+        const handle = yield* publicWebHandler
+        const admin = yield* signedIn(handle, root)
+        expect(yield* answer(yield* list(handle, admin))).toMatchObject({ status: 200, body: { signup: "allowlist" } })
+      }),
+    ))
 })

@@ -22,6 +22,10 @@ token, only your GitHub user id and login. One account per GitHub account:
 The mod never sends a prompt's text, only Haiku's grades for it. It never sends a repo's name either, only opaque keys.
 Slash-command names are counted in your stats.
 
+On your machine, the mod keeps the game token it got at sign-in in its own store on disk, where Claude Code keeps each
+plugin's data, and sends it only to the server it came from, over https. Anyone who can read that store can play as you
+until the token is revoked: `/pathofdev logout` revokes it on the server and forgets it, and so does a delete.
+
 ### What a graded prompt sends
 
 Haiku grades the prompt on your own Claude account. On a server that grades by rubric 2, as `api.pathof.dev` does,
@@ -109,10 +113,10 @@ for that server. Typing your login is how the server knows you mean it. A wrong 
 
 What stays:
 
-- **The beta list.** The admins keep it, so if your login is on it you can sign in again. That makes a new, empty
-  account.
+- **The beta list**, if your login is on it. It is how the admins could close signup to a list of logins again,
+  and holds only the login, who added it and when. Signing in again makes a new, empty account.
 - **Backups.** The database is backed up daily, and each backup is kept for 14 days. A deleted account is gone from
   every backup within 14 days.
 
-You can export, and delete, even after the admins take you off the beta, as long as the mod is still signed in.
-Being taken off the beta deletes nothing.
+You can export, and delete, even if signup is closed one day and the beta list doesn't name you, as long as the mod is
+still signed in. Being left off the beta list deletes nothing.

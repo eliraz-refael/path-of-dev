@@ -79,7 +79,8 @@ export const DevCommand = Schema.Union([
 ])
 export type DevCommand = typeof DevCommand.Type
 
-export const Command = Schema.Union([
+/** The commands of play, every one, once: `PlayCommand` and `Command` are both made from it. */
+const PlayCommands = Schema.Union([
   PetHatch,
   PetRename,
   PetPet,
@@ -97,17 +98,17 @@ export const Command = Schema.Union([
   CharacterPrestige,
   EggChoose,
   WelcomeDone,
-  DevGrantItem,
-  DevGrantStyles,
-  DevGrantXp,
-  DevSetGold,
-  DevCompleteQuest,
-  DevRollQuests,
-  DevFakeSession,
-  DevRestockShop,
-  DevSetMood,
-  DevSetShards,
-]).check(storable)
+])
+
+/**
+ * The commands of play, which every server takes: all but the dev commands. The public server's route decodes only
+ * these, so a dev command never even reaches its write path there.
+ */
+export const PlayCommand = PlayCommands.check(storable)
+export type PlayCommand = typeof PlayCommand.Type
+
+/** Every command: play's and the dev commands, which only a local server in dev mode runs. */
+export const Command = Schema.Union([...PlayCommands.members, ...DevCommand.members]).check(storable)
 export type Command = typeof Command.Type
 export type CommandType = Command["type"]
 

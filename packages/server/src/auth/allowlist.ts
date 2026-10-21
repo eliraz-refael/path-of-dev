@@ -4,15 +4,19 @@ import { SqlClient, SqlSchema } from "effect/sql"
 import type { SqlError } from "effect/sql/SqlError"
 import { nowIso } from "../game.ts"
 
-// The closed beta: who plays on the public server. Three lists let a player in, and any one of them is enough:
+// Who plays on the public server. In the open beta, `SIGNUP=open` (the default), everyone with a GitHub account does:
+// `allows` says yes at once, and the lists below are kept but let nobody in who wasn't already. `SIGNUP=allowlist`
+// closes signup again, a switch for an emergency that takes a redeploy and no code: then three lists let a player in,
+// and any one of them is enough:
 //
 //   ALLOWED_LOGINS    env, read at boot ──────────────┐  by GitHub login, in any case
 //   beta_logins       table, the admins keep it ──────┼─▶ allows(account) ─▶ in, or 401 "not in the beta"
 //   ADMIN_GITHUB_IDS  env, read at boot ──────────────┘  by GitHub user id, never by login: a login can be reused
 //                                                        after a rename, an id never
 //
-// It is asked at sign-in and again on every request, so taking a login off locks that player out on their next
-// request, token or not; and so it is answered from memory, with no query. The table's logins sit in a Ref:
+// It is asked at sign-in and again on every request, so closing signup, or taking a login off, locks that player out
+// on their next request, token or not; and so it is answered from memory, with no query. The table's logins sit in a
+// Ref, loaded whether signup is open or not, so the admins keep the list ready for the day it is closed:
 //
 //   boot ─────────────▶ load ─┐
 //   every 30 s ───────▶ load ─┼─▶ Ref(table's logins, lower case) ─▶ allows: admins ∋ id ∨ env ∋ login ∨ Ref ∋ login
@@ -42,8 +46,22 @@ export const adminIdsOf = (raw: string): ReadonlyArray<number> | null => {
   return ids.every((id) => /^[1-9][0-9]{0,14}$/.test(id)) ? ids.map(Number) : null
 }
 
+/** Whether anyone may sign in (the open beta), or only those the beta list lets in. */
+export type Signup = "open" | "allowlist"
+
+/**
+ * `SIGNUP` as the server reads it, in any case; null for anything but `open` or `allowlist`, so a typo stops the
+ * boot.
+ */
+export const signupOf = (raw: string): Signup | null => {
+  const named = raw.trim().toLowerCase()
+  return named === "open" || named === "allowlist" ? named : null
+}
+
 /** Who the beta lets in, as the public server reads it from its env at boot. */
 export interface BetaConfig {
+  /** Whether signup is open, from `SIGNUP`: then everyone is let in, and the lists below wait. */
+  readonly signup: Signup
   /** The logins `ALLOWED_LOGINS` lists, as it writes them. */
   readonly allowedLogins: string
   /** The GitHub user ids of the server's admins. */
@@ -70,7 +88,12 @@ const AdminPlayer = Schema.Struct({ githubUserId: Schema.Int, githubLogin: Schem
 export class Allowlist extends Context.Service<
   Allowlist,
   {
-    /** Whether the account plays: an admin by id, or a login on either list. Answered from memory. */
+    /** Whether signup is open, everyone playing whatever the lists say, or closed to them. */
+    readonly signup: Signup
+    /**
+     * Whether the account plays: anyone while signup is open; else an admin by id, or a login on either list.
+     * Answered from memory.
+     */
     readonly allows: (account: BetaAccount) => Effect.Effect<boolean>
     /** Whether the GitHub user id is one of the server's admins'. */
     readonly isAdmin: (githubUserId: number | null) => boolean
@@ -88,7 +111,7 @@ export class Allowlist extends Context.Service<
 >()("pathofdev/Allowlist") {
   /**
    * The beta of `config` over the table, loaded now and read again every `refreshEvery` for as long as the layer
-   * lives. An empty `ALLOWED_LOGINS`, table and admin list let nobody in.
+   * lives. With signup closed, an empty `ALLOWED_LOGINS`, table and admin list let nobody in.
    */
   static readonly layer = (config: BetaConfig) => Layer.effect(Allowlist, make(config))
 }
@@ -109,9 +132,10 @@ const make = (config: BetaConfig) =>
     const refresh = lock.withPermits(1)(Effect.flatMap(load, (logins) => Ref.set(added, logins)))
 
     const isAdmin = (githubUserId: number | null) => githubUserId !== null && admins.has(githubUserId)
+    const isOpen = config.signup === "open"
 
     const allows = (account: BetaAccount) =>
-      isAdmin(account.githubUserId) || isAllowed(listed, account.githubLogin)
+      isOpen || isAdmin(account.githubUserId) || isAllowed(listed, account.githubLogin)
         ? Effect.succeed(true)
         : Effect.map(Ref.get(added), (logins) => isAllowed(logins, account.githubLogin))
 
@@ -187,5 +211,5 @@ const make = (config: BetaConfig) =>
       ),
     )
 
-    return Allowlist.of({ allows, isAdmin, entries, add, remove, standing, refresh })
+    return Allowlist.of({ signup: config.signup, allows, isAdmin, entries, add, remove, standing, refresh })
   })

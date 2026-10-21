@@ -141,6 +141,7 @@ import {
   firstPoll,
   nextPoll,
   pollAnswerOf,
+  privacyUrl,
   queueAfterSignIn,
   signInOf,
   signInRequestOf,
@@ -1851,7 +1852,8 @@ const login = async ($: EngineInterface): Promise<string> => {
   return (
     `To sign in to ${to.origin}, open ${code.verificationUri} and enter ${code.userCode} ` +
     `(it works for ${minutes} minute${minutes === 1 ? '' : 's'}). GitHub tells the server only who you are; the mod ` +
-    "says when you're in, and what you do meanwhile waits in the queue."
+    "says when you're in, and what you do meanwhile waits in the queue. What the server keeps, and how to export or " +
+    `delete it: ${privacyUrl}`
   )
 }
 

@@ -6,8 +6,8 @@ import { SqlClient } from "effect/sql"
 import { createServer } from "node:http"
 import type { GitHubApp } from "./auth/github.ts"
 import { GitHub, publicClientId } from "./auth/github.ts"
-import type { BetaConfig } from "./auth/allowlist.ts"
-import { adminIdsOf } from "./auth/allowlist.ts"
+import type { BetaConfig, Signup } from "./auth/allowlist.ts"
+import { adminIdsOf, signupOf } from "./auth/allowlist.ts"
 import { accounts } from "./auth/middleware.ts"
 import { OnlineRoutes } from "./auth/routes.ts"
 import type { Database } from "./db.ts"
@@ -15,13 +15,15 @@ import { defaultProfileOrigin, ProfileOrigin, ProfilePages, profileOriginOf, Pro
 import { core } from "./services.ts"
 
 // The public server, api.pathof.dev: the same server build as the local one, wired for players who sign in. Postgres
-// in place of PGlite, a game token in place of the local player, and the beta's allowlist; never dev mode, and never
-// the local server's one player. Its settings come from the environment, read once at boot: a missing or bad one stops
-// it, named.
+// in place of PGlite, a game token in place of the local player, and signup open to every GitHub account (the open
+// beta) unless `SIGNUP=allowlist` closes it to the beta list again; never dev mode, never a dev command, and never the
+// local server's one player. Its settings come from the environment, read once at boot: a missing or bad one stops it,
+// named.
 //
 //   env ─▶ publicConfigOf ─▶ PublicConfig (a var missing or bad stops the boot, named)
 //     DATABASE_URL ──────────────▶ core("online"), dev mode off: Postgres, migrated; Players, PlayerWriter, Presence
-//     ALLOWED_LOGINS ────────────▶ accounts: Tokens, Allowlist (beside the beta_logins table), BearerAuth, AccountAuth
+//     SIGNUP ────────────────────▶ accounts: Tokens, Allowlist (open: everyone; allowlist: the lists), BearerAuth,
+//     ALLOWED_LOGINS ────────────▶   AccountAuth; the beta list's logins to start from, beside the beta_logins table
 //     ADMIN_GITHUB_IDS ──────────▶   the admins, by GitHub user id: always in, and they keep the beta list
 //     GITHUB_CLIENT_ID, _SECRET ─▶ GitHub: the token check, asked as the app
 //     PROFILE_ORIGIN ────────────▶ where the public pages live: https://pathof.dev/u/<login> unless it says otherwise
@@ -33,14 +35,15 @@ import { core } from "./services.ts"
 //     ├─ GET  /healthz ─────────────▶ SELECT 1 ─▶ 200, or 503 while the database doesn't answer
 //     ├─ GET  /u/:login ────────────▶ ProfilePages (profile.ts): a public player's page, else the one 404; no-store
 //     │                                 first, the client address's limit (limits.ts) ─▶ 429, nothing rendered
-//     ├─ POST /v1/auth/github ──────▶ GitHub.user ─▶ Allowlist ─▶ Players.findOrCreate ─▶ Tokens.mint
+//     ├─ POST /v1/auth/github ──────▶ GitHub.user ─▶ Allowlist (open: anyone) ─▶ Players.findOrCreate ─▶ Tokens.mint
 //     ├─ POST /v1/auth/logout ──────▶ Tokens.revoke
 //     │                                 both first the client address's limit ─▶ 429: GitHub never asked
 //     ├─ /v1/beta ──────────────────▶ BearerAuth ─▶ an admin? ─▶ Allowlist: the table, and its copy in memory
 //     ├─ /v1/account/* ─────────────▶ AccountAuth (token ─▶ player; no allowlist) ─▶ AccountHandlers ─▶ AccountData:
 //     │                                 privacy, the export's head and pages, the delete (one transaction)
 //     └─ /v1/sessions, /v1/events, /v1/commands, /v1/stream
-//          └─▶ BearerAuth (token ─▶ player ─▶ allowlist) ─▶ ModHandlers ─▶ PlayerWriter (version guard) ─▶ Postgres
+//          └─▶ BearerAuth (token ─▶ player ─▶ allowlist) ─▶ OnlineModHandlers ─▶ PlayerWriter (version guard)
+//                 a dev command on /v1/commands is no command of play: 400 before any handler, nothing read
 //                 a player deleted under the request ─▶ PlayerGone ─▶ 401
 //                 events and commands over the player's limits ─▶ 429, nothing written
 //   every 503 and 429 leaves with Retry-After
@@ -54,7 +57,12 @@ import { core } from "./services.ts"
 export interface PublicConfig {
   /** The Postgres the game lives in. */
   readonly databaseUrl: Redacted.Redacted<string>
-  /** The beta's GitHub logins to start from, as `ALLOWED_LOGINS` writes them; the admins add more from the mod. */
+  /** Whether anyone may sign in, from `SIGNUP`: open (the default), or the beta list alone. */
+  readonly signup: Signup
+  /**
+   * The beta list's GitHub logins to start from, as `ALLOWED_LOGINS` writes them (none by default); the admins add more
+   * from the mod. They let anyone in only while `SIGNUP=allowlist` closes signup.
+   */
   readonly allowedLogins: string
   /** The GitHub user ids of the server's admins, from `ADMIN_GITHUB_IDS`: always in, and they keep the beta list. */
   readonly adminGithubIds: ReadonlyArray<number>
@@ -68,6 +76,7 @@ export interface PublicConfig {
 /** The env vars the public server reads, by name. */
 export type PublicVar =
   | "DATABASE_URL"
+  | "SIGNUP"
   | "ALLOWED_LOGINS"
   | "ADMIN_GITHUB_IDS"
   | "PORT"
@@ -80,7 +89,9 @@ export const defaultPort = 3000
 /** Each env var as the public server reads it: those with a default may be left unset. */
 const vars = {
   DATABASE_URL: Config.Redacted("DATABASE_URL"),
-  ALLOWED_LOGINS: Config.NonEmptyString("ALLOWED_LOGINS"),
+  // Read as text, then by `signupOf`: unset, signup is open.
+  SIGNUP: Config.String("SIGNUP").pipe(Config.withDefault("open")),
+  ALLOWED_LOGINS: Config.String("ALLOWED_LOGINS").pipe(Config.withDefault("")),
   // Read as text, then as ids by `adminIdsOf`: unset, there are none.
   ADMIN_GITHUB_IDS: Config.String("ADMIN_GITHUB_IDS").pipe(Config.withDefault("")),
   PORT: Config.Port("PORT").pipe(Config.withDefault(defaultPort)),
@@ -113,6 +124,8 @@ export const publicConfigOf = (env: Readonly<Record<string, string | undefined>>
     )
   return Effect.gen(function* () {
     const databaseUrl = yield* read("DATABASE_URL", vars.DATABASE_URL)
+    const signup = signupOf(yield* read("SIGNUP", vars.SIGNUP))
+    if (signup === null) return yield* new BadConfig({ variable: "SIGNUP", isMissing: false })
     const allowedLogins = yield* read("ALLOWED_LOGINS", vars.ALLOWED_LOGINS)
     const adminGithubIds = adminIdsOf(yield* read("ADMIN_GITHUB_IDS", vars.ADMIN_GITHUB_IDS))
     if (adminGithubIds === null) return yield* new BadConfig({ variable: "ADMIN_GITHUB_IDS", isMissing: false })
@@ -120,6 +133,7 @@ export const publicConfigOf = (env: Readonly<Record<string, string | undefined>>
     if (profileOrigin === null) return yield* new BadConfig({ variable: "PROFILE_ORIGIN", isMissing: false })
     const config: PublicConfig = {
       databaseUrl,
+      signup,
       allowedLogins,
       adminGithubIds,
       port: yield* read("PORT", vars.PORT),
@@ -136,6 +150,7 @@ export const publicConfigOf = (env: Readonly<Record<string, string | undefined>>
 /** The env that `publicConfigOf` reads `config` from. */
 export const publicEnvOf = (config: PublicConfig): Record<PublicVar, string> => ({
   DATABASE_URL: Redacted.value(config.databaseUrl),
+  SIGNUP: config.signup,
   ALLOWED_LOGINS: config.allowedLogins,
   ADMIN_GITHUB_IDS: config.adminGithubIds.join(","),
   PORT: String(config.port),

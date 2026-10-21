@@ -72,7 +72,7 @@ const accounts = [ada, bob] as const
 
 const withPublic = (allowedLogins = "ada,bob") =>
   <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.provide(testPublicServices({ allowedLogins, adminGithubIds: [] }, fakeGitHub(accounts))))
+    effect.pipe(Effect.provide(testPublicServices({ signup: "allowlist", allowedLogins, adminGithubIds: [] }, fakeGitHub(accounts))))
 
 const openSession = (handle: Handle, bearer: string) =>
   handle(request("/v1/sessions", "POST", bearer, { sessionId: session, presence: true }))
@@ -643,7 +643,7 @@ const Stale = (player: PlayerType) =>
     ),
     AccountData.layer.pipe(Layer.provide(ProfileOrigin.layer(defaultProfileOrigin))),
     Tokens.layer,
-    Allowlist.layer({ allowedLogins: "ada", adminGithubIds: [] }),
+    Allowlist.layer({ signup: "allowlist", allowedLogins: "ada", adminGithubIds: [] }),
     fakeGitHub([]),
   )
 

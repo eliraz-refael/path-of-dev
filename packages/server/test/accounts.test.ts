@@ -59,7 +59,7 @@ const withAccounts = (accounts: ReadonlyMap<string, GithubUser>, allowed: string
           Layer.mergeAll(BearerAuth, AccountAuth, AccountData.layer).pipe(
             Layer.provideMerge(ProfileOrigin.layer(defaultProfileOrigin)),
             Layer.provideMerge(Tokens.layer),
-            Layer.provideMerge(Allowlist.layer({ allowedLogins: allowed, adminGithubIds: [] })),
+            Layer.provideMerge(Allowlist.layer({ signup: "allowlist", allowedLogins: allowed, adminGithubIds: [] })),
             Layer.provideMerge(FakeGitHub(accounts)),
           ),
         ),

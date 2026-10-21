@@ -56,7 +56,7 @@ type Accounts = {
   signIn?: { status: number; body: unknown }
   logout?: number
   /** The beta list: the tokens of the server's admins, and the logins added, by their lower case. */
-  beta?: { admins: Set<string>; logins: Map<string, string> }
+  beta?: { admins: Set<string>; logins: Map<string, string>; signup?: 'open' | 'allowlist' }
   /** The player's account: their privacy, the export's parts and their rows, and whether it was deleted. */
   account?: { isPublic: boolean; hidden: Array<string>; parts: Record<string, number>; deleted: boolean; deleteStatus?: number }
 }
@@ -394,7 +394,8 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
           return reply(403, { _tag: 'Forbidden', message: "Only the server's admins can see or change the beta list" })
         if (method === 'GET') {
           const entries = [...beta.logins.values()].map((login) => ({ source: 'added', login, addedAt: '2026-10-09T08:00:00.000Z', addedBy: 7 }))
-          return reply(200, { entries: [...entries, { source: 'env', login: 'bob' }, { source: 'admin', githubUserId: 7, login: 'root' }] })
+          const signup = beta.signup === undefined ? {} : { signup: beta.signup }
+          return reply(200, { entries: [...entries, { source: 'env', login: 'bob' }, { source: 'admin', githubUserId: 7, login: 'root' }], ...signup })
         }
         const login = method === 'DELETE' ? decodeURIComponent(path.slice('/v1/beta/'.length)) : isRecord(body) ? String(body['login']) : ''
         const changed = method === 'DELETE' ? beta.logins.delete(login.toLowerCase()) : !beta.logins.has(login.toLowerCase())
@@ -5119,7 +5120,8 @@ describe('signing in', () => {
       expect((await run($, 'login')).text).toBe(
         'To sign in to https://api.pathof.dev, open https://github.com/login/device and enter WDJB-MJHT (it works ' +
           "for 15 minutes). GitHub tells the server only who you are; the mod says when you're in, and what you do " +
-          'meanwhile waits in the queue.',
+          'meanwhile waits in the queue. What the server keeps, and how to export or delete it: ' +
+          'https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md',
       )
       expect((await run($, 'login')).text).toBe(
         'A sign-in is under way: open https://github.com/login/device and enter WDJB-MJHT.',
@@ -5405,7 +5407,13 @@ describe('the beta list', () => {
   const t0 = Date.parse('2026-10-09T08:00:00Z')
 
   /** A session on the online server, holding `token` (none when null), whose admins hold `admins`. */
-  const online = async ($: Parameters<TestBody>[0], on: On, token: string | null, admins: Array<string>) => {
+  const online = async (
+    $: Parameters<TestBody>[0],
+    on: On,
+    token: string | null,
+    admins: Array<string>,
+    signup?: 'open' | 'allowlist',
+  ) => {
     const clock = mock.clock(on, { now: t0 })
     const kept = new Map<string, unknown>([[`explored@${origin}`, ['acme/widgets']]])
     if (token !== null) kept.set(`token@${origin}`, token)
@@ -5424,7 +5432,7 @@ describe('the beta list', () => {
       githubToken: 'gho_unused',
       issue: 'pod_issued',
       login: 'octocat',
-      beta: { admins: new Set(admins), logins: new Map() },
+      beta: { admins: new Set(admins), logins: new Map(), ...(signup === undefined ? {} : { signup }) },
     }
     const server = fakeServer(on, clock, { level: 4, accounts })
     await $.session.start(start)
@@ -5432,6 +5440,24 @@ describe('the beta list', () => {
     const asked = () => server.sent.filter((one) => one.path.startsWith('/v1/beta'))
     return { clock, accounts, asked, ...server }
   }
+
+  test('while signup is open the list says so, and that it waits; closed, it says nothing of signup', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, 'pod_admin', ['pod_admin'], 'open')
+    expect((await run($, 'beta list')).text).toBe(
+      [
+        'The beta list on https://api.pathof.dev:',
+        '- added from the mod: none',
+        '- ALLOWED_LOGINS (a redeploy changes these): bob',
+        '- admins, always in (ADMIN_GITHUB_IDS): root (id 7)',
+        'Signup is open: anyone with a GitHub account signs in, and the list waits for SIGNUP=allowlist to close it.',
+      ].join('\n'),
+    )
+  })
+
+  test('with signup closed the list is the lists alone', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, 'pod_admin', ['pod_admin'], 'allowlist')
+    expect((await run($, 'beta list')).text).not.toContain('Signup')
+  })
 
   test("an admin adds, lists and removes logins, and sees the server's answer", { options: { server: 'online' } }, async ($, on) => {
     const { accounts, asked } = await online($, on, 'pod_admin', ['pod_admin'])

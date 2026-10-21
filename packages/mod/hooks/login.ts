@@ -41,6 +41,9 @@ import { argsOf, failureOf, headersOf, isRecord, originOf, parsed, printable } f
 /** Path of Dev's GitHub app, as the device flow names it: public, with no secret. */
 export const clientId = 'Ov23liaxznq5Qln0tRis'
 
+/** The privacy note: what the online server keeps, and how to export or delete it. Linked from the sign-in. */
+export const privacyUrl = 'https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md'
+
 export const deviceCodeUrl = 'https://github.com/login/device/code'
 export const accessTokenUrl = 'https://github.com/login/oauth/access_token'
 const deviceGrant = 'urn:ietf:params:oauth:grant-type:device_code'

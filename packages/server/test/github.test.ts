@@ -4,7 +4,7 @@ import { Duration, Effect, Exit, Fiber, Logger, Option, Redacted, Schema } from 
 import { TestClock } from "effect/testing"
 import { Buffer } from "node:buffer"
 import { describe, expect } from "vitest"
-import type { Fetch, GitHubApp, GithubUser } from "../src/index.ts"
+import type { BetaConfig, Fetch, GitHubApp, GithubUser } from "../src/index.ts"
 import { checkUrlOf, GitHub } from "../src/index.ts"
 import { dump, publicWebHandler, testPublicServices } from "./fixtures.ts"
 
@@ -27,8 +27,8 @@ interface Issued {
 
 const ada: GithubUser = { id: 1, login: "Ada", name: null }
 
-/** The beta with Ada alone on it, and no admins. */
-const adaOnly = { allowedLogins: "ada", adminGithubIds: [] }
+/** Signup closed to a beta with Ada alone on it, and no admins. */
+const adaOnly: BetaConfig = { signup: "allowlist", allowedLogins: "ada", adminGithubIds: [] }
 
 /** The tokens the fake GitHub has issued: one for Ada to our app, and one for Ada to another app. */
 const issued = new Map<string, Issued>([

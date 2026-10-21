@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import { engineVersion } from "@pathofdev/engine"
-import { DevCommand, isStorable } from "@pathofdev/schema"
+import { Command, DevCommand, PlayCommand } from "@pathofdev/schema"
 import { Effect, Exit, Layer, Option, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
@@ -31,6 +31,7 @@ const serverRuns = { timeout: 120_000, arbitrary: { runs: 5 } }
 const Text = Schema.String.check(Schema.isPattern(/^[\x21-\x7e][\x20-\x7e]{0,40}$/))
 const Config = Schema.Struct({
   databaseUrl: Text,
+  signup: Schema.Literals(["open", "allowlist"]),
   allowedLogins: Text,
   adminGithubIds: Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999_999_999_999 }))).check(
     Schema.isMaxLength(4),
@@ -43,6 +44,7 @@ const Config = Schema.Struct({
 
 const configOf = (drawn: typeof Config.Type): PublicConfig => ({
   databaseUrl: Redacted.make(drawn.databaseUrl),
+  signup: drawn.signup,
   allowedLogins: drawn.allowedLogins,
   adminGithubIds: drawn.adminGithubIds,
   port: drawn.port,
@@ -57,7 +59,7 @@ const plain = (config: PublicConfig) => ({
   github: { ...config.github, clientSecret: Redacted.value(config.github.clientSecret) },
 })
 
-const Required = Schema.Literals(["DATABASE_URL", "ALLOWED_LOGINS", "GITHUB_CLIENT_SECRET"])
+const Required = Schema.Literals(["DATABASE_URL", "GITHUB_CLIENT_SECRET"])
 
 describe("the public server's settings", () => {
   it.effect.prop("read back from the env they are written to", [Config], ([drawn]) =>
@@ -93,19 +95,43 @@ describe("the public server's settings", () => {
       }),
   )
 
-  it.effect.prop("take the port, the public client id and no admins by default", [Config], ([drawn]) =>
-    Effect.gen(function* () {
-      const env: Partial<Record<PublicVar, string>> = { ...publicEnvOf(configOf(drawn)) }
-      delete env.PORT
-      delete env.GITHUB_CLIENT_ID
-      delete env.ADMIN_GITHUB_IDS
-      delete env.PROFILE_ORIGIN
-      const config = yield* publicConfigOf(env)
-      expect(config.port).toBe(defaultPort)
-      expect(config.github.clientId).toBe(publicClientId)
-      expect(config.adminGithubIds).toEqual([])
-      expect(config.profileOrigin).toBe(defaultProfileOrigin)
-    }))
+  it.effect.prop(
+    "take open signup, no beta list, the port, the public client id and no admins by default",
+    [Config],
+    ([drawn]) =>
+      Effect.gen(function* () {
+        const env: Partial<Record<PublicVar, string>> = { ...publicEnvOf(configOf(drawn)) }
+        delete env.SIGNUP
+        delete env.ALLOWED_LOGINS
+        delete env.PORT
+        delete env.GITHUB_CLIENT_ID
+        delete env.ADMIN_GITHUB_IDS
+        delete env.PROFILE_ORIGIN
+        const config = yield* publicConfigOf(env)
+        expect(config.signup).toBe("open")
+        expect(config.allowedLogins).toBe("")
+        expect(config.port).toBe(defaultPort)
+        expect(config.github.clientId).toBe(publicClientId)
+        expect(config.adminGithubIds).toEqual([])
+        expect(config.profileOrigin).toBe(defaultProfileOrigin)
+      }),
+  )
+
+  it.effect.prop(
+    "read SIGNUP in any case, and stop the boot on anything but open or allowlist, naming it",
+    [
+      Config,
+      Schema.Literals(["Open", " allowlist ", "ALLOWLIST"]),
+      Schema.Literals(["closed", "on", "true", "open,allowlist"]),
+    ],
+    ([drawn, spelt, bad]) =>
+      Effect.gen(function* () {
+        const env = publicEnvOf(configOf(drawn))
+        expect((yield* publicConfigOf({ ...env, SIGNUP: spelt })).signup).toBe(spelt.trim().toLowerCase())
+        const exit = yield* Effect.exit(publicConfigOf({ ...env, SIGNUP: bad }))
+        expect(exit).toEqual(Exit.fail(new BadConfig({ variable: "SIGNUP", isMissing: false })))
+      }),
+  )
 
   it.effect.prop(
     "stop the boot on a profile origin that is not one: a path, a trailing slash, another scheme, not a URL",
@@ -150,7 +176,10 @@ const FakeGitHub = (accounts: ReadonlyMap<string, GithubUser>) =>
 const withPublic = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.provide(
-      testPublicServices({ allowedLogins: "ada", adminGithubIds: [] }, FakeGitHub(new Map([["ada-token", ada]]))),
+      testPublicServices(
+        { signup: "open", allowedLogins: "", adminGithubIds: [] },
+        FakeGitHub(new Map([["ada-token", ada]])),
+      ),
     ),
   )
 
@@ -195,8 +224,19 @@ describe("the public build", () => {
       }),
     ))
 
+  it.prop(
+    "takes every command of play on the public route, and no dev command: one list makes both",
+    [Command],
+    ([command]) => {
+      expect({ type: command.type, isPlay: Schema.is(PlayCommand)(command) }).toEqual({
+        type: command.type,
+        isPlay: !command.type.startsWith("dev."),
+      })
+    },
+  )
+
   it.effect.prop(
-    "refuses every dev command, and the save stays as it was",
+    "refuses every dev command, never decoding it, and the save stays as it was",
     [Schema.Array(DevCommand).check(Schema.isMinLength(1), Schema.isMaxLength(6))],
     ([commands]) =>
       withPublic(
@@ -207,12 +247,14 @@ describe("the public build", () => {
           const saved = sql`SELECT state, server_seq FROM player_state`
           const before = yield* saved
           const rolls = yield* sql`SELECT * FROM rolls`
-          // A command holding a string jsonb can't hold is malformed, answered 400: the next property's case.
-          for (const command of commands.filter(isStorable)) {
+          // The public route decodes the commands of play alone: a dev command is no command there, answered 400
+          // before any handler runs, so nothing of it is logged either.
+          const logged = yield* sql`SELECT * FROM event_log`
+          for (const command of commands) {
             const response = yield* handle(request("/v1/commands", "POST", bearer, command))
-            expect(response.status).toBe(200)
-            expect(yield* json(response)).toMatchObject({ status: "refused", code: "not_allowed" })
+            expect({ type: command.type, status: response.status }).toEqual({ type: command.type, status: 400 })
           }
+          expect(yield* sql`SELECT * FROM event_log`).toEqual(logged)
           expect(yield* saved).toEqual(before)
           expect(yield* sql`SELECT * FROM rolls`).toEqual(rolls)
           const opened = yield* handle(request("/v1/sessions", "POST", bearer, { sessionId: session }))

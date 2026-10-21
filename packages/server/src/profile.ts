@@ -32,7 +32,7 @@ import { RateLimiter } from "./rate-limit.ts"
 //     ├─ not a GitHub login ─────────────────────▶ 404
 //     ├─ Profiles.byLogin: no player holds it ───▶ 404   one query, on lower(github_login)
 //     ├─ privacyOf(profile) is not public ───────▶ 404   checked before the save is read, so a private player's
-//     ├─ not on the beta list (Allowlist) ───────▶ 404     save, newer or broken, never shows through a 503
+//     ├─ signup closed, not on the beta list ────▶ 404     save, newer or broken, never shows through a 503
 //     └─ Players.profile: the snapshot, and how far each locked badge is
 //          ├─ PlayerGone: deleted since ─────────▶ 404
 //          ├─ anything else fails ───────────────▶ 503, logged: a database down never looks like a missing page

@@ -20,12 +20,12 @@ import type { HttpInit, HttpResponse, PluginOptions } from 'claude-code'
 // never logs a request's headers.
 
 // The mod's version, as plugin.json has it, sent with every request: the one a server's `minClientVersion` names.
-export const clientVersion = '0.8.1'
+export const clientVersion = '0.9.0'
 
 /** The server can't be reached, or can't take the request now: the band shows it offline, and what waits stays. */
 export class ServerDown extends Error {}
 
-/** The online server wants a sign-in: its token is missing, revoked, or no longer in the beta. */
+/** The online server wants a sign-in: its token is missing or revoked, or signup is closed to a beta without it. */
 export class SignedOut extends ServerDown {}
 
 /**

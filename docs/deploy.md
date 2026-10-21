@@ -17,15 +17,23 @@ The server reads its settings from the environment at boot, and stops naming the
 | Variable | Required | What it is |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | The Postgres URL. Migrations run at every boot. |
-| `ALLOWED_LOGINS` | yes | The beta's GitHub logins to start from, separated by commas or spaces, in any case. Admins add more from the mod (below). |
+| `SIGNUP` | no | `open` (the default, the open beta): anyone with a GitHub account signs in. `allowlist` closes signup to the beta list below, with no code change. Anything else stops the boot. |
+| `ALLOWED_LOGINS` | no | With `SIGNUP=allowlist`, GitHub logins let in from boot, separated by commas or spaces, in any case; none by default. Admins add more from the mod (below). |
 | `ADMIN_GITHUB_IDS` | no | The GitHub user ids (numbers, not logins) of the server's admins, separated by commas or spaces; none by default. Admins are always let in, and keep the beta list. |
 | `GITHUB_CLIENT_SECRET` | yes | The OAuth app's client secret: the server checks every sign-in's token was issued to the app. |
 | `GITHUB_CLIENT_ID` | no | The OAuth app's client id; defaults to Path of Dev's, `Ov23liaxznq5Qln0tRis`. |
 | `PORT` | no | Defaults to 3000. |
 
-## The beta list
+## Signup, and the beta list
 
-Who plays on the public server is the union of three lists, checked at sign-in and on every request:
+In the open beta (`SIGNUP=open`, the default) anyone with a GitHub account signs in and plays; nothing lists them.
+
+`SIGNUP=allowlist` closes signup again: a switch for an emergency, set in Coolify and redeployed. Then who plays is the
+union of three lists, checked at sign-in and on every request, so a player on none of them is turned away (401 "not in
+the beta") on their next request, token or not. This is the closed beta again, so it turns away players who joined in
+the open beta too: add the ones to keep with `/pathofdev beta add` first.
+
+The three lists:
 
 - `ALLOWED_LOGINS`, the logins the server starts with. Only a redeploy changes it.
 - The `beta_logins` table, which the admins keep from the mod. A change takes effect at once, with no redeploy.
@@ -39,7 +47,9 @@ gh api users/<login> --jq .id
 ```
 
 Set the variable in Coolify (the app → Environment Variables, not a build variable) and redeploy. Then, with the mod on
-the online server (`/pathofdev server online`) and signed in (`/pathofdev login`), an admin keeps the list:
+the online server (`/pathofdev server online`) and signed in (`/pathofdev login`), an admin keeps the list. The admins
+keep it while signup is open too, ready for the day it closes; every answer then says signup is open, and the list
+lets in nobody who isn't in already:
 
 ```text
 /pathofdev beta list               # who is in: logins added, ALLOWED_LOGINS, and the admins
@@ -63,12 +73,13 @@ VALUES ('octocat', <your id>, to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH
 
 A signed-in player manages their own account from the mod, as [privacy.md](privacy.md) describes:
 `/pathofdev profile …`, `/pathofdev account export` and `/pathofdev account delete <login>`. These routes take the
-player's game token alone, without the beta list, so a player the admins took off the beta can still export and delete
-while their mod is signed in. Taking a player off the beta revokes no tokens and deletes nothing.
+player's game token alone, without the beta list, so even with signup closed a player the beta no longer lets in can
+still export and delete while their mod is signed in. Taking a player off the beta revokes no tokens and deletes
+nothing.
 
-If a player asks for a delete and can't run it (their mod is signed out, and the beta no longer lets them sign in),
-add them back with `/pathofdev beta add <login>` so they can sign in and run it. Otherwise delete their rows with
-`psql`, in one transaction, in the order the server does:
+If a player asks for a delete and can't run it (their mod is signed out, and signup is closed to a beta that no longer
+lets them in), add them back with `/pathofdev beta add <login>` so they can sign in and run it. Otherwise delete their
+rows with `psql`, in one transaction, in the order the server does:
 
 ```sql
 BEGIN;
@@ -149,8 +160,8 @@ on the `coolify` network) already exists.
 6. Health check: enable it, path `/healthz`, port `3000`. The image declares the same check.
 7. Environment variables, none of them build variables (untick "Build Variable", so they never reach the image):
    - `DATABASE_URL`: `pathofdev-db`'s **internal** URL, from its page in Coolify.
-   - `ALLOWED_LOGINS`: for example `eliraz-refael`.
-   - `ADMIN_GITHUB_IDS`: your own GitHub user id (see "The beta list" above).
+   - `ADMIN_GITHUB_IDS`: your own GitHub user id (see "Signup, and the beta list" above).
+   - `SIGNUP` and `ALLOWED_LOGINS`: leave them unset for the open beta.
    - `GITHUB_CLIENT_SECRET`: the secret from step 1.
 8. Deploy once by hand, then check `https://api.pathof.dev/healthz` answers `ok` (after the DNS step).
 9. Copy the app's deploy webhook URL (Webhooks), and create an API token with deploy permission (Keys & Tokens →
