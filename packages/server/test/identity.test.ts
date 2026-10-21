@@ -72,7 +72,7 @@ const dump = Effect.gen(function* () {
 
 // ── 401 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const Endpoint = Schema.Literals(["openSession", "closeSession", "sendEvents", "runCommand", "stream"])
+const Endpoint = Schema.Literals(["openSession", "closeSession", "sendEvents", "runCommand", "stream", "snapshot"])
 
 /** A header that names no player: none, a scheme other than Bearer, or a bearer token no player has. */
 const Printable = Schema.String.check(Schema.isPattern(/^[\x21-\x7e]{0,40}$/))
@@ -93,6 +93,8 @@ const requestTo = (endpoint: typeof Endpoint.Type, authorization: string | null)
       return request("/v1/commands", "POST", authorization, hatch())
     case "stream":
       return request("/v1/stream?after=0", "GET", authorization)
+    case "snapshot":
+      return request("/v1/snapshot", "GET", authorization)
   }
 }
 

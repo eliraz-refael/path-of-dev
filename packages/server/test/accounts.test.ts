@@ -286,6 +286,7 @@ describe("a request on the public server", () => {
     "sendEvents",
     "runCommand",
     "stream",
+    "snapshot",
     "signOut",
     "profileSettings",
     "changeProfile",
@@ -314,6 +315,8 @@ describe("a request on the public server", () => {
         return request("/v1/commands", "POST", authorization, hatch())
       case "stream":
         return request("/v1/stream?after=0", "GET", authorization)
+      case "snapshot":
+        return request("/v1/snapshot", "GET", authorization)
       case "signOut":
         return request("/v1/auth/logout", "POST", authorization)
       case "profileSettings":

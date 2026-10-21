@@ -661,6 +661,7 @@ const StaleEntry = Schema.Literals([
   "sendEvents",
   "runCommand",
   "stream",
+  "snapshot",
   "profileSettings",
   "changeProfile",
   "exportHead",
@@ -681,6 +682,8 @@ const staleRequest = (entry: typeof StaleEntry.Type): Request => {
       return request("/v1/commands", "POST", bearer, hatch())
     case "stream":
       return request(`/v1/stream?after=0&session=${session}`, "GET", bearer)
+    case "snapshot":
+      return request("/v1/snapshot", "GET", bearer)
     case "profileSettings":
       return request("/v1/account/profile", "GET", bearer)
     case "changeProfile":

@@ -24,7 +24,7 @@ import { addressedWebHandler, client, dump, hatch, prompt, session, testPublicSe
 //   take ─▶ at most capacity + ⌈W / everyMs⌉ over any W ms │ a refusal's wait is exact │ prune changes no outcome
 //   clientIpOf ─▶ a header from a peer we don't trust never moves the key │ only the last X-Forwarded-For entry counts
 //   /u/*, /v1/auth/* per address ─▶ 429 + Retry-After, nothing run │ /v1/events, /v1/commands per player ─▶ 429,
-//   nothing written │ the local server ─▶ never limited
+//   nothing written │ /v1/snapshot per player, from the same writes ─▶ 429 │ the local server ─▶ never limited
 
 // ── the bucket ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -483,6 +483,27 @@ describe("the limits per player", () => {
         // The stream and the session are not limited.
         const opened = yield* handle(from("203.0.113.7", "/v1/sessions", auth, { sessionId: session }))
         expect(opened.status).toBe(200)
+      }),
+    ))
+
+  it.effect("count a snapshot against the player's writes, from any address: past them, a 429 that says when", () =>
+    withPublic(
+      Effect.gen(function* () {
+        const handle = yield* addressedWebHandler
+        const auth = yield* signedIn(handle, "203.0.113.7")
+        const snapshot = (socket: string) => from(socket, "/v1/snapshot", auth)
+        const statuses = yield* repeat(handle, limits.writes.capacity, () => snapshot("203.0.113.7"))
+        expect(new Set(statuses)).toEqual(new Set([200]))
+        const refused = yield* handle(snapshot("203.0.113.8"))
+        expect(refused.status).toBe(429)
+        expect(refused.headers.get("retry-after")).toBe("1")
+        const body = yield* bodyOf(refused)
+        expect(body).toMatchObject({ _tag: "RateLimited", code: "rate_limited", retryAfterMs: limits.writes.everyMs })
+        expect(isApiError(body)).toBe(true)
+        // One bucket a player: the watcher's snapshots spent the mod's writes too.
+        expect((yield* handle(from("203.0.113.7", "/v1/events", auth, { events: [] }))).status).toBe(429)
+        yield* TestClock.adjust(limits.writes.everyMs)
+        expect(yield* repeat(handle, 2, () => snapshot("203.0.113.7"))).toEqual([200, 429])
       }),
     ))
 })
