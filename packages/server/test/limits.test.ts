@@ -402,10 +402,28 @@ describe("the limits per client address", () => {
           headers: { "x-test-socket": "203.0.113.7" },
         })
         expect((yield* handle(signOut)).status).toBe(429)
+        // The router matches a path in any case, with its slashes doubled or its letters percent-encoded: so does the
+        // limit.
+        for (const path of ["/V1/Auth/github", "//v1/auth/github", "/v1/%61uth/github", "/v1//auth/github"]) {
+          const spelt = from("203.0.113.7", path, {}, { githubToken: "not-a-token", timezone: "UTC" })
+          expect((yield* handle(spelt)).status).toBe(429)
+        }
+        expect(asked.count).toBe(limits.auth.capacity)
       }),
       asked,
     )
   })
+
+  it.effect("count a page the router matches however its path is spelt", () =>
+    withPublic(
+      Effect.gen(function* () {
+        const handle = yield* addressedWebHandler
+        yield* repeat(handle, limits.pages.capacity, () => from("203.0.113.7", "/u/-nobody"))
+        for (const path of ["/U/-nobody", "//u/-nobody", "/%75/-nobody"]) {
+          expect((yield* handle(from("203.0.113.7", path))).status).toBe(429)
+        }
+      }),
+    ))
 })
 
 describe("the limits per player", () => {

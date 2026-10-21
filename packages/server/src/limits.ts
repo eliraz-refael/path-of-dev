@@ -1,14 +1,16 @@
 import { RateLimited } from "@pathofdev/schema"
 import { Effect, Option, Schema } from "effect"
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import type { HttpServerRequest } from "effect/http"
+import { HttpServerResponse } from "effect/http"
 import { clientIpOf, limitKeyOf, publicTrust } from "./client-ip.ts"
 import type { Rule } from "./rate-limit.ts"
-import { RateLimiter, retryAfterSecondsOf, withRetryAfter } from "./rate-limit.ts"
+import type { RateLimiter } from "./rate-limit.ts"
+import { retryAfterSecondsOf, withRetryAfter } from "./rate-limit.ts"
 
 // The public server's rate limits, all in one place. Only the public server limits: the local server's RateLimiter
 // lets everything through (services.ts).
 //
-//   /v1/auth/*  per client address ─▶ auth     signing in and out: a person does it once per machine
+//   /v1/auth/*  per client address ─▶ auth     signing in and out: a person does it once per machine (auth/routes.ts)
 //   /u/*        per client address ─▶ pages    each view renders a snapshot, uncached (profile.ts)
 //   /v1/events  per player ─────────▶ writes, then events: one token per event in the batch
 //   /v1/commands per player ────────▶ writes
@@ -40,13 +42,6 @@ export const limits = {
   events: { name: "events", capacity: 1_000, everyMs: 100 },
 } satisfies Record<string, Rule>
 
-/** The rule a path is limited by per client address, or null for one limited per player, or not at all. */
-export const addressRuleOf = (path: string): Rule | null =>
-  path.startsWith("/v1/auth/") ? limits.auth : path === "/u" || path.startsWith("/u/") ? limits.pages : null
-
-/** A request's path, without its query. */
-const pathOf = (url: string): string => url.split("?")[0] ?? url
-
 const encodeLimited = Schema.encodeSync(RateLimited)
 
 /** The 429 a route the HTTP API doesn't answer for gets: the same body as the API's, and `Retry-After`. */
@@ -57,26 +52,18 @@ export const limitedResponse = (error: RateLimited): HttpServerResponse.HttpServ
   })
 
 /**
- * The limits per client address, before any route runs: a refused request is answered 429 and goes no further, so
- * GitHub is never asked and no page is rendered.
+ * The request's client address within `rule`, by `clientIpOf`: over it, a 429 with `Retry-After`. Each route limited
+ * per address asks it first thing in its own handler, so whatever spelling of the path the router matched (it reads
+ * any case, doubled slashes and percent-escapes), the limit is the route's own.
  */
-export const AddressLimits = HttpRouter.middleware(
-  Effect.gen(function* () {
-    const limiter = yield* RateLimiter
-    return (app) =>
-      Effect.gen(function* () {
-        const request = yield* HttpServerRequest.HttpServerRequest
-        const rule = addressRuleOf(pathOf(request.url))
-        if (rule === null) return yield* app
-        const ip = clientIpOf(publicTrust, request.headers, Option.getOrNull(request.remoteAddress))
-        return yield* Effect.matchEffect(limiter.check(limitKeyOf(ip), rule), {
-          onFailure: (refused) => Effect.succeed(limitedResponse(refused)),
-          onSuccess: () => app,
-        })
-      })
-  }),
-  { global: true },
-)
+export const limitAddress = (
+  limiter: RateLimiter["Service"],
+  request: HttpServerRequest.HttpServerRequest,
+  rule: Rule,
+) => {
+  const ip = clientIpOf(publicTrust, request.headers, Option.getOrNull(request.remoteAddress))
+  return withRetryAfter(limiter.check(limitKeyOf(ip), rule))
+}
 
 /** A player's write: `events` of them in a batch (none for a command), checked against both per-player limits. */
 export const limitWrite = (limiter: RateLimiter["Service"], playerId: string, events: number) =>

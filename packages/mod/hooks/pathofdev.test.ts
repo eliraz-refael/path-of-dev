@@ -4528,6 +4528,34 @@ describe('the welcome', () => {
     expect(commandsOf(sent)).toMatchObject([{ type: 'pet.hatch', data: { species: 'robot', name: 'Bolt' } }])
   })
 
+  test('review fix: a hatch over the rate limit says when to try again, and leaves the band online', async ($, on) => {
+    const { toasts } = await streaming($, on, undefined, false, {
+      rules: welcomeRules,
+      kept: { welcome: { ...fresh(), done: true } },
+      commandStatus: 429,
+    })
+    const ui = await $.ui.mount({ plugin: 'pathofdev', surface: 'terminal', component: 'AbovePrompt', props: bandOf() })
+    await ui.press({ key: 'hatch' })
+    await ui.unmount()
+    expect(toasts).toEqual(['The Path of Dev server takes no more from you for now: try again in 60 s.'])
+    expect((await band($)).all).not.toContain('offline')
+  })
+
+  test('review fix: a choice over the rate limit says when to try again in place, and leaves the band online', async ($, on) => {
+    await streaming($, on, undefined, false, { rules: welcomeRules, kept: { welcome: fresh() }, commandStatus: 429 })
+    let shown = await look($)
+    await shown.ui.press({ key: 'welcome:next' })
+    await shown.ui.unmount()
+    shown = await look($)
+    await shown.ui.input({ key: 'welcome:name', text: 'Ada' })
+    await shown.ui.unmount()
+    shown = await look($)
+    expect(shown.texts).toContain('Name your character')
+    expect(shown.texts).toContain('try again in 60 s.')
+    await shown.ui.unmount()
+    expect((await band($)).all).not.toContain('offline')
+  })
+
   test('says the grading in words from whatever bands the rules give, and fits its progress row at every width', () => {
     expect(taperText([{ upTo: null, pct: 100 }])).toBe("A day's graded prompts earn full XP for every one.")
     expect(

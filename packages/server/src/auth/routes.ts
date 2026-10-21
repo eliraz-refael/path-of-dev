@@ -3,8 +3,10 @@ import { Effect, Layer, Option, Redacted } from "effect"
 import { HttpApiBuilder, HttpApiSecurity } from "effect/http-api"
 import { AccountHandlers } from "../account.ts"
 import { ModHandlers } from "../http.ts"
+import { limitAddress, limits } from "../limits.ts"
 import type { GithubIdentity, NewPlayer } from "../players.ts"
 import { Players } from "../players.ts"
+import { RateLimiter } from "../rate-limit.ts"
 import { Allowlist } from "./allowlist.ts"
 import { BetaHandlers } from "./beta.ts"
 import type { GithubUser } from "./github.ts"
@@ -16,6 +18,7 @@ import { Tokens } from "./tokens.ts"
 // server asks GitHub, once, whose it is and whether it was issued to Path of Dev's app, and keeps nothing of it.
 //
 //   POST /v1/auth/github { githubToken, timezone }
+//     └─▶ over the client address's limit (limits.ts) ───────────────────────▶ 429, GitHub never asked
 //     └─▶ GitHub.user(githubToken) ─── not ours, or no token ───────────────▶ 401, nothing written
 //           │                       └─ down, slow, limited ────────────────────▶ 503, nothing written
 //           └─▶ Allowlist.allows(id, login) ── no ───────────────────────────▶ 401 "not in the beta", nothing written
@@ -46,10 +49,12 @@ export const AuthHandlers = HttpApiBuilder.group(
     const allowlist = yield* Allowlist
     const players = yield* Players
     const tokens = yield* Tokens
+    const limiter = yield* RateLimiter
 
     return handlers.handleAll({
-      signIn: ({ payload }) =>
+      signIn: ({ payload, request }) =>
         Effect.gen(function* () {
+          yield* limitAddress(limiter, request, limits.auth)
           const user = yield* github.user(payload.githubToken)
           if (Option.isNone(user)) return yield* new Unauthorized({ message: gitHubSaidNo })
           const account = { githubUserId: user.value.id, githubLogin: user.value.login }
@@ -59,8 +64,9 @@ export const AuthHandlers = HttpApiBuilder.group(
           return { token: yield* Effect.orDie(tokens.mint(player.id)), player }
         }),
 
-      signOut: () =>
+      signOut: ({ request }) =>
         Effect.gen(function* () {
+          yield* limitAddress(limiter, request, limits.auth)
           const credential = yield* HttpApiBuilder.securityDecode(HttpApiSecurity.bearer)
           const revoked = yield* Effect.orDie(tokens.revoke(Redacted.value(credential)))
           if (!revoked) return yield* new Unauthorized({ message: signInAgain })

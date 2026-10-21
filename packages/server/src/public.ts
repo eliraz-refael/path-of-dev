@@ -11,7 +11,6 @@ import { adminIdsOf } from "./auth/allowlist.ts"
 import { accounts } from "./auth/middleware.ts"
 import { OnlineRoutes } from "./auth/routes.ts"
 import type { Database } from "./db.ts"
-import { AddressLimits } from "./limits.ts"
 import { defaultProfileOrigin, ProfileOrigin, ProfilePages, profileOriginOf, Profiles } from "./profile.ts"
 import { core } from "./services.ts"
 
@@ -26,17 +25,17 @@ import { core } from "./services.ts"
 //     ADMIN_GITHUB_IDS ──────────▶   the admins, by GitHub user id: always in, and they keep the beta list
 //     GITHUB_CLIENT_ID, _SECRET ─▶ GitHub: the token check, asked as the app
 //     PROFILE_ORIGIN ────────────▶ where the public pages live: https://pathof.dev/u/<login> unless it says otherwise
-//       └─▶ publicServices ─▶ PublicRoutes (OnlineRoutes, ProfilePages, Healthz, AddressLimits, RetryAfter)
-//             ─▶ node http on PORT
+//       └─▶ publicServices ─▶ PublicRoutes (OnlineRoutes, ProfilePages, Healthz, RetryAfter) ─▶ node http on PORT
 //
 // A request, from the mod or a browser over HTTPS:
 //
 //   Cloudflare (TLS; rate rule on /v1/auth/*) ─▶ Traefik (Coolify): api.pathof.dev, and pathof.dev/u ─▶ :PORT
 //     ├─ GET  /healthz ─────────────▶ SELECT 1 ─▶ 200, or 503 while the database doesn't answer
-//     ├─ /u/*, /v1/auth/* ──────────▶ AddressLimits (limits.ts): over the client address's limit ─▶ 429, nothing run
 //     ├─ GET  /u/:login ────────────▶ ProfilePages (profile.ts): a public player's page, else the one 404; no-store
+//     │                                 first, the client address's limit (limits.ts) ─▶ 429, nothing rendered
 //     ├─ POST /v1/auth/github ──────▶ GitHub.user ─▶ Allowlist ─▶ Players.findOrCreate ─▶ Tokens.mint
 //     ├─ POST /v1/auth/logout ──────▶ Tokens.revoke
+//     │                                 both first the client address's limit ─▶ 429: GitHub never asked
 //     ├─ /v1/beta ──────────────────▶ BearerAuth ─▶ an admin? ─▶ Allowlist: the table, and its copy in memory
 //     ├─ /v1/account/* ─────────────▶ AccountAuth (token ─▶ player; no allowlist) ─▶ AccountHandlers ─▶ AccountData:
 //     │                                 privacy, the export's head and pages, the delete (one transaction)
@@ -190,9 +189,9 @@ export const RetryAfter = HttpRouter.middleware(
 
 /**
  * The public server's routes: the mod's, signing in and out, the beta list, the account, the public pages, and the
- * health check; the limits per client address before them.
+ * health check.
  */
-export const PublicRoutes = Layer.mergeAll(OnlineRoutes, ProfilePages, Healthz, AddressLimits, RetryAfter)
+export const PublicRoutes = Layer.mergeAll(OnlineRoutes, ProfilePages, Healthz, RetryAfter)
 
 /** What the public server's services read from its settings: the beta, and where the public pages live. */
 export interface PublicSettings extends BetaConfig {

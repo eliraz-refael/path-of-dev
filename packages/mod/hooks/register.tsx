@@ -1559,8 +1559,10 @@ const hatch = async ($: EngineInterface) => {
     })
     if (answer.status === 'refused') $.ui.toast(answer.message)
     // The hatch arrives on the stream too, with its toast.
-  } catch {
-    await setLink($, 'offline')
+  } catch (error) {
+    // Over a limit the server is up: the player is told to wait, and the band stays as it is.
+    if (error instanceof Limited) $.ui.toast(limitedText(error.retryAfterMs))
+    else await setLink($, 'offline')
   }
 }
 
@@ -2165,6 +2167,7 @@ const choose = async ($: EngineInterface, made: (id: string) => Command): Promis
     await refresh($, false).catch(() => undefined)
     return null
   } catch (error) {
+    if (error instanceof Limited) return limitedText(error.retryAfterMs)
     if (!(error instanceof ServerDown)) return 'The server answered something unexpected.'
     await setLink($, 'offline')
     return 'The Path of Dev server is not answering.'
