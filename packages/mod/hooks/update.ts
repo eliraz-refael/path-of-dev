@@ -76,9 +76,9 @@ const isNewer = (version: unknown, than: string): version is string =>
 export const updateOf = (client: string, latest: unknown, oldest: unknown): ModUpdate | null => {
   const needs = isNewer(oldest, client) ? oldest : null
   const offered = isNewer(latest, client) ? latest : null
-  if (offered === null && needs === null) return null
-  const to = offered === null ? needs : needs === null || (compareVersions(offered, needs) ?? 0) >= 0 ? offered : needs
-  return to === null ? null : { from: client, to, needs }
+  if (needs === null) return offered === null ? null : { from: client, to: offered, needs }
+  const to = offered !== null && (compareVersions(offered, needs) ?? 0) >= 0 ? offered : needs
+  return { from: client, to, needs }
 }
 
 export const sameUpdate = (a: ModUpdate | null, b: ModUpdate | null): boolean =>

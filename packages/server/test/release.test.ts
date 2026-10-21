@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { Effect, Exit } from "effect"
 import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { describe, expect } from "vitest"
 import type { GithubUser } from "../src/index.ts"
 import { BadManifest, latestModVersionOf, modManifestUrl, modVersionOf, readModVersion } from "../src/index.ts"
@@ -39,7 +40,7 @@ describe("the mod's manifest", () => {
   })
 
   it("names none when it isn't JSON, has no version, or one that isn't semantic", () => {
-    for (const text of ["", "not json", "[]", "null", '{"name":"pathofdev"}', '{"version":10}', '{"version":"1.2"}', '{"version":"01.2.3"}', '{"version":"v1.2.3"}'])
+    for (const text of ["", "not json", "[]", "null", '{"name":"pathofdev"}', '{"version":10}', '{"version":"1.2"}', '{"version":"01.2.3"}', '{"version":"v1.2.3"}', '{"version":"1.2.3-a..b"}', '{"version":"1.2.3-."}'])
       expect({ text, version: modVersionOf(text) }).toEqual({ text, version: null })
   })
 
@@ -53,8 +54,8 @@ describe("the mod's manifest", () => {
     Effect.gen(function* () {
       const missing = new URL("./no-such-manifest.json", import.meta.url)
       const exit = yield* Effect.exit(readModVersion(missing))
-      expect(exit).toEqual(Exit.fail(new BadManifest({ path: missing.pathname })))
-      expect(new BadManifest({ path: missing.pathname }).message).toContain("no-such-manifest.json")
+      expect(exit).toEqual(Exit.fail(new BadManifest({ path: fileURLToPath(missing) })))
+      expect(new BadManifest({ path: fileURLToPath(missing) }).message).toContain("no-such-manifest.json")
     }))
 })
 

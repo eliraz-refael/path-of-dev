@@ -130,7 +130,8 @@ jobs:
       - name: The server tells the mod's version from its manifest
         run: |
           version=$(jq -r .version packages/mod/.claude-plugin/plugin.json)
-          docker logs server 2>&1 | grep --quiet --fixed-strings "the mod's latest version is $version" \
+          # grep reads it all, not --quiet: an early exit would cut the pipe, and pipefail fail the step on a match.
+          docker logs server 2>&1 | grep --fixed-strings "the mod's latest version is $version" > /dev/null \
             || { echo "::error::the server's log names no mod version $version"; exit 1; }
       - name: The image's own health check passes
         run: |

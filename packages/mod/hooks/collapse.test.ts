@@ -6,6 +6,7 @@ import { bandModeOf, holdMs, isBandShown, isHeld, kicked, openingAfter } from '.
 import { gradeSegment, statusText } from './status'
 import type { Moments } from './collapse'
 import { runningCount } from './missions'
+import { clientVersion } from './server'
 import { until } from '../test/until'
 
 // The band as the `band` option has it: shut at rest in `auto` and open for a moment of play, always open in `full`,
@@ -424,8 +425,8 @@ describe('the band, auto', () => {
   test('a newer mod opens it with its line, shut holdMs after', { options: { server: 'online' } }, async ($, on) => {
     const origin = 'https://api.pathof.dev'
     const stored = { [`explored@${origin}`]: ['acme/widgets'], [`token@${origin}`]: 'pod_player' }
-    const { clock, toasts } = await playing($, on, stored, { latest: '0.11.0' })
-    expect(await bandNow($)).toContain('Update available: 0.10.0 → 0.11.0 · claude plugin update pathofdev@path-of-dev')
+    const { clock, toasts } = await playing($, on, stored, { latest: '99.0.0' })
+    expect(await bandNow($)).toContain(`Update available: ${clientVersion} → 99.0.0 · claude plugin update pathofdev@path-of-dev`)
     expect(toasts.join('\n')).not.toContain('Update')
     await clock.advance(holdMs + 500)
     expect(await bandNow($)).toBeNull()
@@ -539,8 +540,8 @@ describe('the band, line', () => {
   test('a newer mod is a toast, as the band never opens', { options: { band: 'line', server: 'online' } }, async ($, on) => {
     const origin = 'https://api.pathof.dev'
     const stored = { [`explored@${origin}`]: ['acme/widgets'], [`token@${origin}`]: 'pod_player' }
-    const { clock, toasts } = await playing($, on, stored, { latest: '0.11.0' })
-    expect(toasts).toContain('Update available: 0.10.0 → 0.11.0 · claude plugin update pathofdev@path-of-dev')
+    const { clock, toasts } = await playing($, on, stored, { latest: '99.0.0' })
+    expect(toasts).toContain(`Update available: ${clientVersion} → 99.0.0 · claude plugin update pathofdev@path-of-dev`)
     expect(await openRuns($, clock, 2_000)).toEqual([])
   })
 })

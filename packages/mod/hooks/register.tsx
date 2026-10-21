@@ -381,7 +381,7 @@ let toCheck: { id: string; words: ReadonlyArray<string> } | null = null
 let fadeTimer: Timer | null = null
 /** Takes the band's line about an update down once it has stood a minute. */
 let noticeTimer: Timer | null = null
-/** The version this copy of the mod told the band of, so a refresh tells it no more this session. */
+/** The update this session told the band of (its version, and what the server needs), so a refresh tells it no more. */
 let announced: string | null = null
 let sessionId = ''
 /** The socket the server last answered on, then the other places it may listen: see `socketPathsOf`. */
@@ -677,8 +677,9 @@ const resumeNotice = async ($: EngineInterface) => {
 const noteUpdate = async ($: EngineInterface, found: ModUpdate | null) => {
   const shown = target.kind === 'online' ? found : null
   if (!sameUpdate(await read($, modUpdate), shown)) await update($, modUpdate, () => shown)
-  if (shown === null || announced === shown.to) return
-  announced = shown.to
+  const told = shown === null ? null : `${shown.to}/${shown.needs ?? ''}`
+  if (shown === null || announced === told) return
+  announced = told
   if (!isAnnounced(shown, await $.store.get('updateSeen'))) return
   await $.store.set('updateSeen', shown.to)
   const text = updateLine(shown)
@@ -1275,7 +1276,10 @@ const refresh = async ($: EngineInterface, fromScratch: boolean) => {
   }
   await learnOwner($, opened.snapshot.character.playerId)
   // Whether the mod is behind the online server's word on it. Not after a switch meanwhile: that was the last server.
-  if (at === generation) await noteUpdate($, updateOf(clientVersion, opened.latestModVersion, opened.minClientVersion))
+  // Only a line about the mod: a store that fails it fails no refresh.
+  if (at === generation) {
+    await noteUpdate($, updateOf(clientVersion, opened.latestModVersion, opened.minClientVersion)).catch(() => undefined)
+  }
   // The login the page's address is made from, online: the server's word on the page waits for the pane to open.
   // Not after a switch meanwhile: this snapshot's player is the last server's.
   if (target.kind === 'online' && at === generation) {
@@ -2490,6 +2494,8 @@ const begin = async ($: EngineInterface, cwd: string, kept: string | null) => {
   turnPeak = null
   sessionId = kept ?? ulid(await $.clock.now())
   await update($, session, () => sessionId)
+  // A new session tells the band of an update afresh: the store still keeps one shown before from being told again.
+  announced = null
   named = (await $.env.get('PATHOFDEV_HOME')) || (await $.env.get('QUESTLINE_HOME'))
   home = await $.env.get('HOME')
   sockets = socketPathsOf(named, home, server === 'dev')

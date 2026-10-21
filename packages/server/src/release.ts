@@ -1,5 +1,6 @@
 import { Context, Data, Effect, Layer } from "effect"
 import { readFile } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
 
 // The mod's latest version, which the public server tells each session it opens, so a mod behind it can say so. The
 // public server is built from the same repo as the marketplace that offers the mod, and a merge to main deploys it as
@@ -20,7 +21,8 @@ export class ModRelease extends Context.Service<ModRelease, { readonly latest: s
 /** The mod's manifest, where the repo keeps it beside the server: from `src/` and from `dist/` alike. */
 export const modManifestUrl = new URL("../../mod/.claude-plugin/plugin.json", import.meta.url)
 
-const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+// The grammar the mod's own reading takes (packages/mod/hooks/update.ts): a version the mod can't read tells it nothing.
+const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z.-]+)?$/
 
 /** The `version` a manifest's text names, when it is a semantic version; null for anything else. */
 export const modVersionOf = (text: string): string | null => {
@@ -43,7 +45,7 @@ export class BadManifest extends Data.TaggedError("BadManifest")<{ readonly path
 
 /** The version the mod's manifest at `url` names; a manifest missing, unreadable or with no version stops the boot. */
 export const readModVersion = (url: URL = modManifestUrl): Effect.Effect<string, BadManifest> => {
-  const bad = new BadManifest({ path: url.pathname })
+  const bad = new BadManifest({ path: fileURLToPath(url) })
   return Effect.tryPromise({ try: () => readFile(url, "utf8"), catch: () => bad }).pipe(
     Effect.flatMap((text) => {
       const version = modVersionOf(text)

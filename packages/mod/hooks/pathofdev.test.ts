@@ -5825,10 +5825,12 @@ describe('the account', () => {
 describe('an update to the mod', () => {
   const origin = 'https://api.pathof.dev'
   const t0 = Date.parse('2026-10-09T08:00:00Z')
-  const newer = 'Update available: 0.10.0 → 0.11.0 · claude plugin update pathofdev@path-of-dev'
+  // Past whatever this mod's version is, so a release of the mod leaves these as they are.
+  const ahead = '99.0.0'
+  const newer = `Update available: ${clientVersion} → ${ahead} · claude plugin update pathofdev@path-of-dev`
   const inFull =
-    'Update available: 0.10.0 → 0.11.0 · run claude plugin update pathofdev@path-of-dev in a shell, then restart ' +
-    'Claude Code'
+    `Update available: ${clientVersion} → ${ahead} · run claude plugin update pathofdev@path-of-dev in a shell, ` +
+    'then restart Claude Code'
 
   /** A session on the online server, signed in, its session answer saying `more`; the store holds `entries` too. */
   const online = async ($: Parameters<TestBody>[0], on: On, more: ServerOptions, entries: Record<string, unknown> = {}) => {
@@ -5860,9 +5862,9 @@ describe('an update to the mod', () => {
   }
 
   test('a newer one shows on the band once, and stays a line in the pane', { options: { server: 'online' } }, async ($, on) => {
-    const { clock, kept, sent } = await online($, on, { latestModVersion: '0.11.0' })
+    const { clock, kept, sent } = await online($, on, { latestModVersion: ahead })
     expect((await band($)).all).toContain(newer)
-    expect(kept.get('updateSeen')).toBe('0.11.0')
+    expect(kept.get('updateSeen')).toBe(ahead)
     expect(await paneNow($)).toContain(inFull)
     // A minute on, the band's line fades; the pane keeps its own.
     await clock.advance(61_000)
@@ -5877,18 +5879,18 @@ describe('an update to the mod', () => {
   })
 
   test('a version the player was shown in an earlier session is the pane\'s line alone', { options: { server: 'online' } }, async ($, on) => {
-    await online($, on, { latestModVersion: '0.11.0' }, { updateSeen: '0.11.0' })
+    await online($, on, { latestModVersion: ahead }, { updateSeen: ahead })
     expect((await band($)).all).not.toContain('Update available')
     expect(await paneNow($)).toContain(inFull)
   })
 
   test('a version newer than the one shown before goes on the band again', { options: { server: 'online' } }, async ($, on) => {
-    const { kept } = await online($, on, { latestModVersion: '0.11.0' }, { updateSeen: '0.10.5' })
+    const { kept } = await online($, on, { latestModVersion: ahead }, { updateSeen: '98.0.0' })
     expect((await band($)).all).toContain(newer)
-    expect(kept.get('updateSeen')).toBe('0.11.0')
+    expect(kept.get('updateSeen')).toBe(ahead)
   })
 
-  for (const [latestModVersion, is] of [['0.10.0', 'at'], ['0.9.1', 'past']]) {
+  for (const [latestModVersion, is] of [[clientVersion, 'at'], ['0.0.1', 'past']]) {
     test(`the mod ${is} the latest version says nothing`, { options: { server: 'online' } }, async ($, on) => {
       const { kept } = await online($, on, { latestModVersion })
       expect((await band($)).all).not.toContain('Update')
@@ -5898,18 +5900,26 @@ describe('an update to the mod', () => {
   }
 
   test('on a local server, whatever it says, the mod says nothing', async ($, on) => {
-    const { toasts } = await streaming($, on, ownedOf(), false, { latestModVersion: '0.11.0', minClientVersion: '0.11.0' })
+    const { toasts } = await streaming($, on, ownedOf(), false, { latestModVersion: ahead, minClientVersion: ahead })
     expect((await band($)).all).not.toContain('Update')
     expect(await paneNow($)).not.toContain('Update')
     expect(toasts.join('\n')).not.toContain('Update')
   })
 
   test('a version the server needs is worded so, and goes on the band every session', { options: { server: 'online' } }, async ($, on) => {
-    await online($, on, { latestModVersion: '0.11.0', minClientVersion: '0.11.0' }, { updateSeen: '0.11.0' })
-    expect((await band($)).all).toContain('Update needed: 0.10.0 → 0.11.0 · claude plugin update pathofdev@path-of-dev')
+    const { clock, sent } = await online($, on, { latestModVersion: ahead, minClientVersion: ahead }, { updateSeen: ahead })
+    const needed = `Update needed: ${clientVersion} → ${ahead} · claude plugin update pathofdev@path-of-dev`
+    expect((await band($)).all).toContain(needed)
     expect(await paneNow($)).toContain(
-      'Update needed: 0.10.0 → 0.11.0: the server needs 0.11.0 or later · run claude plugin update ' +
+      `Update needed: ${clientVersion} → ${ahead}: the server needs ${ahead} or later · run claude plugin update ` +
         'pathofdev@path-of-dev in a shell, then restart Claude Code',
     )
+    // Faded, it stays off the band; the next session says it again.
+    await clock.advance(61_000)
+    expect((await band($)).all).not.toContain('Update needed')
+    await $.session.end({ reason: 'clear', sessionId: 'first', resume: { id: 'first' } })
+    await until(clock, () => sent.filter((one) => one.path === '/v1/sessions').length === 2)
+    await clock.settle()
+    expect((await band($)).all).toContain(needed)
   })
 })
