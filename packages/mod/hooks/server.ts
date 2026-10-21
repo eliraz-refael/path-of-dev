@@ -10,21 +10,58 @@ import type { HttpInit, HttpResponse, PluginOptions } from 'claude-code'
 //                                                                                     ▼
 //              answer ── 2xx ───────────────────────▶ checked against the route's shape, settles what it answered
 //                     ├─ 401 ───────────────────────▶ SignedOut   ─┐  (band: "sign in with /pathofdev login")
-//                     ├─ 429 / 502 / 503 / 504 ─────▶ ServerDown  ─┼─▶ band offline; the queue keeps every event
+//                     ├─ 502 / 503 / 504 ───────────▶ ServerDown  ─┼─▶ band offline; the queue keeps every event
 //                     ├─ no answer (no socket, net) ─▶ ServerDown  ─┘
+//                     ├─ 429 ───────────────────────▶ Limited: up, but over a rate limit; the queue keeps every
+//                     │                                 event, and the flush waits the `retryAfterMs` it says
 //                     └─ anything else ─────────────▶ Error: "answered something unexpected"; the queue keeps it too
 //
 // The token is the game's own, from `/pathofdev login` (login.ts), kept in $.store under `token@<origin>`; the mod
 // never logs a request's headers.
 
 // The mod's version, as plugin.json has it, sent with every request: the one a server's `minClientVersion` names.
-export const clientVersion = '0.8.0'
+export const clientVersion = '0.8.1'
 
 /** The server can't be reached, or can't take the request now: the band shows it offline, and what waits stays. */
 export class ServerDown extends Error {}
 
 /** The online server wants a sign-in: its token is missing, revoked, or no longer in the beta. */
 export class SignedOut extends ServerDown {}
+
+/**
+ * The online server is up but over one of its rate limits for this player (a 429): nothing was written, and it says
+ * how long to wait. What was sent stays queued, and goes again once the wait is over.
+ */
+export class Limited extends ServerDown {
+  readonly retryAfterMs: number
+  constructor(message: string, retryAfterMs: number) {
+    super(message)
+    this.retryAfterMs = retryAfterMs
+  }
+}
+
+/** The least and the most a 429 makes the mod wait, whatever it says: a second, and ten minutes. */
+export const minWaitMs = 1_000
+export const maxWaitMs = 600_000
+
+/**
+ * How long a 429 asks the mod to wait: its body's `retryAfterMs`, else its `Retry-After` in seconds, else a minute;
+ * held between `minWaitMs` and `maxWaitMs`, so an odd answer neither has the mod knock at once nor holds the queue
+ * long.
+ */
+export const retryAfterOf = (response: Pick<HttpResponse, 'headers' | 'text'>): number => {
+  const body = parsed(response.text)
+  const asked = isRecord(body) ? body['retryAfterMs'] : undefined
+  const header = response.headers['retry-after']
+  const seconds = header === undefined || header.trim() === '' ? Number.NaN : Number(header)
+  const ms =
+    typeof asked === 'number' && Number.isFinite(asked) ? asked : Number.isFinite(seconds) ? seconds * 1_000 : 60_000
+  return Math.min(maxWaitMs, Math.max(minWaitMs, Math.ceil(ms)))
+}
+
+/** What the player is told when the server is over a limit for them. */
+export const limitedText = (retryAfterMs: number): string =>
+  `The Path of Dev server takes no more from you for now: try again in ${Math.ceil(retryAfterMs / 1_000)} s.`
 
 /**
  * Where the mod plays: a local server over its Unix socket (the player's own save, or with `dev` the dev sandbox), or
@@ -198,6 +235,7 @@ export const parsed = (text: string): unknown => {
 export const answerOf = <A>(path: string, response: HttpResponse, is: (value: unknown) => value is A): A => {
   const failure = failureOf(response)
   if (failure === 'signedOut') throw new SignedOut(`${path} answered 401: sign in again`)
+  if (response.status === 429) throw new Limited(`${path} answered 429`, retryAfterOf(response))
   if (failure === 'unavailable') throw new ServerDown(`${path} answered ${response.status}`)
   if (failure === 'unexpected') throw new Error(`${path} answered ${response.status}`)
   const body = parsed(response.text)

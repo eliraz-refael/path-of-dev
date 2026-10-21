@@ -175,6 +175,8 @@ import {
   isEvents,
   isSession,
   isStream,
+  Limited,
+  limitedText,
   notSignedIn,
   queueAfter,
   requestOf,
@@ -382,6 +384,12 @@ let isFlushing = false
 let isPolling = false
 let reconnect: Timer | null = null
 let flushTimer: Timer | null = null
+/**
+ * Until when the server asked for no more events (a 429, on the mod's clock), and the flush set for then: no flush
+ * sets out before it, so the queue waits whole and goes as soon as the server takes it.
+ */
+let heldUntil = 0
+let heldFlush: Timer | null = null
 // What the grader reads beside a prompt: the player's last one, graded or not, and the end of the main loop's last
 // answer.
 let lastPrompt = ''
@@ -515,7 +523,24 @@ const stamp = async ($: EngineInterface) => {
   return { id: ulid(now), occurredAt: new Date(now).toISOString(), sessionId }
 }
 
-/** Sends what waits, a batch at a time. Whatever the server answered leaves the queue; the rest waits. */
+/** The server said to wait `ms` (a 429): flushes hold off till then, and one is set for the moment it ends. */
+const holdFlushes = async ($: EngineInterface, ms: number) => {
+  heldUntil = (await $.clock.now()) + ms
+  heldFlush?.cancel()
+  heldFlush = $.clock.after(ms, () => void flush($))
+}
+
+/** A switch of server: the last one's wait is not the new one's. */
+const releaseFlushes = () => {
+  heldUntil = 0
+  heldFlush?.cancel()
+  heldFlush = null
+}
+
+/**
+ * Sends what waits, a batch at a time. Whatever the server answered leaves the queue; the rest waits. Over the
+ * server's rate limit (a 429) nothing leaves the queue, and no flush sets out again till the wait it asked for is up.
+ */
 const flush = async ($: EngineInterface): Promise<void> => {
   if (isFlushing) return
   isFlushing = true
@@ -527,6 +552,7 @@ const flush = async ($: EngineInterface): Promise<void> => {
   // reads past it, so a run of such events never holds back the ones behind it.
   const waiting = new Set<string>()
   try {
+    if ((await $.clock.now()) < heldUntil) return
     for (;;) {
       const batch = (await queued($, key)).filter((event) => !waiting.has(idOf(event) ?? '')).slice(0, batchSize)
       if (batch.length === 0 || at !== generation) return
@@ -539,7 +565,9 @@ const flush = async ($: EngineInterface): Promise<void> => {
         })
     }
   } catch (error) {
-    if (error instanceof ServerDown && at === generation) await setLink($, 'offline')
+    // Over a limit the server is up: the band stays as it is, and the flush set for the wait's end sends the rest.
+    if (error instanceof Limited && at === generation) await holdFlushes($, error.retryAfterMs)
+    else if (error instanceof ServerDown && at === generation) await setLink($, 'offline')
   } finally {
     isFlushing = false
   }
@@ -1536,9 +1564,13 @@ const hatch = async ($: EngineInterface) => {
   }
 }
 
-/** A command with no answer: only a server that can't be reached is offline; one that answered oddly is still up. */
+/**
+ * A command with no answer: only a server that can't be reached is offline; one over its rate limit, or that answered
+ * oddly, is still up.
+ */
 const commandFailed = async ($: EngineInterface, error: unknown) => {
-  if (error instanceof ServerDown) await setLink($, 'offline')
+  if (error instanceof Limited) $.ui.toast(limitedText(error.retryAfterMs))
+  else if (error instanceof ServerDown) await setLink($, 'offline')
   else $.ui.toast('The server answered something unexpected.')
 }
 
@@ -1618,6 +1650,7 @@ const patFromPrompt = async ($: EngineInterface): Promise<string> => {
     await refresh($, false).catch(() => undefined)
     return `You pet ${current.pet.name}.`
   } catch (error) {
+    if (error instanceof Limited) return limitedText(error.retryAfterMs)
     if (!(error instanceof ServerDown)) return 'The server answered something unexpected.'
     await setLink($, 'offline')
     return 'The Path of Dev server is not answering.'
@@ -1751,6 +1784,7 @@ const switchServer = async ($: EngineInterface, to: ServerName): Promise<string>
       return `The Server option stays as it is: ${written.deny}`
     }
     generation += 1
+    releaseFlushes()
     // The new server's own rubric, as the store keeps it, until it answers.
     rubric = null
     hostileTone = hostileToneAt

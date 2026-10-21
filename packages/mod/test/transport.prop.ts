@@ -10,10 +10,14 @@ import {
   failureOf,
   idOf,
   isEvents,
+  Limited,
+  maxWaitMs,
+  minWaitMs,
   originOf,
   publicOrigin,
   queueAfter,
   requestOf,
+  retryAfterOf,
   ServerDown,
   settledBy,
   SignedOut,
@@ -159,6 +163,31 @@ describe('answers and the queue', () => {
     if (status >= 200 && status < 300) return
     expect(() => answerOf('/v1/events', response(status, text), isEvents)).toThrow()
   })
+
+  const Wait = Schema.Union([
+    Schema.Int.check(Schema.isBetween({ minimum: -5_000, maximum: 2_000_000 })),
+    Schema.String,
+  ])
+  const Header = Schema.UndefinedOr(Schema.Literals(['', ' ', '0', '1', '30', '3600', 'soon', '-4', '2.5']))
+
+  prop.prop(
+    "a 429 settles nothing, and waits what its body says, else its Retry-After, else a minute, held to its bounds",
+    [Wait, Header],
+    ([wait, header]) => {
+      const answer = {
+        status: 429,
+        ok: false,
+        headers: header === undefined ? {} : { 'retry-after': header },
+        text: JSON.stringify({ _tag: 'RateLimited', code: 'rate_limited', message: 'Over a limit', retryAfterMs: wait }),
+      }
+      expect(() => answerOf('/v1/events', answer, isEvents)).toThrow(Limited)
+      const ms = retryAfterOf(answer)
+      const seconds = header === undefined || header.trim() === '' ? Number.NaN : Number(header)
+      const asked = typeof wait === 'number' ? wait : Number.isFinite(seconds) ? seconds * 1_000 : 60_000
+      expect(ms).toBe(Math.min(maxWaitMs, Math.max(minWaitMs, Math.ceil(asked))))
+      expect(new Limited('', ms)).toBeInstanceOf(ServerDown)
+    },
+  )
 
   const Queue = Schema.Array(Schema.Struct({ id: Schema.String, n: Schema.Number }))
   const Results = Schema.Array(

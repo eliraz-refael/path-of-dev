@@ -339,6 +339,20 @@ export const dump = Effect.gen(function* () {
 export const client = HttpApiTest.groups(PathOfDevApi, ["mod"])
 
 /**
+ * A Fetch handler for the public server's routes as `publicWebHandler`, each request from the socket address its
+ * `x-test-socket` header names, as Node would see the peer: none without one.
+ */
+export const addressedWebHandler = Effect.flatMap(HttpRouter.toHttpEffect(PublicRoutes), (app) =>
+  fetchOf(
+    Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+      Effect.provideService(
+        app,
+        HttpServerRequest.HttpServerRequest,
+        request.modify({ remoteAddress: Option.fromNullishOr(request.headers["x-test-socket"]) }),
+      )),
+  ))
+
+/**
  * Runs a test against a fresh server: the handlers and the services behind them, over one database. `seed` seeds the
  * server's Random; from the OS when unset.
  */

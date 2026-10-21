@@ -229,6 +229,8 @@ type ServerOptions = {
   commandTakes?: number
   /** A server that takes this long to answer a batch of events, in ms. */
   eventsTake?: number
+  /** A server over its rate limit: each batch of events is answered 429, saying to wait the next of these ms. */
+  eventsLimited?: Array<number>
   /** The one socket whose stream hands the mod the test's events, any other holding its 25 seconds; any when unset. */
   streamsOn?: string
   /** GitHub, for a sign-in. */
@@ -426,6 +428,9 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
       })
     if (path === '/v1/events') {
       if (options.eventsTake !== undefined) await clock.sleep(options.eventsTake)
+      const wait = options.eventsLimited?.shift()
+      const limited = { _tag: 'RateLimited', code: 'rate_limited', message: 'Too many requests', retryAfterMs: wait }
+      if (wait !== undefined) return reply(429, limited)
       const events = typeof body === 'object' && body !== null && 'events' in body && Array.isArray(body.events) ? body.events : []
       // A type from a newer mod than this server knows, as `future.*` stands for here.
       const resultOf = (event: { id: string; type: string }) =>
@@ -1077,6 +1082,34 @@ describe('reporting work', () => {
     await until(clock, () => said().includes('change.merged'))
     expect(said()).not.toContain('acme')
     expect(said()).toContain('"additions":12')
+  })
+
+  test('over the rate limit keeps every event queued, and sends them once the wait it says is over', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    const waiting = futureEvents(3).map((event) => ({ ...event, type: 'session.cleared' }))
+    const kept = keptStore(on, { explored: ['acme/widgets'], queue: waiting })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock, { level: 4, eventsLimited: [45_000] })
+    const batches = () => sent.filter((one) => one.path === '/v1/events').length
+    await $.session.start(start)
+    await until(clock, () => batches() === 1)
+    await clock.settle()
+    expect(kept.get('queue')).toEqual(waiting)
+    // The server is up: the band says so, and only says to wait.
+    expect((await band($)).all).not.toContain('offline')
+    // Neither the flush every 30 seconds nor a turn's end knocks before the 45 seconds are up.
+    await $.turn.complete({ answer: 'Done', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await clock.advance(44_000)
+    await clock.settle()
+    expect(batches()).toBe(1)
+    expect(JSON.stringify(kept.get('queue'))).toContain('turn.completed')
+    await clock.advance(1_000)
+    await until(clock, () => JSON.stringify(kept.get('queue')) === '[]')
+    expect(batches()).toBe(2)
+    expect(eventsOf(sent).slice(-4).map((event) => event['id'])).toEqual([
+      ...futureEvents(3).map((event) => event['id']),
+      expect.any(String),
+    ])
   })
 
   test('keeps events while the server is down, and sends them once it answers', async ($, on) => {
