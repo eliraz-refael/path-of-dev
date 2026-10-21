@@ -1,4 +1,5 @@
-import { engineVersion, initialState, project } from "@pathofdev/engine"
+import type { BadgeProgress } from "@pathofdev/engine"
+import { engineVersion, initialState, progressOf, project } from "@pathofdev/engine"
 import type { Player as PlayerType, Snapshot, StreamResponse } from "@pathofdev/schema"
 import { Count, Player, PlayerState, ServerEvent } from "@pathofdev/schema"
 import { Context, Effect, Layer, Option, Schema } from "effect"
@@ -33,6 +34,12 @@ export interface NewPlayer extends LocalProfile {
   readonly github: GithubIdentity | null
 }
 
+/** What a public page reads of a player: the snapshot, and how far each badge they don't hold yet is. */
+export interface ProfileRead {
+  readonly snapshot: Snapshot
+  readonly badgeProgress: ReadonlyArray<BadgeProgress>
+}
+
 /** Which server a player lives on, which names the stream the mod keys its cursor, cache and queue on. */
 export type ServerKind = "local" | "online"
 
@@ -60,6 +67,11 @@ export class Players extends Context.Service<
     ) => Effect.Effect<PlayerType, Failure>
     /** What the mod draws of the player; `PlayerGone` once they were deleted. */
     readonly snapshot: (player: PlayerType) => Effect.Effect<Snapshot, Failure | PlayerGone>
+    /**
+     * What a public page reads of the player, from one read of their save: the snapshot, and how far each badge they
+     * don't hold yet is. Only the page measures the badges: the mod's snapshot doesn't carry them.
+     */
+    readonly profile: (player: PlayerType) => Effect.Effect<ProfileRead, Failure | PlayerGone>
     /** The stream after `after`, answered from what is committed now; `PlayerGone` once the player was deleted. */
     readonly streamAfter: (playerId: string, after: number) => Effect.Effect<StreamResponse, Failure | PlayerGone>
   }
@@ -198,22 +210,28 @@ const make = (kind: ServerKind) =>
         Option.match({ onSome: Effect.succeed, onNone: () => create({ ...profile, github: null }) }),
       )
 
-    const snapshot = (player: PlayerType) =>
+    /** The player's save as committed now, and the rules it is read under. */
+    const read = (player: PlayerType) =>
       Effect.gen(function* () {
         const row = yield* head(player.id)
-        const now = yield* nowIso
-        return project(
-          row.state,
-          { rules, catalog, questPacks: questPacks.active, now },
-          {
-            player,
-            serverId: serverIdOf(kind, player),
-            streamEpoch: row.stream_epoch,
-            cursor: row.server_seq,
-            dev: devMode.isOn,
-          },
-        )
+        const context = { rules, catalog, questPacks: questPacks.active, now: yield* nowIso }
+        const meta = {
+          player,
+          serverId: serverIdOf(kind, player),
+          streamEpoch: row.stream_epoch,
+          cursor: row.server_seq,
+          dev: devMode.isOn,
+        }
+        return { state: row.state, context, meta }
       })
+
+    const snapshot = (player: PlayerType) => Effect.map(read(player), ({ state, context, meta }) => project(state, context, meta))
+
+    const profile = (player: PlayerType) =>
+      Effect.map(read(player), ({ state, context, meta }) => ({
+        snapshot: project(state, context, meta),
+        badgeProgress: progressOf(state, context),
+      }))
 
     const streamAfter = (playerId: string, after: number) =>
       Effect.gen(function* () {
@@ -229,5 +247,5 @@ const make = (kind: ServerKind) =>
         return response
       })
 
-    return Players.of({ local, create, findOrCreate, snapshot, streamAfter })
+    return Players.of({ local, create, findOrCreate, snapshot, profile, streamAfter })
   })

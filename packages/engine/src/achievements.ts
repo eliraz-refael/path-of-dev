@@ -27,6 +27,7 @@ import { bestStreakAsOf } from "./streak.ts"
 //
 // A criterion counts a Metric to a goal, or averages the prompt grades or the context peaks over enough of them.
 // Context counts read finished sessions only (`settledContext`): the session measured last may cross a fill yet.
+// A public profile reads the same gauges off the same ledger for the badges still locked (`progressOf`).
 
 /** What the badges read off a state: each Metric's number, and the two lifetime averages with what they cover. */
 export interface Ledger {
@@ -171,6 +172,27 @@ export const unlock = (state: PlayerState, defs: ReadonlyArray<AchievementDef>, 
         },
         events: defs.map(unlockedEvent),
       }
+
+/** How far a badge the player doesn't hold yet is. */
+export interface BadgeProgress {
+  readonly id: string
+  readonly gauges: ReadonlyArray<Gauge>
+}
+
+/**
+ * How far each badge the player doesn't hold yet is, in the rules' order, read off one ledger: what a public profile
+ * draws on a locked badge. Worked out when a page is drawn, never kept.
+ */
+export const progressOf = (
+  state: PlayerState,
+  context: Pick<Context, "rules" | "catalog" | "now">,
+): ReadonlyArray<BadgeProgress> => {
+  const held = state.holdings.achievements
+  const locked = context.rules.achievements.filter((def) => !hasEarned(held, def.id))
+  if (locked.length === 0) return []
+  const ledger = ledgerOf(state, context)
+  return locked.map((def) => ({ id: def.id, gauges: gaugesOf(def.criterion, ledger) }))
+}
 
 /** Every badge the state now earns and the player doesn't hold, unlocked as of the step's time. */
 export const unlockAchievements = (

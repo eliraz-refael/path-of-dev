@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
 import type { GithubUser } from "../src/index.ts"
-import { escapeHtml, notFoundPage, Players, unavailablePage } from "../src/index.ts"
+import { escapeHtml, notFoundPage, Players, rules, unavailablePage } from "../src/index.ts"
 import type { Handle } from "./fixtures.ts"
 import {
   dump,
@@ -173,6 +173,32 @@ describe("a profile page", () => {
         }),
       ),
     serverRuns,
+  )
+
+  it.effect("counts the badges their save holds of the rules', and shows how far a locked one is only beside the stats", () =>
+    withPublic(
+      Effect.gen(function* () {
+        const handle = yield* publicWebHandler
+        const { bearer, player } = yield* signIn(handle, ada)
+        yield* makePublic(handle, bearer)
+        // 64 commits and the first's badge held, beside one the rules no longer define.
+        yield* setState(player.id, "progress,totals", { "commit.made": 64 })
+        yield* setState(player.id, "holdings,achievements", [
+          { id: "first-commit", unlockedAt: "2026-10-09T08:00:00.000Z" },
+          { id: "zqretiredzq", unlockedAt: "2026-10-09T08:00:00.000Z" },
+        ])
+        const shown = (yield* read(yield* get(handle, "/u/ada"))).body
+        expect(shown).toContain(`<b>1</b> of ${rules.achievements.length}`)
+        expect(shown).toContain("First commit")
+        expect(shown).not.toContain("zqretiredzq")
+        expect(shown).toMatch(/<b>Committed<\/b>.*?<span class="when">64 \/ 100<\/span>/s)
+        const hide = yield* handle(request("/v1/account/profile", "POST", bearer, { kind: "hide", section: "stats" }))
+        expect(hide.status).toBe(200)
+        const hidden = (yield* read(yield* get(handle, "/u/ada"))).body
+        expect(hidden).not.toContain("64 / 100")
+        expect(hidden).toMatch(/<b>Committed<\/b>.*?<span class="when">Locked<\/span>/s)
+      }),
+    ),
   )
 
   it.effect("keeps a private player's 404 when their save can't be read, and answers a public one's with a 503", () =>

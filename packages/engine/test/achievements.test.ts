@@ -18,9 +18,11 @@ import { describe, expect, it } from "vitest"
 import {
   gaugesOf,
   isEarned,
+  isMet,
   ledgerOf,
   measureContext,
   newlyEarned,
+  progressOf,
   settledContext,
   starterAchievements,
   starterCatalog,
@@ -28,6 +30,7 @@ import {
   starterRules,
   statsOf,
   step,
+  unlockAchievements,
   unlockedEvent,
   xpForLevel,
 } from "../src/index.ts"
@@ -303,6 +306,24 @@ const unbadged = (s: Step) => ({
   ...s,
   state: { ...s.state, holdings: { ...s.state.holdings, achievements: [] } },
   events: s.events.filter((event) => event.type !== "achievement.unlocked"),
+})
+
+describe("progressOf", () => {
+  prop.prop("is every badge the player doesn't hold, in the rules' order, with its gauges", [Counts, SmallDefs], ([counts, drawn]) => {
+    const defs = defsOf(drawn)
+    const state = stateOf(counts, heldOf(drawn))
+    const context = { ...at, rules: rulesWith(defs) }
+    const ledger = ledgerOf(state, context)
+    expect(progressOf(state, context)).toEqual(
+      defs.filter((_, i) => !drawn[i]?.held).map((def) => ({ id: def.id, gauges: gaugesOf(def.criterion, ledger) })),
+    )
+  })
+
+  prop.prop("leaves no badge locked with every gauge met, once the unlock pass has run", [Counts, SmallDefs], ([counts, drawn]) => {
+    const context = { ...at, rules: rulesWith(defsOf(drawn)) }
+    const { state } = unlockAchievements(stateOf(counts, heldOf(drawn)), context)
+    for (const { gauges } of progressOf(state, context)) expect(gauges.every(isMet)).toBe(false)
+  })
 })
 
 describe("step: achievements", () => {

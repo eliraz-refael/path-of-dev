@@ -1,4 +1,14 @@
-import type { Player as PlayerType, Privacy, ProfileSection, QualityDimension, Snapshot } from "@pathofdev/schema"
+import type {
+  AchievementDef,
+  Criterion,
+  Player as PlayerType,
+  Privacy,
+  ProfileSection,
+  QualityDimension,
+  Rarity,
+  Snapshot,
+} from "@pathofdev/schema"
+import type { BadgeProgress, Gauge } from "@pathofdev/engine"
 import { happyBonusPct } from "@pathofdev/engine"
 import { isGithubLogin, isShown, Player, privacyOf, profileUrlOf } from "@pathofdev/schema"
 import { Cause, Context, Effect, Layer, Option, Schema } from "effect"
@@ -7,7 +17,8 @@ import { SqlClient, SqlSchema } from "effect/sql"
 import type { SqlError } from "effect/sql/SqlError"
 import { Allowlist } from "./auth/allowlist.ts"
 import { rules } from "./game.ts"
-import { notFoundPage, pageContentType, pageHeaders, profilePage, unavailablePage } from "./pages.ts"
+import { gaugeOf, notFoundPage, pageContentType, pageHeaders, profilePage, unavailablePage } from "./pages.ts"
+import type { ProfileRead } from "./players.ts"
 import { playerColumns, Players } from "./players.ts"
 
 // A player's public page, `pathof.dev/u/<login>`: read-only, no sign-in, rendered from their snapshot. Traefik sends
@@ -19,10 +30,10 @@ import { playerColumns, Players } from "./players.ts"
 //     ├─ Profiles.byLogin: no player holds it ───▶ 404   one query, on lower(github_login)
 //     ├─ privacyOf(profile) is not public ───────▶ 404   checked before the save is read, so a private player's
 //     ├─ not on the beta list (Allowlist) ───────▶ 404     save, newer or broken, never shows through a 503
-//     └─ Players.snapshot
+//     └─ Players.profile: the snapshot, and how far each locked badge is
 //          ├─ PlayerGone: deleted since ─────────▶ 404
 //          ├─ anything else fails ───────────────▶ 503, logged: a database down never looks like a missing page
-//          └─▶ profileOf(snapshot, privacy) ─────▶ 200 profilePage   only the sections shown, allow-listed
+//          └─▶ profileOf(read, privacy) ─────────▶ 200 profilePage   only the sections shown, allow-listed
 //
 // Every 404 is the same constant page with the same headers, whatever the reason. Pages are never cached
 // (`no-store`), so a hide, a private or a delete takes effect on the next view.
@@ -57,7 +68,7 @@ export interface PublicProfile {
     readonly prestige: number
     readonly xp: { readonly total: number; readonly intoLevel: number; readonly forNextLevel: number }
   }
-  readonly badges?: ReadonlyArray<{ readonly id: string; readonly unlockedAt: string }>
+  readonly badges?: PublicBadges
   /** Null while it is an egg. */
   readonly pet?: {
     readonly name: string
@@ -79,10 +90,79 @@ export interface PublicProfile {
   }
 }
 
+/** Every badge the rules define, the player's earned ones counted: "`earned` of `of`". */
+export interface PublicBadges {
+  readonly earned: number
+  readonly of: number
+  /** The earned, newest first, then the locked, the closest first. */
+  readonly list: ReadonlyArray<PublicBadge>
+}
+
+/** A badge as a page draws it, from the rules: earned at `unlockedAt`, or locked. */
+export interface PublicBadge {
+  readonly id: string
+  readonly name: string
+  readonly about: string
+  readonly rarity: Rarity
+  readonly glyph: string
+  readonly criterion: Criterion
+  readonly unlockedAt: string | null
+  /** How far a locked badge is: null once earned, and while the player hides a section it would tell (`sectionsOf`). */
+  readonly gauges: ReadonlyArray<Gauge> | null
+}
+
+/** How close a locked badge is, 0 to 1, for its place in the list; an average's gauges don't add up to one. */
+const closeness = (badge: PublicBadge): number =>
+  badge.gauges === null ? 0 : (gaugeOf(badge.criterion, badge.gauges).share ?? 0)
+
+/**
+ * The sections a locked badge's progress tells: the stats always (its counts), and the streak's days or whether the
+ * pet hatched for the badges that read them. It shows only while every one of them is shown.
+ */
+const sectionsOf = (criterion: Criterion): ReadonlyArray<ProfileSection> => {
+  if (criterion.kind !== "count") return ["stats"]
+  if (criterion.of.kind === "streak") return ["stats", "streak"]
+  return criterion.of.kind === "hatched" ? ["stats", "pet"] : ["stats"]
+}
+
+/**
+ * The badges a page shows: every one the rules define, earned or locked. An id the player holds that the rules no
+ * longer define is left out, and counted nowhere. A locked badge's progress shows only while `shown` holds every
+ * section it would tell.
+ */
+export const badgesOf = (
+  defs: ReadonlyArray<AchievementDef>,
+  held: Snapshot["achievements"],
+  progress: ReadonlyArray<BadgeProgress>,
+  shown: (section: ProfileSection) => boolean,
+): PublicBadges => {
+  const unlocked = new Map(held.map((one) => [one.id, one.unlockedAt]))
+  const measured = new Map(progress.map((one) => [one.id, one.gauges]))
+  const all = defs.map((def): PublicBadge => {
+    const unlockedAt = unlocked.get(def.id) ?? null
+    return {
+      id: def.id,
+      name: def.name,
+      about: def.about,
+      rarity: def.rarity,
+      glyph: def.glyph,
+      criterion: def.criterion,
+      unlockedAt,
+      gauges: unlockedAt === null && sectionsOf(def.criterion).every(shown) ? (measured.get(def.id) ?? null) : null,
+    }
+  })
+  // Sorts are stable: a tie keeps the rules' order.
+  const earned = all.filter((badge) => badge.unlockedAt !== null)
+    .sort((a, b) => Date.parse(b.unlockedAt ?? "") - Date.parse(a.unlockedAt ?? ""))
+  const locked = all.filter((badge) => badge.unlockedAt === null).sort((a, b) => closeness(b) - closeness(a))
+  return { earned: earned.length, of: defs.length, list: [...earned, ...locked] }
+}
+
 const speciesName = (species: string): string => rules.pet.species.find((one) => one.id === species)?.name ?? species
 
-/** What `login`'s page shows of `snapshot` under `privacy`: the allow-list between a save and the web. */
-export const profileOf = (login: string, snapshot: Snapshot, privacy: Privacy): PublicProfile => {
+/** What `login`'s page shows of their save under `privacy`: the allow-list between a save and the web. */
+export const profileOf = (login: string, read: ProfileRead, privacy: Privacy): PublicProfile => {
+  const { snapshot, badgeProgress } = read
   const { character, pet, stats } = snapshot
   const shown = (section: ProfileSection) => isShown(privacy, section)
   return {
@@ -95,7 +175,9 @@ export const profileOf = (login: string, snapshot: Snapshot, privacy: Privacy): 
       prestige: character.prestige,
       xp: { total: character.xp.total, intoLevel: character.xp.intoLevel, forNextLevel: character.xp.forNextLevel },
     },
-    ...(shown("badges") ? { badges: snapshot.achievements.map((one) => ({ id: one.id, unlockedAt: one.unlockedAt })) } : {}),
+    ...(shown("badges")
+      ? { badges: badgesOf(rules.achievements, snapshot.achievements, badgeProgress, shown) }
+      : {}),
     ...(shown("pet")
       ? {
         pet: pet === null ? null : {
@@ -180,8 +262,8 @@ export const ProfilePages = HttpRouter.use((router) =>
         const privacy = privacyOf(profile)
         const login = player.githubLogin
         if (!privacy.public || login === null || !(yield* allowlist.allows(player))) return notFound
-        const snapshot = yield* players.snapshot(player)
-        return page(profilePage(profileOf(login, snapshot, privacy), profileUrlOf(origin, login)), 200)
+        const read = yield* players.profile(player)
+        return page(profilePage(profileOf(login, read, privacy), profileUrlOf(origin, login)), 200)
       }).pipe(
         Effect.catchTag("PlayerGone", () => Effect.succeed(notFound)),
         // A request cut short (the viewer left, the server stopping) stays interrupted: no 503, nothing logged.

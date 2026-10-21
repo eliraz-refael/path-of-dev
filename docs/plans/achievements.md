@@ -148,8 +148,8 @@ The names, glyphs and `about` texts are drafts to settle in 7a. Each `about` say
 
 ### Read path (7b)
 ```
-players.snapshot ─▶ project ─▶ {achievements, badgeProgress = progressOf(state, ctx)}
-   ─▶ profileOf (allow-list) + rules.achievements ─▶ badgesOf ─▶ badgesCard "N of M"
+Players.profile ─▶ one read of the save ─▶ { snapshot = project(...), badgeProgress = progressOf(state, ctx) }
+   ─▶ profileOf (allow-list; progress only with stats shown) + rules.achievements ─▶ badgesOf ─▶ badgesCard "N of M"
 ```
 
 ### 7c showcase
@@ -458,6 +458,30 @@ Tests:
   - a `checkedRules` property covers catalogues that drop a rarity or band slots.
   - The suite passes on PGlite and on Postgres.
 - Mod: `test/celebrate.prop.ts`, plus one mounted check that a batch of three plays as its epic with "+2 more".
+
+## As built (7b)
+
+- **Look:** direction C of the mockup (https://claude.ai/artifact/TrJ94seyaQy259oheSUN9t), medal tiles with B's outlined
+  rarity tags, picked by the user on 2026-10-21:
+  - earned, then locked, each under its own heading;
+  - a ring round the glyph: full when earned, filled to a count's share when locked;
+  - an average badge has no ring, only its line ("Avg 7.6 · needs 8", or "40 / 100 prompts" until it covers enough);
+  - at 560 px and under, each badge is a row that also says what earns it.
+- **Progress is not in the snapshot.** `Players.profile` reads the save once and returns the snapshot and
+  `progressOf(state, context)`. The mod's snapshot is unchanged, and only the page pays for the ledger. A badges tab in
+  the pane would add progress to the snapshot then.
+- **`badgesOf(defs, held, progress)`** in profile.ts:
+  - every defined badge, once;
+  - ids the rules no longer define are dropped and counted nowhere;
+  - earned newest first, then locked by a count's share of its goal; averages and ties keep the rules' order;
+  - a locked badge's progress shows only while every section it tells is shown: `stats` always, plus `streak` for
+    the streak badges and `pet` for Hatchling (from the review of #55).
+- **Colours:** uncommon green, epic purple and legendary orange join common and rare, in both themes, with a darker ink
+  for each tag's text.
+- **Tests:**
+  - engine: `progressOf` is the locked defs' gauges, and none has every gauge met once the unlock pass ran;
+  - server: N of M, each badge once, the order, progress only with stats, badge names escaped, `gaugeOf`, and one
+    route test over the database (64 commits read as "64 / 100", then "Locked" once stats are hidden).
 
 ## NOT in scope
 - **Review badges:** nothing counts reviews until the verifier (TODO).
