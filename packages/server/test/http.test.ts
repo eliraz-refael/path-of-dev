@@ -32,7 +32,7 @@ describe("POST /v1/sessions", () => {
         expect(opened.snapshot.character).toMatchObject({ name: "Player", level: 0, gold: 0 })
         expect(opened.snapshot.pet).toBeNull()
         expect(opened.snapshot.serverId).toBe(`local-${opened.snapshot.player.id}`)
-        expect(opened.rules.version).toBe(13)
+        expect(opened.rules.version).toBe(14)
         expect(opened.acceptedEventTypes).toEqual(clientEventTypes)
       }),
     ),

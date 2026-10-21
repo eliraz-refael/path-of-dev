@@ -101,8 +101,8 @@ export const starterAchievements: ReadonlyArray<AchievementDef> = [
 ]
 
 export const starterRules: RulesConfig = {
-  version: 13,
-  schemaVersion: 10,
+  version: 14,
+  schemaVersion: 11,
   appliesFrom: null,
   // Steeper than the 1.6 before sigils: a player wearing the sigil typical of their stage reaches each level about
   // when one without sigils did, on the doc's steady day of 400 XP of work and 200 of prompts. Level 1 stays 100 XP.
@@ -124,7 +124,8 @@ export const starterRules: RulesConfig = {
     { fromLevel: 20, glyph: "🐉" },
   ],
   xp: {
-    "change.merged": { xp: 250, tier: "reported", dailyCap: null, ownRepoXp: 120, tinyDiffPct: 25 },
+    // 120 in a repo the change's author owns, 250 elsewhere; a change of 1 or 2 lines pays a quarter of either.
+    "change.merged": { xp: 250, tier: "reported", dailyCap: null, ownRepoXp: 120, tinyDiffPct: 25, tinyDiffLines: 3 },
     "change.opened": { xp: 0, tier: "reported", dailyCap: null },
     "commit.made": { xp: 3, tier: "reported", dailyCap: 20 },
     "review.acted_on": { xp: 80, tier: "verified", dailyCap: 10 },

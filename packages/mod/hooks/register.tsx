@@ -1,4 +1,4 @@
-import type { ClientEvent, Command, ServerEvent, Slot } from '@pathofdev/schema'
+import type { ClientEvent, Command, ServerEvent, Slot, WorkRef } from '@pathofdev/schema'
 import { atom, read, update } from 'claude-code'
 import type {
   ElementConstructor,
@@ -119,6 +119,19 @@ import type { ExportStep } from './account'
 import type { BetaAsk } from './beta'
 import { betaAskOf, betaRouteOf, betaTextOf } from './beta'
 import { isSecret, newSecret, ulid } from './ids'
+import type { Opened, View } from './merges'
+import {
+  checkEveryMs,
+  factsOf,
+  isFresh,
+  isLogin,
+  keptAfter,
+  loginOf,
+  openedOf,
+  prViewOf,
+  pullOf,
+  withOpened,
+} from './merges'
 import type { Poll, DeviceCode } from './login'
 import {
   accessTokenRequest,
@@ -354,6 +367,12 @@ let sockets: ReadonlyArray<string> = []
 let secret = ''
 let repo: Repo | null = null
 let branch: string | null = null
+/** The session repo's GitHub name, which stays on the machine: what `gh` checks a change in. */
+let sessionGitHub: string | null = null
+/** The GitHub login `gh` is signed in as, once asked: the author whose changes pay when they merge. */
+let ghLogin: string | null = null
+let isCheckingMerges = false
+let mergeTimer: Timer | null = null
 /** The player's home folder, for a `cd ~/…` before a commit. */
 let home: string | undefined
 /** The commits the mod has reported, newest last: two calls that commit at once each see the other's move of HEAD. */
@@ -1261,23 +1280,30 @@ const sshHostOf = async ($: EngineInterface, alias: string): Promise<string | nu
 }
 
 /**
- * The repo at `at` (git's `-C` arguments from `cwd`), as this target's subjects name it, or null outside one. A remote
+ * The repo at `at` (git's `-C` arguments from `cwd`), by its GitHub name when it has one, or null outside one. A remote
  * through an ssh alias whose host name is github.com is GitHub's.
  */
-const repoAt = async ($: EngineInterface, cwd: string, at: ReadonlyArray<string>): Promise<Repo | null> => {
+const namedRepoAt = async ($: EngineInterface, cwd: string, at: ReadonlyArray<string>): Promise<Repo | null> => {
   const top = await git($, cwd, [...at, 'rev-parse', '--show-toplevel'])
   if (top === null) return null
   const remote = await git($, cwd, [...at, 'remote', 'get-url', 'origin'])
   const alias = remote === null ? null : sshAliasOf(remote)
   const isGitHub = alias !== null && (await sshHostOf($, alias)) === 'github.com'
-  return repoIn(subjectFormOf(target), repoOf(remote, top, isGitHub ? alias : null))
+  return repoOf(remote, top, isGitHub ? alias : null)
 }
 
-/** The repo the session runs in, if any, and its branch. */
+/** The repo at `at`, as this target's subjects name it. */
+const repoAt = async ($: EngineInterface, cwd: string, at: ReadonlyArray<string>): Promise<Repo | null> => {
+  const named = await namedRepoAt($, cwd, at)
+  return named === null ? null : repoIn(subjectFormOf(target), named)
+}
+
+/** The repo the session runs in, if any, its GitHub name and its branch. */
 const findRepo = async ($: EngineInterface, cwd: string) => {
-  const found = await repoAt($, cwd, [])
+  const found = await namedRepoAt($, cwd, [])
   if (found === null) return
-  repo = found
+  repo = repoIn(subjectFormOf(target), found)
+  sessionGitHub = found.kind === 'github' ? found.name : null
   const head = await git($, cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])
   branch = head === null || head === 'HEAD' ? null : head
 }
@@ -1371,6 +1397,85 @@ const machineSecret = async ($: EngineInterface): Promise<string> => {
   const made = newSecret()
   await $.store.set('secret', made)
   return made
+}
+
+/** Keeps a change the session opened, so its merge counts wherever it happens. */
+const keepOpened = async ($: EngineInterface, pull: { repo: string; number: number }) => {
+  const key = storeKey(target, 'prs')
+  const opened = { ...pull, openedAt: await $.clock.now() }
+  await $.store.set(key, withOpened(openedOf(await $.store.get(key)), opened))
+}
+
+/** The login `gh` is signed in as, asked until it answers; null without `gh`, or signed out. */
+const ghLoginOf = async ($: EngineInterface): Promise<string | null> => {
+  if (ghLogin !== null) return ghLogin
+  const ran = await $.process.run(['gh', 'api', 'user', '--jq', '.login'], { timeoutMs: 15_000 }).catch(() => null)
+  ghLogin = ran === null || ran.exitCode !== 0 ? null : loginOf(ran.stdout)
+  return ghLogin
+}
+
+/** A change as GitHub has it now, by `gh`; null without `gh`, or when it can't say. */
+const viewAt = async ($: EngineInterface, pull: { repo: string; number: number }): Promise<View | null> => {
+  const fields = 'state,author,additions,deletions'
+  const argv = ['gh', 'pr', 'view', String(pull.number), '--repo', pull.repo, '--json', fields]
+  const ran = await $.process.run(argv, { timeoutMs: 15_000 }).catch(() => null)
+  return ran === null || ran.exitCode !== 0 ? null : prViewOf(ran.stdout)
+}
+
+/** A change's subject, as this target's subjects name it. */
+const changeOf = (pull: { repo: string; number: number }) =>
+  workRef(secret, repoIn(subjectFormOf(target), { kind: 'github', name: pull.repo }), pull.number)
+
+/**
+ * A `gh pr merge` in the session: sent with its size and whether its author owns the repo when `gh` can tell, else as
+ * a mod before them sent it. It is forgotten from the changes kept, so a check never sends it again.
+ */
+const mergedHere = async ($: EngineInterface, pull: { repo: string; number: number } | null, bare: WorkRef) => {
+  const at = generation
+  const view = pull === null ? null : await viewAt($, pull)
+  if (at !== generation) return
+  const isTold = pull !== null && view !== null && view.state === 'MERGED'
+  const change = isTold ? await changeOf(pull) : bare
+  const facts = isTold ? factsOf(pull.repo, view) : {}
+  await enqueue($, { ...(await stamp($)), type: 'change.merged', data: { change, ...facts } })
+  if (pull === null) return
+  const key = storeKey(target, 'prs')
+  await $.store.set(key, keptAfter(openedOf(await $.store.get(key)), [pull], await $.clock.now()))
+}
+
+/**
+ * The one check of the changes the session saw opened: each by `gh pr view`. One merged by the player's own GitHub
+ * account is sent as merged, then forgotten, as is one closed or kept past `keptForMs`. Without `gh`, or signed out
+ * of it, nothing is checked and every change stays kept.
+ */
+const checkMerges = async ($: EngineInterface) => {
+  if (isCheckingMerges) return
+  isCheckingMerges = true
+  try {
+    const at = generation
+    const key = storeKey(target, 'prs')
+    const now = await $.clock.now()
+    const kept = openedOf(await $.store.get(key))
+    const fresh = kept.filter((one) => isFresh(one, now))
+    const settled: Array<Opened> = []
+    const me = fresh.length === 0 ? null : await ghLoginOf($)
+    for (const pull of me === null ? [] : fresh) {
+      const view = await viewAt($, pull)
+      if (at !== generation) return
+      if (view === null || view.state === 'OPEN') continue
+      settled.push(pull)
+      if (view.state === 'MERGED' && isLogin(me, view.author)) {
+        const change = await changeOf(pull)
+        await enqueue($, { ...(await stamp($)), type: 'change.merged', data: { change, ...factsOf(pull.repo, view) } })
+      }
+    }
+    if (settled.length > 0 || fresh.length < kept.length) {
+      // Read again: what a session opened while this one checked stays kept.
+      await $.store.set(key, keptAfter(openedOf(await $.store.get(key)), settled, now))
+    }
+  } finally {
+    isCheckingMerges = false
+  }
 }
 
 /**
@@ -2232,6 +2337,10 @@ const begin = async ($: EngineInterface, cwd: string, kept: string | null) => {
     await explore($)
     await connect($)
   })
+  // The changes the session saw opened, checked now and every half hour, beside the server's own loop.
+  mergeTimer?.cancel()
+  mergeTimer = $.clock.every(checkEveryMs, () => void checkMerges($).catch(() => undefined))
+  later($, () => checkMerges($))
 }
 
 export const register: Register = (on, options) => {
@@ -2414,15 +2523,18 @@ export const register: Register = (on, options) => {
       branch = operation.commit.branch ?? branch
     }
     await observeCommits($, cwd, places, operation?.commit).catch(() => undefined)
-    if (operation?.pr !== undefined && repo !== null) {
-      const type =
-        operation.pr.action === 'created' ? 'change.opened' : operation.pr.action === 'merged' ? 'change.merged' : null
-      if (type !== null)
-        await enqueue($, {
-          ...(await stamp($)),
-          type,
-          data: { change: await workRef(secret, repo, operation.pr.number) },
-        })
+    const pr = operation?.pr
+    // The change's GitHub name, from its URL or the session's repo, for `gh` to check it by.
+    const inSession = sessionGitHub === null || pr === undefined ? null : { repo: sessionGitHub, number: pr.number }
+    const pull = pr === undefined ? null : (pullOf(pr.url) ?? inSession)
+    if (pr?.action === 'created' && repo !== null) {
+      if (pull !== null) await keepOpened($, pull)
+      const change = await workRef(secret, repo, pr.number)
+      await enqueue($, { ...(await stamp($)), type: 'change.opened', data: { change } })
+    }
+    if (pr?.action === 'merged' && repo !== null) {
+      const bare = await workRef(secret, repo, pr.number)
+      later($, () => mergedHere($, pull, bare))
     }
     const finished = !record.interrupted && record.backgroundTaskId === undefined
     await observeTests($, e.command, false, !finished, `${record.stdout}\n${record.stderr}`)

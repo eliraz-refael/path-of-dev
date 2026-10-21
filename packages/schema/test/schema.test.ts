@@ -36,6 +36,18 @@ describe("ClientEvent", () => {
     expect(Schema.decodeUnknownSync(ClientEvent)(merged)).toEqual(merged)
   })
 
+  it("takes a merge's size and whether its author owns the repo, as numbers and a yes or no, or neither", () => {
+    const sized = { ...merged, data: { ...merged.data, additions: 12, deletions: 3, isOwnRepo: true } }
+    expect(Schema.decodeUnknownSync(ClientEvent)(sized)).toEqual(sized)
+    for (const data of [
+      { ...merged.data, additions: -1, deletions: 0 },
+      { ...merged.data, additions: 1.5, deletions: 0 },
+      { ...merged.data, isOwnRepo: "yes" },
+    ]) {
+      expect(Schema.decodeUnknownExit(ClientEvent)({ ...merged, data })._tag).toBe("Failure")
+    }
+  })
+
   it("lists every accepted type for the session response", () => {
     expect(clientEventTypes).toContain("turn.completed")
     expect(clientEventTypes).toHaveLength(14)

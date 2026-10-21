@@ -33,8 +33,19 @@ export const TurnCompleted = clientEvent("turn.completed", { durationMs: Count, 
 export const CommitMade = clientEvent("commit.made", { commit: CommitRef })
 /** `gh pr create` succeeds. Reported. */
 export const ChangeOpened = clientEvent("change.opened", { change: WorkRef })
-/** pr-watch sees the merge, or `gh pr merge` succeeds. A hint; the server verifies public work. */
-export const ChangeMerged = clientEvent("change.merged", { change: WorkRef })
+/**
+ * The mod sees a change it saw opened merged, or `gh pr merge` succeeds. A hint; the server verifies public work. Its
+ * size and whether its author owns the repo price it: numbers and a yes or no, never a name. A mod before them sends
+ * neither, and its merge is priced as one always was.
+ */
+export const ChangeMerged = clientEvent("change.merged", {
+  change: WorkRef,
+  /** Lines the change adds and deletes, as GitHub counts them. */
+  additions: Schema.optionalKey(Count),
+  deletions: Schema.optionalKey(Count),
+  /** The repo belongs to the change's author. */
+  isOwnRepo: Schema.optionalKey(Schema.Boolean),
+})
 /** `gh pr review` succeeds. A hint; credit lands when the author acts on it. */
 export const ReviewSubmitted = clientEvent("review.submitted", {
   change: WorkRef,

@@ -828,6 +828,169 @@ describe('reporting work', () => {
     expect(asked).toEqual(['ssh -G private'])
   })
 
+  /** A store the test reads straight. */
+  const keptStore = (on: On, entries: Record<string, unknown> = {}) => {
+    const kept = new Map<string, unknown>(Object.entries(entries))
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      return { value: undefined }
+    })
+    on('store.delete', ($, e) => {
+      kept.delete(e.key)
+      return { value: undefined }
+    })
+    return kept
+  }
+
+  /**
+   * `gh` beneath the mod, signed in as `login`: each change's view by `repo#number` from `views` (a failure for one
+   * not there). Not installed, it fails to start.
+   */
+  const fakeGh = (views: Map<string, unknown>, asked: Array<string>, login: string | null = 'ada'): Run => (argv) => {
+    if (argv[0] !== 'gh') return undefined
+    if (login === null) throw new Error('spawn gh ENOENT')
+    asked.push(argv.slice(1, 4).join(' '))
+    if (argv[1] === 'api') return ran(0, `${login}\n`)
+    const view = views.get(`${argv[5] ?? ''}#${argv[3] ?? ''}`)
+    return view === undefined ? ran(1, '') : ran(0, JSON.stringify(view))
+  }
+  const merged = (author: string, additions: number, deletions: number) => ({
+    state: 'MERGED',
+    author: { login: author, name: 'Ada' },
+    additions,
+    deletions,
+  })
+  const day = 24 * 60 * 60 * 1000
+  const now = Date.parse('2026-10-09T08:00:00Z')
+  const merges = (sent: ReadonlyArray<Sent>) => eventsOf(sent).filter((event) => event['type'] === 'change.merged')
+
+  test('keeps a change opened in the session, and sends its merge outside Claude once, with its size', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    const kept = keptStore(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>()
+    const asked: Array<string> = []
+    const { sent } = fakeServer(on, clock, { run: fakeGh(views, asked) })
+    on('tool.call', { tool: 'Bash' }, () => {
+      const pr = { number: 7, url: 'https://github.com/acme/widgets/pull/7', action: 'created' }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation: { pr } } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    // Nothing kept yet: the first check asks gh nothing.
+    expect(asked).toEqual([])
+    await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
+    await until(clock, () => Array.isArray(kept.get('prs')) && JSON.stringify(kept.get('prs')).includes('"number":7'))
+    views.set('acme/widgets#7', { state: 'OPEN', author: { login: 'ada' }, additions: 40, deletions: 2 })
+    await clock.advance(30 * 60_000)
+    await until(clock, () => asked.includes('pr view 7'))
+    expect(merges(sent)).toEqual([])
+    views.set('acme/widgets#7', merged('Ada', 40, 2))
+    await clock.advance(30 * 60_000)
+    await until(clock, () => merges(sent).length === 1)
+    expect(merges(sent)[0]).toMatchObject({
+      data: { change: { type: 'github', repo: 'acme/widgets', number: 7 }, additions: 40, deletions: 2, isOwnRepo: false },
+    })
+    expect(kept.get('prs')).toEqual([])
+    const views7 = asked.filter((one) => one === 'pr view 7').length
+    await clock.advance(30 * 60_000)
+    await clock.settle()
+    expect(asked.filter((one) => one === 'pr view 7')).toHaveLength(views7)
+    expect(merges(sent)).toHaveLength(1)
+  })
+
+  test("pays only the player's own merges, and forgets closed and month-old changes", async ($, on) => {
+    const clock = mock.clock(on, { now })
+    const kept = keptStore(on, {
+      explored: ['acme/widgets'],
+      prs: [
+        { repo: 'acme/widgets', number: 1, openedAt: now - day },
+        { repo: 'acme/widgets', number: 2, openedAt: now - day },
+        { repo: 'acme/widgets', number: 3, openedAt: now - 31 * day },
+        { repo: 'ada/tools', number: 4, openedAt: now - day },
+        { repo: 'acme/widgets', number: 5, openedAt: now - day },
+      ],
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([
+      ['acme/widgets#1', merged('bob', 300, 20)],
+      ['acme/widgets#2', { state: 'CLOSED', author: { login: 'ada' }, additions: 3, deletions: 0 }],
+      ['acme/widgets#3', merged('ada', 10, 10)],
+      ['ada/tools#4', merged('ada', 1, 0)],
+      ['acme/widgets#5', { state: 'OPEN', author: { login: 'ada' }, additions: 3, deletions: 0 }],
+    ])
+    const asked: Array<string> = []
+    const { sent } = fakeServer(on, clock, { run: fakeGh(views, asked) })
+    await $.session.start(start)
+    // The check at the start queues the merge; the next flush sends it.
+    await until(clock, () => JSON.stringify(kept.get('queue') ?? []).includes('change.merged'))
+    await clock.advance(30_000)
+    await until(clock, () => merges(sent).length === 1)
+    expect(merges(sent)[0]).toMatchObject({
+      data: { change: { repo: 'ada/tools', number: 4 }, additions: 1, deletions: 0, isOwnRepo: true },
+    })
+    // The month-old one is forgotten unasked; the open one stays.
+    expect(asked).not.toContain('pr view 3')
+    expect(kept.get('prs')).toEqual([{ repo: 'acme/widgets', number: 5, openedAt: now - day }])
+  })
+
+  test('without gh, checks nothing and keeps every change', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    const prs = [{ repo: 'acme/widgets', number: 7, openedAt: now - day }]
+    const kept = keptStore(on, { explored: ['acme/widgets'], prs })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock, { run: fakeGh(new Map(), [], null) })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await clock.advance(30 * 60_000)
+    await clock.settle()
+    expect(merges(sent)).toEqual([])
+    expect(kept.get('prs')).toEqual(prs)
+  })
+
+  test('a gh pr merge in the session goes with its size, and is checked no more', async ($, on) => {
+    const clock = mock.clock(on, { now })
+    const kept = keptStore(on, { explored: ['acme/widgets'], prs: [{ repo: 'acme/widgets', number: 7, openedAt: now }] })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>()
+    const asked: Array<string> = []
+    const { sent } = fakeServer(on, clock, { run: fakeGh(views, asked) })
+    on('tool.call', { tool: 'Bash' }, () => {
+      views.set('acme/widgets#7', merged('ada', 2, 0))
+      const pr = { number: 7, action: 'merged' }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation: { pr } } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.tool.call({ tool: 'Bash', command: 'gh pr merge 7 --squash' })
+    await until(clock, () => JSON.stringify(kept.get('queue') ?? []).includes('change.merged'))
+    await clock.advance(30_000)
+    await until(clock, () => merges(sent).length === 1)
+    expect(merges(sent)[0]).toMatchObject({
+      data: { change: { repo: 'acme/widgets', number: 7 }, additions: 2, deletions: 0, isOwnRepo: false },
+    })
+    await until(clock, () => JSON.stringify(kept.get('prs')) === '[]')
+  })
+
+  test('online, a merge names no repo: only its keys, its size and whether the author owns it', { options: { server: 'online' } }, async ($, on) => {
+    const origin = 'https://api.pathof.dev'
+    const clock = mock.clock(on, { now })
+    const kept = keptStore(on, {
+      [`token@${origin}`]: 'pod_test',
+      [`explored@${origin}`]: ['acme/widgets'],
+      [`prs@${origin}`]: [{ repo: 'acme/widgets', number: 7, openedAt: now - day }],
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const views = new Map<string, unknown>([['acme/widgets#7', merged('ada', 12, 3)]])
+    const { sent } = fakeServer(on, clock, { run: fakeGh(views, []) })
+    await $.session.start(start)
+    const said = () => JSON.stringify([kept.get(`queue@${origin}`), eventsOf(sent)])
+    await until(clock, () => said().includes('change.merged'))
+    expect(said()).not.toContain('acme')
+    expect(said()).toContain('"additions":12')
+  })
+
   test('keeps events while the server is down, and sends them once it answers', async ($, on) => {
     const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
     mock.store(on)

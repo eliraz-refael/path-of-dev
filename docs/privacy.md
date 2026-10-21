@@ -43,6 +43,17 @@ machine. The misspelled words it shows are kept only in the mod's own memory: ne
 plugins can read, nor in its store on disk, so a reload of the mod forgets them. A server that grades by rubric
 1 gets rubric 1's scores in place of `kind`, `measures` and `spelledClean`.
 
+### What a merged change sends
+
+The mod keeps the pull requests it saw opened in a Claude Code session, by repo and number, in its own store on your
+machine, for 30 days. At a session's start and every half hour it asks `gh` on your machine whether each one is still
+open. When one your GitHub account wrote has merged, the `change.merged` event carries the change's opaque keys and:
+
+- `additions` and `deletions`: how many lines it adds and deletes, as GitHub counts them.
+- `isOwnRepo`: true or false, whether the repo belongs to the account that wrote it.
+
+Without `gh`, or signed out of it, nothing is checked. A merge from before the mod saw the change opened is never sent.
+
 ## Your profile
 
 Your profile is private until you make it public:
