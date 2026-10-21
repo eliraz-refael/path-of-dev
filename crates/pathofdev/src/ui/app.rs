@@ -116,7 +116,7 @@ impl App {
             Update::Resynced => self.feed.gap(self.now),
             Update::Link(link) => {
                 let wait = match link {
-                    Link::Offline { retry_ms } => Some(retry_ms),
+                    Link::Offline { retry_ms, .. } => Some(retry_ms),
                     Link::Limited { wait_ms } => Some(wait_ms),
                     _ => None,
                 };
@@ -204,7 +204,10 @@ mod tests {
     #[test]
     fn counts_down_to_the_next_try_while_offline() {
         let mut app = app();
-        app.apply(Update::Link(Link::Offline { retry_ms: 12_000 }));
+        app.apply(Update::Link(Link::Offline {
+            retry_ms: 12_000,
+            status: None,
+        }));
         assert_eq!(app.retry_at, Some(Timestamp::from_second(12).unwrap()));
         app.apply(Update::Link(Link::Live));
         assert_eq!(app.retry_at, None);

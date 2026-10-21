@@ -91,11 +91,17 @@ fn home_at_three_sizes() {
 #[test]
 fn home_while_the_server_is_down() {
     let mut app = played();
-    app.apply(Update::Link(Link::Offline { retry_ms: 12_000 }));
+    app.apply(Update::Link(Link::Offline {
+        retry_ms: 12_000,
+        status: None,
+    }));
     pin("home-offline-80x24", &screen(&app, 80, 24));
 
     let mut fresh = self::app();
-    fresh.apply(Update::Link(Link::Offline { retry_ms: 5_000 }));
+    fresh.apply(Update::Link(Link::Offline {
+        retry_ms: 5_000,
+        status: None,
+    }));
     pin("offline-80x24", &screen(&fresh, 80, 24));
 }
 

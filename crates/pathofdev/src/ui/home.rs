@@ -285,25 +285,25 @@ pub fn multiplier(value: f64) -> String {
     format!("×{text}")
 }
 
-/// The running missions, the nearest to done first, then the soonest to end.
-fn running(snapshot: &Snapshot) -> Vec<&Quest> {
-    let mut quests: Vec<&Quest> = snapshot
-        .quests
+/// The running missions, the nearest to done first, then the soonest to end, and one that never ends after those.
+fn running(quests: &[Quest]) -> Vec<&Quest> {
+    let mut quests: Vec<&Quest> = quests
         .iter()
         .filter(|quest| quest.status.as_str() == "active" && quest.progress < quest.goal)
         .collect();
     let share = |quest: &Quest| quest.progress as f64 / quest.goal.max(1) as f64;
     quests.sort_by(|a, b| {
-        share(b)
-            .total_cmp(&share(a))
-            .then_with(|| a.expires_at.cmp(&b.expires_at))
+        share(b).total_cmp(&share(a)).then_with(|| {
+            let ends = |quest: &Quest| (quest.expires_at.is_none(), quest.expires_at.clone());
+            ends(a).cmp(&ends(b))
+        })
     });
     quests
 }
 
 /// The running mission, then when it ends and how many more run, each shown only if it fits.
 fn running_parts(app: &App, snapshot: &Snapshot) -> Vec<Vec<Span<'static>>> {
-    let quests = running(snapshot);
+    let quests = running(&snapshot.quests);
     let Some(quest) = quests.first() else {
         return vec![vec![Span::styled("No mission running", dim(app))]];
     };
@@ -331,17 +331,33 @@ fn running_parts(app: &App, snapshot: &Snapshot) -> Vec<Vec<Span<'static>>> {
     parts
 }
 
+/// The tags' column, as wide as most tags are ("+125 XP", "✓ done").
+const TAG_COLUMN: usize = 8;
+
 /// Today's lines of the feed, newest first: what happened on the player's local date.
 fn today(app: &App, snapshot: &Snapshot) -> Vec<Line<'static>> {
     let date = app.now.to_zoned(app.zone.clone()).date();
-    app.feed
+    let lines: Vec<_> = app
+        .feed
         .newest()
         .filter(|line| line.at.to_zoned(app.zone.clone()).date() == date)
-        .map(|line| {
-            let time = local_time(line.at, &app.zone);
-            let (tag, colour, text) = words(app, snapshot, &line.entry);
-            let mut spans = vec![Span::styled(time, dim(app)), Span::raw("  ")];
-            spans.push(Span::styled(format!("{tag:<8}"), colour));
+        .map(|line| (line.at, words(app, snapshot, &line.entry)))
+        .collect();
+    // The tags make a column as wide as the widest shown, so a big grant's "+25000 XP" pushes no line out of step.
+    let column = lines
+        .iter()
+        .map(|(_, (tag, _, _))| tag.chars().count())
+        .max()
+        .unwrap_or(0)
+        .max(TAG_COLUMN);
+    lines
+        .into_iter()
+        .map(|(at, (tag, colour, text))| {
+            let mut spans = vec![
+                Span::styled(local_time(at, &app.zone), dim(app)),
+                Span::raw("  "),
+            ];
+            spans.push(Span::styled(format!("{tag:<column$}"), colour));
             spans.push(Span::raw(" "));
             spans.extend(text);
             Line::from(spans)
@@ -385,10 +401,15 @@ fn words(app: &App, snapshot: &Snapshot, entry: &Entry) -> (String, Style, Vec<S
         }
         Entry::Loot { name, rarity } => {
             let style = Style::new().fg(app.theme.rarity(rarity));
+            // The rarity is said after the name, as "legendary" is too long for the tag's column.
             (
-                format!("◆ {rarity}"),
+                "◆ loot".to_owned(),
                 style,
-                vec![Span::styled(name.clone(), style), Span::raw(" dropped")],
+                vec![
+                    Span::styled(name.clone(), style),
+                    Span::raw(" dropped"),
+                    Span::styled(format!(" · {rarity}"), dim(app)),
+                ],
             )
         }
         Entry::Progress {
@@ -433,6 +454,7 @@ fn words(app: &App, snapshot: &Snapshot, entry: &Entry) -> (String, Style, Vec<S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::wire::Text;
 
     #[test]
     fn words_a_mood_as_the_mod_does() {
@@ -447,6 +469,32 @@ mod tests {
         assert_eq!(multiplier(2.0), "×2");
         assert_eq!(multiplier(2.2), "×2.2");
         assert_eq!(multiplier(1.25), "×1.25");
+    }
+
+    fn quest(id: &str, progress: u64, expires_at: Option<&str>) -> Quest {
+        Quest {
+            quest_id: Text::new(id),
+            title: Text::new(id),
+            status: Text::new("active"),
+            progress,
+            goal: 4,
+            expires_at: expires_at.map(Text::new),
+        }
+    }
+
+    #[test]
+    fn runs_a_mission_that_never_ends_after_those_that_end_soonest() {
+        let quests = [
+            quest("forever", 2, None),
+            quest("later", 2, Some("2026-10-12T00:00:00.000Z")),
+            quest("sooner", 2, Some("2026-10-09T23:59:59.999Z")),
+            quest("nearer", 3, None),
+        ];
+        let order: Vec<&str> = running(&quests)
+            .iter()
+            .map(|quest| quest.quest_id.as_str())
+            .collect();
+        assert_eq!(order, ["nearer", "sooner", "later", "forever"]);
     }
 
     #[test]

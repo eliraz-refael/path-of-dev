@@ -321,7 +321,7 @@ fn the_stream_thread_goes_offline_and_comes_back_when_the_server_starts() {
             .iter()
             .any(|update| matches!(update, Update::Link(Link::Offline { .. })))
     });
-    let Some(Update::Link(Link::Offline { retry_ms })) = got.last() else {
+    let Some(Update::Link(Link::Offline { retry_ms, .. })) = got.last() else {
         panic!("{got:?}")
     };
     assert!((5_000..=6_250).contains(retry_ms), "{retry_ms}");
@@ -467,4 +467,64 @@ fn refuses_a_socket_path_longer_than_unix_allows() {
         channel::bind(&deep),
         Err(HomeError::PathTooLong(_))
     ));
+}
+
+#[test]
+fn makes_no_home_while_the_save_is_still_in_the_old_one() {
+    let _serial = serial();
+    let user = scratch();
+    fs::create_dir(user.join(".questline")).unwrap();
+    // The local server moves ~/.questline only while ~/.pathofdev is missing: one made now would strand the save.
+    let Err(HomeError::LegacySave { legacy, home }) = channel::home_of(None, Some(&user), false)
+    else {
+        panic!("a home was picked beside the old save")
+    };
+    assert_eq!(
+        (legacy, home),
+        (user.join(".questline"), user.join(".pathofdev"))
+    );
+    assert!(!user.join(".pathofdev").exists());
+    // The dev sandbox is a save of its own: the old one is no reason to refuse it.
+    assert_eq!(
+        channel::home_of(None, Some(&user), true).unwrap(),
+        user.join(".pathofdev-dev")
+    );
+
+    fs::create_dir(user.join(".pathofdev")).unwrap();
+    assert_eq!(
+        channel::home_of(None, Some(&user), false).unwrap(),
+        user.join(".pathofdev")
+    );
+    let named = user.join("named");
+    assert_eq!(
+        channel::home_of(Some(&named), Some(&user), false).unwrap(),
+        named
+    );
+    assert!(matches!(
+        channel::home_of(None, None, false),
+        Err(HomeError::NoHome)
+    ));
+}
+
+#[test]
+fn the_binary_says_it_needs_a_terminal_rather_than_panicking() {
+    let _serial = serial();
+    let user = scratch();
+    let home = user.join("home");
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_pathofdev"))
+        .arg("watch")
+        .env_remove("QUESTLINE_HOME")
+        .env("PATHOFDEV_HOME", &home)
+        .env("HOME", &*user)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{said}");
+    assert!(said.contains("draws in a terminal"), "{said}");
+    assert!(!said.contains("panicked"), "{said}");
+    assert!(out.stdout.is_empty(), "escapes went down the pipe");
+    assert!(!home.exists(), "a home was made for a screen nobody sees");
 }

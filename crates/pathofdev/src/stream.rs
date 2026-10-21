@@ -64,8 +64,10 @@ pub enum Answer {
     Missing,
     /// A 200 whose body doesn't read as the route's answer.
     Undecodable,
-    /// No answer, or one that says the server can't take it now (5xx, or anything else unexpected).
-    Down,
+    /// No answer (`status` none), or one that says the server can't take it now (5xx, or anything else unexpected).
+    Down {
+        status: Option<u16>,
+    },
 }
 
 /// How the companion stands with the server, as the header shows it.
@@ -73,9 +75,10 @@ pub enum Answer {
 pub enum Link {
     Connecting,
     Live,
-    /// Asking again in `retry_ms`.
+    /// Asking again in `retry_ms`. `status` is what the server answered, when it answered at all.
     Offline {
         retry_ms: u64,
+        status: Option<u16>,
     },
     /// Over a rate limit: asking again in `wait_ms`.
     Limited {
@@ -236,11 +239,11 @@ pub fn next(mut machine: Machine, answer: Answer, jitter: f64) -> (Machine, Step
                 ask: Some(machine.asked),
             }
         }
-        Answer::Down => {
+        Answer::Down { status } => {
             machine.failures = machine.failures.saturating_add(1);
             let retry_ms = backoff_ms(machine.failures, jitter);
             Step {
-                updates: vec![Update::Link(Link::Offline { retry_ms })],
+                updates: vec![Update::Link(Link::Offline { retry_ms, status })],
                 wait_ms: retry_ms,
                 ask: Some(machine.asked),
             }
@@ -268,7 +271,9 @@ pub fn answer_of(ask: Ask, reply: &Reply) -> Answer {
         429 => Answer::Limited {
             wait_ms: retry_after_ms(reply),
         },
-        _ => Answer::Down,
+        status => Answer::Down {
+            status: Some(status),
+        },
     }
 }
 
@@ -312,7 +317,7 @@ pub fn run(mut local: Local, updates: Sender<Update>) {
         let Some(ask) = step.ask else { return };
         let answer = match local.get(&ask.path()) {
             Ok(reply) => answer_of(ask, &reply),
-            Err(_) => Answer::Down,
+            Err(_) => Answer::Down { status: None },
         };
         (machine, step) = next(machine, answer, jitter());
     }
@@ -361,7 +366,7 @@ mod tests {
         ));
         assert!(matches!(
             answer_of(Ask::Snapshot, &reply(503, "", None)),
-            Answer::Down
+            Answer::Down { status: Some(503) }
         ));
         assert!(matches!(
             answer_of(Ask::Snapshot, &reply(200, "{}", None)),

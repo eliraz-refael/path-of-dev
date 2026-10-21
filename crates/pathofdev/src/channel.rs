@@ -39,6 +39,8 @@ pub enum HomeError {
     NotASocket(PathBuf),
     SocketMode { path: PathBuf, mode: u32 },
     Bind { path: PathBuf, error: String },
+    NoHome,
+    LegacySave { legacy: PathBuf, home: PathBuf },
 }
 
 impl fmt::Display for HomeError {
@@ -86,6 +88,17 @@ impl fmt::Display for HomeError {
             HomeError::Bind { path, error } => {
                 write!(f, "Could not listen on {}: {error}", path.display())
             }
+            HomeError::NoHome => write!(
+                f,
+                "Neither PATHOFDEV_HOME nor HOME is set: there is no home to watch from"
+            ),
+            HomeError::LegacySave { legacy, home } => write!(
+                f,
+                "Your save is still in {}, from before Path of Dev. Start the local server once (pnpm --filter \
+                 @pathofdev/server start), which moves it to {}, then run pathofdev watch again",
+                legacy.display(),
+                home.display()
+            ),
         }
     }
 }
@@ -206,9 +219,26 @@ pub fn serve(server: &tiny_http::Server) {
 
 /// The home: `PATHOFDEV_HOME` (or `QUESTLINE_HOME`, its name from before Path of Dev) when set, else `~/.pathofdev`, or
 /// `~/.pathofdev-dev` for the dev sandbox, as the local server picks its own.
-pub fn home_of(named: Option<&Path>, home: Option<&Path>, dev: bool) -> Option<PathBuf> {
-    match named {
-        Some(named) => Some(named.to_owned()),
-        None => home.map(|home| home.join(if dev { ".pathofdev-dev" } else { ".pathofdev" })),
+///
+/// While only `~/.questline` (`-dev`) holds a save, the companion makes no home: the local server moves the old one
+/// on its next start only when the new one is missing, and once both exist it plays a fresh save in the new one.
+pub fn home_of(named: Option<&Path>, home: Option<&Path>, dev: bool) -> Result<PathBuf, HomeError> {
+    if let Some(named) = named {
+        return Ok(named.to_owned());
     }
+    let home = home.ok_or(HomeError::NoHome)?;
+    let (folder, legacy) = if dev {
+        (".pathofdev-dev", ".questline-dev")
+    } else {
+        (".pathofdev", ".questline")
+    };
+    let (folder, legacy) = (home.join(folder), home.join(legacy));
+    // symlink_metadata, so a dangling symlink counts as there: prepare_home refuses it, as it should.
+    if fs::symlink_metadata(&folder).is_err() && fs::symlink_metadata(&legacy).is_ok() {
+        return Err(HomeError::LegacySave {
+            legacy,
+            home: folder,
+        });
+    }
+    Ok(folder)
 }

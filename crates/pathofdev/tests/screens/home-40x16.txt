@@ -10,7 +10,7 @@
 
  Last prompt · 9.0 · +37 XP
  Today
- 08:00  ✦ badge  Mission accomplished
- 08:00  +30 XP   dev
- 08:00  ✓ done   Save Points
- 08:00  ✦ badge  Level 25
+ 08:00  ✦ badge   Mission accomplished
+ 08:00  +30 XP    dev
+ 08:00  ✓ done    Save Points
+ 08:00  ✦ badge   Level 25

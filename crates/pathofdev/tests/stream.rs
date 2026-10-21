@@ -85,7 +85,7 @@ fn answer(said: &Said) -> Answer {
             Answer::Stream(response)
         }
         Said::Limited { wait_ms } => Answer::Limited { wait_ms: *wait_ms },
-        Said::Down => Answer::Down,
+        Said::Down => Answer::Down { status: None },
         Said::SignedOut => Answer::SignedOut,
     }
 }

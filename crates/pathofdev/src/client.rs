@@ -87,6 +87,8 @@ fn agent_for(socket: PathBuf) -> Agent {
         // A 4xx or 5xx is an answer the stream machine reads, not an error.
         .http_status_as_error(false)
         .timeout_global(Some(READ_TIMEOUT))
+        // ureq reads HTTP_PROXY and ALL_PROXY by default; the socket is on this machine and no proxy stands between.
+        .proxy(None)
         .build();
     Agent::with_parts(config, UnixConnector { socket }, FixedResolver)
 }

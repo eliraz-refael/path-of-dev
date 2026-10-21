@@ -198,17 +198,34 @@ fn notice(app: &App) -> Option<String> {
     let target = app.target.label();
     Some(match app.link {
         Link::Connecting | Link::Live => return None,
-        Link::Offline { .. } => {
+        Link::Offline { status: None, .. } => {
             format!(
                 "The {target} server isn't answering: start it with {}. {}",
                 app.target.start_command(),
                 retry()
             )
         }
+        // The server's only 503 of its own: the save was written by a newer build, and this one won't write over it.
+        Link::Offline {
+            status: Some(503), ..
+        } => format!(
+            "The {target} server can't play this save, which a newer build wrote: update it (git pull), then start it \
+             again. {}",
+            retry()
+        ),
+        Link::Offline {
+            status: Some(status),
+            ..
+        } => format!(
+            "The {target} server answered {status}: its log says why. {}",
+            retry()
+        ),
         Link::Limited { .. } => format!("The {target} server is busy. {}", retry()),
-        Link::SignedOut => {
-            "Signed out: /pathofdev login in Claude Code signs you in again.".to_owned()
-        }
+        // Online play, where a token goes stale, comes in a later version: a local server answers 401 only when the
+        // player was deleted under it.
+        Link::SignedOut => format!(
+            "The {target} server has no player now: play in Claude Code again, then start pathofdev again."
+        ),
         Link::ServerOlder => {
             format!(
                 "This {target} server is older than pathofdev: update it (git pull), then start it again."
@@ -426,6 +443,47 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::sprite::Sprite;
+    use crate::ui::theme::Theme;
+
+    fn app_with(link: Link) -> App {
+        let sprite = Sprite {
+            rows: vec![],
+            palette: Default::default(),
+        };
+        let mut app = App::new(
+            app::Target::Local,
+            sprite,
+            Theme { truecolor: true },
+            jiff::Timestamp::UNIX_EPOCH,
+            jiff::tz::TimeZone::UTC,
+        );
+        app.apply(crate::stream::Update::Link(link));
+        app
+    }
+
+    #[test]
+    fn tells_a_server_that_answers_5xx_from_one_that_isnt_there() {
+        let notice_of = |status| {
+            notice(&app_with(Link::Offline {
+                retry_ms: 5_000,
+                status,
+            }))
+            .unwrap_or_default()
+        };
+        assert!(notice_of(None).contains("isn't answering: start it with"));
+        let behind = notice_of(Some(503));
+        assert!(behind.contains("a newer build wrote"), "{behind}");
+        assert!(!behind.contains("isn't answering"), "{behind}");
+        assert!(notice_of(Some(500)).contains("answered 500"));
+    }
+
+    #[test]
+    fn a_local_401_says_nothing_of_signing_in() {
+        let said = notice(&app_with(Link::SignedOut)).unwrap_or_default();
+        assert!(!said.contains("login"), "{said}");
+        assert!(said.contains("has no player"), "{said}");
+    }
 
     #[test]
     fn sets_thousands_apart() {

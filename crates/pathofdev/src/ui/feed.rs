@@ -1,7 +1,8 @@
 //! Today's feed: what the stream said, newest first, one line each, as the Home tab lists it under "Today".
 //!
-//! The backfill and the live polls can overlap, so an event is kept once, by its `seq`. A resync starts the numbers
-//! again: the seen set is cleared, and a gap line marks where the stream started over.
+//! The backfill and the live polls can overlap, so an event is kept once, by its `seq`. Only the latest seqs are
+//! remembered, and any older one counts as seen: the stream's seqs only grow, until a resync starts the numbers again,
+//! when what was seen is forgotten and a gap line marks where the stream started over.
 
 use std::collections::BTreeSet;
 
@@ -11,6 +12,9 @@ use crate::wire::{Event, EventBody};
 
 /// The most lines kept: more than a day of play scrolls off the top long before.
 const KEEP: usize = 300;
+
+/// The most seqs remembered: far more than a poll's overlap with the one before (the backfill's 200).
+const REMEMBER: usize = 1_000;
 
 /// One line of the feed.
 #[derive(Debug, Clone, PartialEq)]
@@ -60,13 +64,17 @@ pub struct Feed {
     /// Oldest first.
     lines: Vec<Line>,
     seen: BTreeSet<u64>,
+    /// The highest seq forgotten: none at or under it is taken again.
+    forgotten: Option<u64>,
 }
 
 impl Feed {
     /// Adds the events it hasn't seen, in stream order.
     pub fn push(&mut self, events: &[Event]) {
         for event in events {
-            if !self.seen.insert(event.seq) {
+            if self.forgotten.is_some_and(|floor| event.seq <= floor)
+                || !self.seen.insert(event.seq)
+            {
                 continue;
             }
             let Some(entry) = entry_of(&event.body) else {
@@ -97,11 +105,15 @@ impl Feed {
         if self.lines.len() > KEEP {
             self.lines.drain(..self.lines.len() - KEEP);
         }
+        while self.seen.len() > REMEMBER {
+            self.forgotten = self.seen.pop_first().max(self.forgotten);
+        }
     }
 
     /// The stream started again at `at`.
     pub fn gap(&mut self, at: Timestamp) {
         self.seen.clear();
+        self.forgotten = None;
         if self
             .lines
             .last()
@@ -249,6 +261,32 @@ mod tests {
                     title: None
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn remembers_only_the_latest_seqs_and_still_takes_an_old_one_once() {
+        let mut feed = Feed::default();
+        let events: Vec<Event> = (1..=1_500).map(|seq| event(seq, None, xp(1))).collect();
+        feed.push(&events);
+        assert!(feed.seen.len() <= REMEMBER, "{} seqs held", feed.seen.len());
+        let before = feed.newest().count();
+        feed.push(&[event(1, None, xp(1)), event(1_400, None, xp(1))]);
+        assert_eq!(
+            feed.newest().count(),
+            before,
+            "an old event was taken again"
+        );
+        feed.push(&[event(1_501, None, xp(1))]);
+        assert_eq!(feed.newest().count(), before);
+        assert_eq!(feed.seen.last(), Some(&1_501));
+
+        feed.gap(Timestamp::UNIX_EPOCH);
+        feed.push(&[event(1, None, xp(1))]);
+        assert_eq!(
+            feed.seen.first(),
+            Some(&1),
+            "a resync forgets the floor too"
         );
     }
 
