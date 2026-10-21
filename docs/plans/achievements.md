@@ -474,7 +474,8 @@ Tests:
   - every defined badge, once;
   - ids the rules no longer define are dropped and counted nowhere;
   - earned newest first, then locked by a count's share of its goal; averages and ties keep the rules' order;
-  - `progress` is null unless `stats` is shown.
+  - a locked badge's progress shows only while every section it tells is shown: `stats` always, plus `streak` for
+    the streak badges and `pet` for Hatchling (from the review of #55).
 - **Colours:** uncommon green, epic purple and legendary orange join common and rare, in both themes, with a darker ink
   for each tag's text.
 - **Tests:**

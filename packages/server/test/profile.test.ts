@@ -140,6 +140,19 @@ const closeness = (badge: PublicBadge): number =>
     ? Math.min(1, badge.gauges[0].current / badge.gauges[0].goal)
     : 0
 
+/** Whether a locked badge's progress may show: beside the stats, and the streak or pet it would tell. */
+const tells = (privacy: Privacy, badge: PublicBadge): boolean => {
+  const { criterion } = badge
+  const section = criterion.kind !== "count"
+    ? "stats"
+    : criterion.of.kind === "streak"
+    ? "streak"
+    : criterion.of.kind === "hatched"
+    ? "pet"
+    : "stats"
+  return isShown(privacy, "stats") && isShown(privacy, section)
+}
+
 const isSorted = (values: ReadonlyArray<number>): boolean => values.every((value, i) => i === 0 || values[i - 1]! >= value)
 
 describe("profileOf", () => {
@@ -178,11 +191,11 @@ describe("profileOf: badges", () => {
     expect(isSorted(locked.map(closeness))).toBe(true)
   })
 
-  it.prop("tells how far a locked badge is only while the player shows their stats", [Drawn], ([drawn]) => {
+  it.prop("tells how far a locked badge is only while the player shows their stats, and the streak or pet it tells", [Drawn], ([drawn]) => {
     const { privacy, profile } = viewOf(drawn)
     const measured = new Map(progressOf(drawn).map((one) => [one.id, one.gauges]))
     for (const badge of profile.badges?.list ?? []) {
-      const expected = badge.unlockedAt === null && isShown(privacy, "stats") ? measured.get(badge.id) : null
+      const expected = badge.unlockedAt === null && tells(privacy, badge) ? measured.get(badge.id) : null
       expect({ id: badge.id, gauges: badge.gauges }).toEqual({ id: badge.id, gauges: expected })
     }
   })
@@ -201,9 +214,8 @@ describe("profilePage", () => {
     expect(page.includes('aria-labelledby="badges"')).toBe(badges !== undefined)
     if (badges === undefined) return
     expect(page).toContain(`<b>${badges.earned}</b> of ${badges.of}`)
-    const locked = badges.of - badges.earned
     const unmeasured = page.split('<span class="when">Locked</span>').length - 1
-    expect(unmeasured).toBe(isShown(privacy, "stats") ? 0 : locked)
+    expect(unmeasured).toBe(badges.list.filter((badge) => badge.unlockedAt === null && !tells(privacy, badge)).length)
   })
 
   it.prop("draws a badge's name and what earns it as text, so the markup is the same whatever they hold", [Drawn], ([drawn]) => {
@@ -231,6 +243,22 @@ describe("profilePage", () => {
 })
 
 describe("gaugeOf", () => {
+  const Tenths = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
+  const Short = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 0.099 }))
+
+  it.prop("never shows an average grade just short of its mark as at it", [Tenths, Short], ([mark, short]) => {
+    const goal = mark / 10
+    const current = Math.max(0, goal - short - 1e-6)
+    const criterion = { kind: "average", of: "promptGrade", atLeast: goal, over: 1 } as const
+    const { text } = gaugeOf(criterion, [
+      { current: 1, goal: 1, sense: "atLeast" },
+      { current, goal, sense: "atLeast" },
+    ])
+    const shown = Number(/Avg ([\d.]+)/.exec(text)?.[1])
+    expect(shown).toBeLessThanOrEqual(current)
+    if (goal > 0) expect(shown).toBeLessThan(goal)
+  })
+
   const Def = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: defs.length - 1 }))
 
   it.prop("fills a count's ring by its share of the goal, and draws none for an average", [Def, Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1_000 }))], ([i, count]) => {

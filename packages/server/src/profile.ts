@@ -17,7 +17,7 @@ import { SqlClient, SqlSchema } from "effect/sql"
 import type { SqlError } from "effect/sql/SqlError"
 import { Allowlist } from "./auth/allowlist.ts"
 import { rules } from "./game.ts"
-import { notFoundPage, pageContentType, pageHeaders, profilePage, unavailablePage } from "./pages.ts"
+import { gaugeOf, notFoundPage, pageContentType, pageHeaders, profilePage, unavailablePage } from "./pages.ts"
 import type { ProfileRead } from "./players.ts"
 import { playerColumns, Players } from "./players.ts"
 
@@ -107,27 +107,37 @@ export interface PublicBadge {
   readonly glyph: string
   readonly criterion: Criterion
   readonly unlockedAt: string | null
-  /** How far a locked badge is: null once earned, and while the player hides their stats, which it would tell. */
+  /** How far a locked badge is: null once earned, and while the player hides a section it would tell (`sectionsOf`). */
   readonly gauges: ReadonlyArray<Gauge> | null
 }
 
 /** How close a locked badge is, 0 to 1, for its place in the list; an average's gauges don't add up to one. */
-const closeness = (badge: PublicBadge): number => {
-  const [gauge] = badge.gauges ?? []
-  return badge.criterion.kind === "count" && gauge !== undefined ? Math.min(1, gauge.current / gauge.goal) : 0
+const closeness = (badge: PublicBadge): number =>
+  badge.gauges === null ? 0 : (gaugeOf(badge.criterion, badge.gauges).share ?? 0)
+
+/**
+ * The sections a locked badge's progress tells: the stats always (its counts), and the streak's days or whether the
+ * pet hatched for the badges that read them. It shows only while every one of them is shown.
+ */
+const sectionsOf = (criterion: Criterion): ReadonlyArray<ProfileSection> => {
+  if (criterion.kind !== "count") return ["stats"]
+  if (criterion.of.kind === "streak") return ["stats", "streak"]
+  return criterion.of.kind === "hatched" ? ["stats", "pet"] : ["stats"]
 }
 
 /**
  * The badges a page shows: every one the rules define, earned or locked. An id the player holds that the rules no
- * longer define is left out, and counted nowhere. `progress` is null while the stats are hidden.
+ * longer define is left out, and counted nowhere. A locked badge's progress shows only while `shown` holds every
+ * section it would tell.
  */
 export const badgesOf = (
   defs: ReadonlyArray<AchievementDef>,
   held: Snapshot["achievements"],
-  progress: ReadonlyArray<BadgeProgress> | null,
+  progress: ReadonlyArray<BadgeProgress>,
+  shown: (section: ProfileSection) => boolean,
 ): PublicBadges => {
   const unlocked = new Map(held.map((one) => [one.id, one.unlockedAt]))
-  const measured = new Map((progress ?? []).map((one) => [one.id, one.gauges]))
+  const measured = new Map(progress.map((one) => [one.id, one.gauges]))
   const all = defs.map((def): PublicBadge => {
     const unlockedAt = unlocked.get(def.id) ?? null
     return {
@@ -138,7 +148,7 @@ export const badgesOf = (
       glyph: def.glyph,
       criterion: def.criterion,
       unlockedAt,
-      gauges: unlockedAt === null ? (measured.get(def.id) ?? null) : null,
+      gauges: unlockedAt === null && sectionsOf(def.criterion).every(shown) ? (measured.get(def.id) ?? null) : null,
     }
   })
   // Sorts are stable: a tie keeps the rules' order.
@@ -166,7 +176,7 @@ export const profileOf = (login: string, read: ProfileRead, privacy: Privacy): P
       xp: { total: character.xp.total, intoLevel: character.xp.intoLevel, forNextLevel: character.xp.forNextLevel },
     },
     ...(shown("badges")
-      ? { badges: badgesOf(rules.achievements, snapshot.achievements, shown("stats") ? badgeProgress : null) }
+      ? { badges: badgesOf(rules.achievements, snapshot.achievements, badgeProgress, shown) }
       : {}),
     ...(shown("pet")
       ? {

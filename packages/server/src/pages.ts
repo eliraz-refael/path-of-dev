@@ -269,7 +269,8 @@ export const gaugeOf = (criterion: Criterion, gauges: ReadonlyArray<Gauge>): { s
   const unit = criterion.of === "promptGrade" ? "prompts" : "sessions"
   if (average === undefined || first.current < first.goal) return { share: null, text: `${fmt(first.current)} / ${fmt(first.goal)} ${unit}` }
   return criterion.of === "promptGrade"
-    ? { share: null, text: `Avg ${grade(average.current)} · needs ${goal(average.goal)}` }
+    // Down to the tenth, so an average just short of its mark never reads as at it.
+    ? { share: null, text: `Avg ${grade(Math.floor(average.current * 10 + 1e-9) / 10)} · needs ${goal(average.goal)}` }
     : { share: null, text: `Peak ${fmt(average.current)}% · needs < ${goal(average.goal)}%` }
 }
 

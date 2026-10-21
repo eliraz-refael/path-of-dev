@@ -60,7 +60,7 @@ name, level, title, prestige and XP, plus each section you haven't hidden:
 
 | Section | What it shows |
 | --- | --- |
-| `badges` | Every badge the game has, and which you have earned and when. While `stats` is shown too, how far you are toward each one you haven't, such as 64 of 100 commits |
+| `badges` | Every badge the game has, and which you have earned and when. While `stats` is shown too, how far you are toward each one you haven't, such as 64 of 100 commits (a streak badge's also needs `streak` shown, and the hatch badge's `pet`) |
 | `pet` | Your pet's name, species, form and mood (hidden, your level's glyph takes its place) |
 | `streak` | Your streak, your best, and your rest days left this week |
 | `stats` | Prompts graded, your average and best grade, each quality's average, your average context peak |
