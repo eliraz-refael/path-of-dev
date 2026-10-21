@@ -73,7 +73,24 @@ export const checkoutRef = async (secret: string, repo: Repo, branch: string | n
 }
 
 // What runs a command without being it: `CI=1`, `env`, `time`, `timeout 60`, a group's brace, a loop's `do`.
-const wrappers = new Set(['{', '}', '!', 'then', 'do', 'else', 'env', 'time', 'command', 'exec', 'nohup', 'nice'])
+const wrappers = new Set([
+  '{',
+  '}',
+  '!',
+  'if',
+  'elif',
+  'while',
+  'until',
+  'then',
+  'do',
+  'else',
+  'env',
+  'time',
+  'command',
+  'exec',
+  'nohup',
+  'nice',
+])
 
 /** The words a simple command runs, what only sets it up skipped: `CI=1 timeout 60 pnpm test` runs `pnpm test`. */
 const argvOf = (words: ReadonlyArray<string>): ReadonlyArray<string> => {
@@ -196,12 +213,16 @@ export const testRunner = (command: string): string | null => {
  * exits 0 on a failure), as do `;` and a new line (`vitest; echo done`); `||` turns a failure into whatever its
  * right side answers (`vitest || true`), and a trailing `&` sends the run to the background. Any of these, and the
  * code says nothing about the tests. `&&` stops at the first failure, so its code stays a failure's; redirects
- * (`2>&1`, `&>`) are no separators, nor is what a quote or a heredoc holds.
+ * (`2>&1`, `&>`) are no separators, nor is what a quote or a heredoc holds. A leading `!` turns the code over
+ * (`! vitest` exits 0 on a failure), so it says nothing either.
  */
 export const exitIsTheRuns = (command: string): boolean => {
   const commands = simpleCommands(command)
   return commands.every(
-    (one, i) => one.then !== '&' && (i === commands.length - 1 || one.then === '&&' || one.then === '(' || one.then === ')'),
+    (one, i) =>
+      one.then !== '&' &&
+      !one.words.includes('!') &&
+      (i === commands.length - 1 || one.then === '&&' || one.then === '(' || one.then === ')'),
   )
 }
 
@@ -260,12 +281,17 @@ export const outcomeOf = (output: string): 'passed' | 'failed' | null => {
 /**
  * Where each `git commit` a command line runs, as the `-C` arguments that take git there from the directory the
  * call starts in: a `cd` before it, then git's own `-C`s. A commit is told by HEAD moving, not by what it prints, so
- * `-q` hides none. A commit where the line can't say (`cd "$dir"`, `--git-dir`) has no place here.
+ * `-q` hides none. A commit where the line can't say (`cd "$dir"`, `--git-dir`) has no place here. A `cd` in a
+ * subshell (`(cd sub && git commit); git commit`) holds only inside it.
  */
 export const commitsIn = (command: string, home: string | undefined): ReadonlyArray<ReadonlyArray<string>> => {
   const commits: Array<ReadonlyArray<string>> = []
   let at: ReadonlyArray<string> | null = []
+  // Each subshell the scan is in, and where the line stood when it opened.
+  const opened: Array<{ id: number; at: ReadonlyArray<string> | null }> = []
   for (const one of simpleCommands(command)) {
+    while (opened.length > 0 && one.scope[opened.length - 1] !== opened.at(-1)?.id) at = opened.pop()?.at ?? null
+    while (opened.length < one.scope.length) opened.push({ id: one.scope[opened.length] ?? -1, at })
     const [first, ...rest] = argvOf(one.words)
     if (first === 'cd' || first === 'pushd') {
       const dir = rest.length === 1 ? placeOf(rest[0] ?? '', home) : null

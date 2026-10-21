@@ -5,8 +5,11 @@
 /** What follows a simple command: a list's `&&`, `||`, `;`, a new line or `&`, a pipe, or a subshell's bracket. */
 export type Joint = '&&' | '||' | ';' | '\n' | '&' | '|' | '(' | ')'
 
-/** One simple command: its words, quotes taken off, redirects left out, and the joint after it (null at the end). */
-export type Simple = { words: ReadonlyArray<string>; then: Joint | null }
+/**
+ * One simple command: its words, quotes taken off, redirects left out, and the joint after it (null at the end).
+ * `scope` names the subshells it runs in, outermost first, each `(` by its own number.
+ */
+export type Simple = { words: ReadonlyArray<string>; then: Joint | null; scope: ReadonlyArray<number> }
 
 type Heredoc = { delimiter: string; isTabbed: boolean }
 
@@ -133,12 +136,14 @@ const scan = (line: string, from: number, isNested: boolean): { commands: Array<
   let words: Array<string> = []
   let heredocs: Array<Heredoc> = []
   let depth = 0
+  let scope: ReadonlyArray<number> = []
+  let opens = 0
   let i = from
   // A joint with no words before it (a `(`, or what follows a `)`) joins the command before, in place of a bracket.
   const end = (then: Joint | null) => {
     const last = commands.at(-1)
     const isOpen = last !== undefined && (last.then === null || last.then === '(' || last.then === ')')
-    if (words.length > 0) commands.push({ words, then })
+    if (words.length > 0) commands.push({ words, then, scope })
     else if (then !== null && last !== undefined && isOpen) commands[commands.length - 1] = { ...last, then }
     words = []
   }
@@ -172,6 +177,8 @@ const scan = (line: string, from: number, isNested: boolean): { commands: Array<
     } else if (char === '(') {
       depth += 1
       end('(')
+      scope = [...scope, opens]
+      opens += 1
       i += 1
     } else if (char === ')') {
       if (isNested && depth === 0) {
@@ -180,6 +187,7 @@ const scan = (line: string, from: number, isNested: boolean): { commands: Array<
       }
       depth -= 1
       end(')')
+      scope = scope.slice(0, -1)
       i += 1
     } else if (redirect.test(line.slice(i))) {
       // A redirect: its operator and its target are no words of the command.

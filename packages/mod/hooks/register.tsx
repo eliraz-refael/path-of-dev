@@ -1253,7 +1253,9 @@ const sshHostOf = async ($: EngineInterface, alias: string): Promise<string | nu
   const kept = keptHostOf(hosts, alias, now)
   if (kept !== undefined) return kept
   const ran = await $.process.run(['ssh', '-G', alias], { timeoutMs: 3_000 }).catch(() => null)
-  const host = ran === null || ran.exitCode !== 0 ? null : hostNameOf(ran.stdout)
+  // A run that failed (a timeout, no ssh) is asked again next time, not kept a day as no host.
+  if (ran === null || ran.exitCode !== 0) return null
+  const host = hostNameOf(ran.stdout)
   await $.store.set('sshHosts', { ...hosts, [alias]: { host, at: now } })
   return host
 }
@@ -1280,7 +1282,7 @@ const findRepo = async ($: EngineInterface, cwd: string) => {
   branch = head === null || head === 'HEAD' ? null : head
 }
 
-/** A place a command commits at: git's `-C` arguments to it, how many commits the command runs there, and HEAD before. */
+/** A place a command commits at: git's `-C` arguments to it, how many commits it runs there, and HEAD before. */
 type CommitPlace = { at: ReadonlyArray<string>; count: number; before: string | null }
 
 /** HEAD at each place the command commits, read before it runs. */
@@ -1296,8 +1298,8 @@ const headsBefore = async ($: EngineInterface, cwd: string, commits: ReadonlyArr
 
 /**
  * The commits a command made at `place`: HEAD moved on to a descendant of where it stood, so an amend, a reset or a
- * rebase (HEAD moved elsewhere) makes none. As many as the command ran `git commit`s there, the oldest first, those
- * already reported left out.
+ * rebase (HEAD moved elsewhere) makes none. As many as the command ran `git commit`s there, the newest ones (a `git
+ * pull` before the commit brings others' in below it), oldest first, those already reported left out.
  */
 const commitsMade = async ($: EngineInterface, cwd: string, place: CommitPlace): Promise<ReadonlyArray<string>> => {
   const after = await git($, cwd, [...place.at, 'rev-parse', '--verify', '-q', 'HEAD'])
@@ -1310,14 +1312,18 @@ const commitsMade = async ($: EngineInterface, cwd: string, place: CommitPlace):
     if (ran.exitCode !== 0) return []
   }
   const range = place.before === null ? [after] : [`${place.before}..${after}`]
-  const listed = await git($, cwd, [...place.at, 'rev-list', '--first-parent', `--max-count=${place.count + 20}`, ...range])
+  const most = `--max-count=${place.count + 20}`
+  const listed = await git($, cwd, [...place.at, 'rev-list', '--first-parent', most, ...range])
   const made = (listed ?? '').split('\n').filter((sha) => /^[0-9a-f]{40,64}$/.test(sha)).reverse()
-  return made.filter((sha) => !reported.includes(sha)).slice(0, place.count)
+  return made.filter((sha) => !isReported(sha)).slice(-place.count)
 }
+
+/** Whether a commit was reported, by its full sha or an abbreviation of it (the engine reads `[main 1a2b3c4]`). */
+const isReported = (sha: string) => reported.some((one) => one.startsWith(sha) || sha.startsWith(one))
 
 /** Reports a commit once, in the repo it was made in. */
 const reportCommit = async ($: EngineInterface, made: Repo, sha: string) => {
-  if (reported.includes(sha)) return
+  if (sha === '' || isReported(sha)) return
   reported.push(sha)
   if (reported.length > 200) reported.shift()
   await enqueue($, { ...(await stamp($)), type: 'commit.made', data: { commit: await commitRef(secret, made, sha) } })
@@ -1334,9 +1340,12 @@ const observeCommits = async (
   told: { sha: string; kind: string } | undefined,
 ) => {
   for (const place of places) {
-    const made = await commitsMade($, cwd, place)
-    const at = made.length === 0 ? null : await repoAt($, cwd, place.at)
-    if (at !== null) for (const sha of made) await reportCommit($, at, sha)
+    // One place git can't read leaves the others, and the engine's own, still told.
+    await (async () => {
+      const made = await commitsMade($, cwd, place)
+      const at = made.length === 0 ? null : await repoAt($, cwd, place.at)
+      if (at !== null) for (const sha of made) await reportCommit($, at, sha)
+    })().catch(() => undefined)
   }
   if (told !== undefined && told.kind === 'committed' && repo !== null) await reportCommit($, repo, told.sha)
 }
@@ -1369,7 +1378,13 @@ const machineSecret = async ($: EngineInterface): Promise<string> => {
  * run's own (`failed`); when a pipe or a list took it, the summary in the run's `output` says, and with none to read
  * the run goes uncounted.
  */
-const observeTests = async ($: EngineInterface, command: string, failed: boolean, unfinished: boolean, output: string) => {
+const observeTests = async (
+  $: EngineInterface,
+  command: string,
+  failed: boolean,
+  unfinished: boolean,
+  output: string,
+) => {
   const runner = testRunner(command)
   if (runner === null || unfinished) return
   const outcome = exitIsTheRuns(command) ? (failed ? 'failed' : 'passed') : outcomeOf(output)
@@ -2389,7 +2404,8 @@ export const register: Register = (on, options) => {
     if (result.isError === true) {
       // A failing command can still have committed, or be a failing test run.
       await observeCommits($, cwd, places, undefined).catch(() => undefined)
-      await observeTests($, e.command, true, false, result.text ?? (typeof result.result === 'string' ? result.result : ''))
+      const output = result.text ?? (typeof result.result === 'string' ? result.result : '')
+      await observeTests($, e.command, true, false, output)
       return result
     }
     const record = result.result

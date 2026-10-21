@@ -96,6 +96,12 @@ describe('the test runner a command starts', () => {
     expect(exitIsTheRuns(command)).toBe(drawn.after === '' || drawn.after === ' && echo ok')
   })
 
+  it('owns no exit code a `!` turns over, and is found behind an `if`', () => {
+    expect(exitIsTheRuns('! pnpm test')).toBe(false)
+    expect(exitIsTheRuns('cd a && ! vitest run')).toBe(false)
+    expect(testRunner('if pnpm test; then echo ok; fi')).toBe('npm')
+  })
+
   prop.prop('is none in a command that only names one', [Mention], ([drawn]) => {
     const [run] = runs[drawn.run] ?? ['']
     expect(testRunner(mentionOf(run, drawn.shape))).toBeNull()
@@ -228,6 +234,15 @@ describe('where a command commits', () => {
 
   it('counts each commit the line runs', () => {
     expect(commitsIn('git commit -qm a && git -C ../b commit -qm b && git commit -qm c', home)).toEqual([[], ['-C', '../b'], []])
+  })
+
+  it('keeps a cd in a subshell inside it', () => {
+    expect(commitsIn('(cd sub && git commit -qm a); git commit -qm b', home)).toEqual([['-C', 'sub'], []])
+    expect(commitsIn('(cd a); (cd b && git commit -qm b)', home)).toEqual([['-C', 'b']])
+    expect(commitsIn('cd a && (cd b && git commit -qm b) && git commit -qm a', home)).toEqual([
+      ['-C', 'a', '-C', 'b'],
+      ['-C', 'a'],
+    ])
   })
 })
 
