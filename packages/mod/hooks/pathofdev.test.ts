@@ -192,7 +192,12 @@ const commands: Array<CommandInfo> = [
 
 type Clock = ReturnType<typeof mock.clock>
 
+/** What a command on the host answers, from a test's own fake of it; undefined leaves it to the usual answers. */
+type Run = (argv: ReadonlyArray<string>) => ReturnType<typeof ran> | undefined
+
 type ServerOptions = {
+  /** Commands on the host the test answers itself, git's and ssh's, before the repo the server's tests run in. */
+  run?: Run
   level?: number
   glyph?: string
   isDown?: boolean
@@ -445,6 +450,8 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
     return reply(200, { events, cursor, rulesVersion: 1, minClientVersion: '0.0.0' })
   })
   on('process.run', ($, e) => {
+    const answered = options.run?.(e.argv)
+    if (answered !== undefined) return answered
     const args = e.argv.join(' ')
     if (args === 'git rev-parse --show-toplevel') return ran(0, '/work/widgets\n')
     if (args === 'git remote get-url origin') return ran(0, 'git@github.com:acme/widgets.git\n')
@@ -579,6 +586,246 @@ describe('reporting work', () => {
     expect(events[1]).toMatchObject({ data: { commit: { type: 'github', repo: 'acme/widgets', sha: 'a'.repeat(40) } } })
     expect(events[2]).toMatchObject({ data: { runner: 'npm', checkout: { repo: 'acme/widgets', branch: 'main' } } })
     expect(events[4]).toMatchObject({ data: { durationMs: 4200, toolCalls: 4 } })
+  })
+
+  /**
+   * Git beneath the mod: repos by the `-C` path that reaches them from the session ('' for its own), each with its
+   * remote, its HEAD and every commit's parent. A Bash `git commit` moves HEAD on; `--amend` moves it to a sibling.
+   * In a broken one git fails to start once the command has run.
+   */
+  type Repos = Record<
+    string,
+    { top: string; remote: string; head: string | null; parents: Map<string, string | null>; isBroken?: boolean }
+  >
+  const fakeGit = (repos: Repos) => {
+    let made = 0
+    const placeOf = (argv: ReadonlyArray<string>) => {
+      let i = 0
+      const dirs: Array<string> = []
+      while (argv[i] === '-C') {
+        dirs.push(argv[i + 1] ?? '')
+        i += 2
+      }
+      return { place: dirs.join('/'), rest: argv.slice(i) }
+    }
+    const lineOf = (repo: Repos[string], from: string | null, until: string | null) => {
+      const shas: Array<string> = []
+      for (let at = from; at !== null && at !== until; at = repo.parents.get(at) ?? null) shas.push(at)
+      return shas
+    }
+    const run: Run = (argv) => {
+      if (argv[0] !== 'git') return undefined
+      const { place, rest } = placeOf(argv.slice(1))
+      const repo = repos[place]
+      const args = rest.join(' ')
+      if (repo === undefined) return ran(128, '')
+      if (args === 'rev-parse --show-toplevel') return ran(0, `${repo.top}\n`)
+      if (args === 'remote get-url origin') return ran(0, `${repo.remote}\n`)
+      if (args === 'rev-parse --abbrev-ref HEAD') return ran(0, 'main\n')
+      if (args === 'rev-parse --verify -q HEAD') return repo.head === null ? ran(1, '') : ran(0, `${repo.head}\n`)
+      if (rest[0] === 'merge-base' && repo.isBroken === true) throw new Error('spawn git EAGAIN')
+      if (rest[0] === 'merge-base') return ran(lineOf(repo, rest[3] ?? null, null).includes(rest[2] ?? '') ? 0 : 1, '')
+      if (rest[0] === 'rev-list') {
+        const range = rest.at(-1) ?? ''
+        const [from, until] = range.includes('..') ? [range.split('..')[1] ?? '', range.split('..')[0] ?? ''] : [range, null]
+        return ran(0, lineOf(repo, from, until).map((sha) => `${sha}\n`).join(''))
+      }
+      return undefined
+    }
+    const commit = (place: string, isAmend: boolean): string => {
+      const repo = repos[place]
+      if (repo === undefined) return ''
+      made += 1
+      const sha = made.toString(16).padEnd(40, '0')
+      const parent = isAmend && repo.head !== null ? (repo.parents.get(repo.head) ?? null) : repo.head
+      repo.parents.set(sha, parent)
+      repo.head = sha
+      return sha
+    }
+    return { run, commit }
+  }
+
+  test('counts a quiet commit by HEAD moving, an amend not at all, and one elsewhere in its own repo', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const { run, commit } = fakeGit({
+      '': { top: '/work/widgets', remote: 'git@github.com:acme/widgets.git', head: 'f'.repeat(40), parents: new Map() },
+      '../gadgets': { top: '/work/gadgets', remote: 'git@github.com:acme/gadgets.git', head: null, parents: new Map() },
+    })
+    const { sent } = fakeServer(on, clock, { run })
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      const at = /-C (\S+) commit/.exec(e.command)?.[1] ?? ''
+      if (e.command.includes('commit')) commit(at, e.command.includes('--amend'))
+      // Quiet, the engine reads no commit off the output.
+      return { result: { stdout: '', stderr: '', interrupted: false } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+
+    await $.tool.call({ tool: 'Bash', command: 'git add -A && git commit -q -m "Add widgets"' })
+    await $.tool.call({ tool: 'Bash', command: 'git commit -q --amend --no-edit' })
+    await $.tool.call({ tool: 'Bash', command: 'git -C ../gadgets commit -qm "First gadget"' })
+    await $.tool.call({ tool: 'Bash', command: 'git log --grep commit' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'turn.completed'))
+
+    const commits = eventsOf(sent).filter((event) => event['type'] === 'commit.made')
+    expect(commits.map((event) => event['data'])).toEqual([
+      { commit: expect.objectContaining({ repo: 'acme/widgets', sha: '1'.padEnd(40, '0') }) },
+      { commit: expect.objectContaining({ repo: 'acme/gadgets', sha: '3'.padEnd(40, '0') }) },
+    ])
+  })
+
+  test('review fix: a commit the engine reads by its short sha is the one HEAD moved to, counted once', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const { run, commit } = fakeGit({
+      '': { top: '/work/widgets', remote: 'git@github.com:acme/widgets.git', head: 'f'.repeat(40), parents: new Map() },
+    })
+    const { sent } = fakeServer(on, clock, { run })
+    on('tool.call', { tool: 'Bash' }, () => {
+      const sha = commit('', false)
+      // `[main 1000000] Add widgets`, as the engine reads it.
+      const gitOperation = { commit: { sha: sha.slice(0, 7), kind: 'committed' } }
+      return { result: { stdout: '', stderr: '', interrupted: false, gitOperation } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m "Add widgets"' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'turn.completed'))
+    const commits = eventsOf(sent).filter((event) => event['type'] === 'commit.made')
+    expect(commits).toHaveLength(1)
+    expect(commits[0]).toMatchObject({ data: { commit: { sha: '1'.padEnd(40, '0') } } })
+  })
+
+  test('review fix: a pull before the commit counts the commit, not what the pull brought', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const { run, commit } = fakeGit({
+      '': { top: '/work/widgets', remote: 'git@github.com:acme/widgets.git', head: 'f'.repeat(40), parents: new Map() },
+    })
+    const { sent } = fakeServer(on, clock, { run })
+    on('tool.call', { tool: 'Bash' }, () => {
+      // Two commits from upstream, then the player's own.
+      commit('', false)
+      commit('', false)
+      commit('', false)
+      return { result: { stdout: '', stderr: '', interrupted: false } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.tool.call({ tool: 'Bash', command: 'git pull -q && git commit -qm "Add widgets"' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'turn.completed'))
+    const commits = eventsOf(sent).filter((event) => event['type'] === 'commit.made')
+    expect(commits.map((event) => event['data'])).toEqual([{ commit: expect.objectContaining({ sha: '3'.padEnd(40, '0') }) }])
+  })
+
+  test('review fix: a place git fails at still leaves the commit the engine read', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const { run, commit } = fakeGit({
+      '': { top: '/work/widgets', remote: 'git@github.com:acme/widgets.git', head: 'f'.repeat(40), parents: new Map() },
+      '../broken': { top: '/work/broken', remote: '', head: 'e'.repeat(40), parents: new Map(), isBroken: true },
+    })
+    const { sent } = fakeServer(on, clock, { run })
+    on('tool.call', { tool: 'Bash' }, () => {
+      commit('../broken', false)
+      return {
+        result: { stdout: '', stderr: '', interrupted: false, gitOperation: { commit: { sha: 'c'.repeat(40), kind: 'committed' } } },
+      }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+    await $.tool.call({ tool: 'Bash', command: 'git -C ../broken commit -m "Fix it"' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'turn.completed'))
+    const commits = eventsOf(sent).filter((event) => event['type'] === 'commit.made')
+    expect(commits.map((event) => event['data'])).toEqual([{ commit: expect.objectContaining({ sha: 'c'.repeat(40) }) }])
+  })
+
+  test('reads a piped test run by its summary, and counts none from a command that only names one', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on, { explored: ['acme/widgets'] })
+    mock.env(on, { HOME: '/home/player' })
+    const { sent } = fakeServer(on, clock)
+    const outputs: Record<string, string> = {
+      fail: ' Test Files  1 failed | 11 passed (12)\n      Tests  1 failed | 195 passed (196)\n ELIFECYCLE  Test failed.\n',
+      pass: ' Test Files  12 passed (12)\n      Tests  196 passed (196)\n',
+      bun: ' 361 pass\n 0 fail\nRan 361 tests across 5 files. [57.40s]\n',
+    }
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      const said = /# (\w+)$/.exec(e.command)?.[1] ?? ''
+      return { result: { stdout: outputs[said] ?? 'pnpm test', stderr: '', interrupted: false } }
+    })
+    await $.session.start(start)
+    await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
+
+    await $.tool.call({ tool: 'Bash', command: 'pnpm test 2>&1 | tail -20 # fail' })
+    await $.tool.call({ tool: 'Bash', command: 'pnpm -s --filter @acme/widgets test | tail -5 # pass' })
+    await $.tool.call({ tool: 'Bash', command: 'claude plugin test packages/mod 2>&1 | tail -3 # bun' })
+    await $.tool.call({ tool: 'Bash', command: 'echo "pnpm test" | tee notes.txt' })
+    await $.tool.call({ tool: 'Bash', command: 'pnpm test 2>&1 | head -1' })
+    await $.turn.complete({ answer: 'Done', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'turn.completed'))
+
+    const runs = eventsOf(sent).filter((event) => String(event['type']).startsWith('tests.'))
+    expect(runs).toHaveLength(3)
+    expect(runs).toMatchObject([
+      { type: 'tests.failed', data: { runner: 'npm' } },
+      { type: 'tests.passed', data: { runner: 'npm' } },
+      { type: 'tests.passed', data: { runner: 'claude' } },
+    ])
+  })
+
+  test('review fix: an ssh -G that failed is asked again at the next start, not kept a day', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on)
+    mock.env(on, { HOME: '/home/player' })
+    const git = fakeGit({ '': { top: '/work/widgets', remote: 'git@private:acme/widgets.git', head: null, parents: new Map() } })
+    const asked: Array<string> = []
+    const { sent } = fakeServer(on, clock, {
+      run: (argv) => {
+        if (argv[0] !== 'ssh') return git.run(argv)
+        asked.push(argv.join(' '))
+        return asked.length === 1 ? ran(255, '') : ran(0, 'hostname github.com\n')
+      },
+    })
+    await $.session.start(start)
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'repo.explored'))
+    expect(eventsOf(sent)[0]).toMatchObject({ data: { repo: { type: 'private' } } })
+    await $.session.start(start)
+    await until(clock, () => eventsOf(sent).filter((event) => event['type'] === 'repo.explored').length === 2)
+    expect(asked).toHaveLength(2)
+    expect(eventsOf(sent).filter((event) => event['type'] === 'repo.explored')[1]).toMatchObject({
+      data: { repo: { type: 'github', repo: 'acme/widgets' } },
+    })
+  })
+
+  test('names a repo behind an ssh alias for github.com, asking ssh once a day', async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
+    mock.store(on)
+    mock.env(on, { HOME: '/home/player' })
+    const git = fakeGit({ '': { top: '/work/widgets', remote: 'git@private:acme/widgets.git', head: null, parents: new Map() } })
+    const asked: Array<string> = []
+    const { sent } = fakeServer(on, clock, {
+      run: (argv) => {
+        if (argv[0] !== 'ssh') return git.run(argv)
+        asked.push(argv.join(' '))
+        return ran(0, 'user git\nhostname github.com\nport 22\n')
+      },
+    })
+    await $.session.start(start)
+    await until(clock, () => eventsOf(sent).some((event) => event['type'] === 'repo.explored'))
+    expect(eventsOf(sent)[0]).toMatchObject({ data: { repo: { type: 'github', repo: 'acme/widgets' } } })
+    await $.session.start(start)
+    await clock.settle()
+    expect(asked).toEqual(['ssh -G private'])
   })
 
   test('keeps events while the server is down, and sends them once it answers', async ($, on) => {
