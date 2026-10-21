@@ -9,7 +9,8 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "contract": "PATHOFDEV_WRITE_CONTRACT=1 vitest run packages/server/test/contract.test.ts packages/server/test/snapshot-contract.test.ts packages/mod/test/contract.prop.ts"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0",

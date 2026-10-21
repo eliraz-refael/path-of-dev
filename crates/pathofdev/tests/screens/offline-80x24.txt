@@ -1,0 +1,24 @@
+ ✦ PATH OF DEV ✦                                                local · offline
+ 1 Home  2 Missions  3 Loot  4 Stats
+ ──────────────────────────────────────────────────────────────────────────────
+ The local server isn't answering: start it with pnpm --filter
+ @pathofdev/server start. Trying again in 5 s.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

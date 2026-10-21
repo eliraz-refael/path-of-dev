@@ -1,0 +1,24 @@
+# The Rust side of the repo: the companion, `pathofdev watch`, in crates/. pnpm sees only packages/*, and Cargo only
+# crates/*, so neither builds the other.
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+repository = "https://github.com/eliraz-refael/path-of-dev"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# A panic in the drawing loop leaves the player's terminal to the panic hook: errors are handled where they happen.
+unwrap_used = "deny"
+dbg_macro = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
