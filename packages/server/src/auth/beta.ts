@@ -2,7 +2,7 @@ import type { BetaList } from "@pathofdev/schema"
 import { CurrentPlayer, Forbidden, InvalidLogin, isGithubLogin, OnlineApi } from "@pathofdev/schema"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
-import type { Standing } from "./allowlist.ts"
+import type { Signup, Standing } from "./allowlist.ts"
 import { Allowlist } from "./allowlist.ts"
 
 // The beta list from the mod: `/pathofdev beta list|add|remove` for the public server's admins, so letting a player in
@@ -23,9 +23,11 @@ export const onlyAdmins = "Only the server's admins can see or change the beta l
 export const notALogin =
   "That is not a GitHub login: 1 to 39 letters, digits and hyphens, not starting with a hyphen"
 
-/** What every change to the list adds while signup is open. */
-export const openNote =
-  " Signup is open, so anyone can sign in: the list lets people in only once SIGNUP=allowlist closes signup."
+/** What every change to the list ends with while signup is open. */
+export const openNote = " Signup is open, so anyone can sign in: the list counts only once SIGNUP=allowlist closes it."
+
+/** What a change to the list ends with: the open-signup note, or nothing. */
+const noteOf = (signup: Signup): string => (signup === "open" ? openNote : "")
 
 /** What still lets a login in that the API can't take off, or null when nothing does. */
 const stillIn = (standing: Standing): string | null =>
@@ -41,12 +43,15 @@ export const addedText = (login: string, isAdded: boolean): string =>
     ? `${login} is on the beta list now: they can sign in.`
     : `${login} was on the beta list already: nothing changed.`
 
-/** What removing `login` did, and what still lets them in. */
-export const removedText = (login: string, isRemoved: boolean, standing: Standing): string => {
+/**
+ * What removing `login` did, and what still lets them in. While signup is open nobody is turned away for it, so it
+ * says only what changed.
+ */
+export const removedText = (login: string, isRemoved: boolean, standing: Standing, signup: Signup): string => {
   const still = stillIn(standing)
   const done = isRemoved ? `${login} is off the beta list` : `${login} was not on the beta list, so nothing changed`
   if (still !== null) return `${done}, but ${still}: the API can't take them off, only a redeploy can.`
-  return isRemoved ? `${done}: their next request is turned away.` : `${done}.`
+  return isRemoved && signup === "allowlist" ? `${done}: their next request is turned away.` : `${done}.`
 }
 
 export const BetaHandlers = HttpApiBuilder.group(
@@ -73,7 +78,7 @@ export const BetaHandlers = HttpApiBuilder.group(
           admin,
           Effect.map(Effect.orDie(allowlist.entries), (entries): BetaList => ({
             entries,
-            signup: allowlist.isOpen ? "open" : "allowlist",
+            signup: allowlist.signup,
           })),
         ),
 
@@ -82,7 +87,7 @@ export const BetaHandlers = HttpApiBuilder.group(
           const by = yield* admin
           const login = yield* checked(payload.login)
           const isAdded = yield* Effect.orDie(allowlist.add(login, by))
-          return { login, changed: isAdded, message: addedText(login, isAdded) + (allowlist.isOpen ? openNote : "") }
+          return { login, changed: isAdded, message: addedText(login, isAdded) + noteOf(allowlist.signup) }
         }),
 
       removeFromBeta: ({ params }) =>
@@ -91,7 +96,7 @@ export const BetaHandlers = HttpApiBuilder.group(
           const login = yield* checked(params.login)
           const isRemoved = yield* Effect.orDie(allowlist.remove(login))
           const standing = yield* Effect.orDie(allowlist.standing(login))
-          const message = removedText(login, isRemoved, standing) + (allowlist.isOpen ? openNote : "")
+          const message = removedText(login, isRemoved, standing, allowlist.signup) + noteOf(allowlist.signup)
           return { login, changed: isRemoved, message }
         }),
     })

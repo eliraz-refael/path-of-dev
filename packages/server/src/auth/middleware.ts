@@ -7,8 +7,8 @@ import { Tokens } from "./tokens.ts"
 // Who a request to the public server acts for: the player its game token names. The game's own routes want that
 // player let in too: anyone while signup is open (the open beta), and only those the beta list names once
 // `SIGNUP=allowlist` closes it. The account's routes (privacy, export, delete) want only the token, so a player shut
-// out by a closed signup still gets their data out, or deletes it, while their mod is signed in. The token is read from its
-// Redacted only to hash it; neither it nor the Authorization header is logged.
+// out by a closed signup still gets their data out, or deletes it, while their mod is signed in. The token is read
+// from its Redacted only to hash it; neither it nor the Authorization header is logged.
 //
 //   Authorization: Bearer <token>   ("" when missing, or not Bearer)
 //     └─▶ Tokens.playerOf ── not a pod_ token: answered without a read

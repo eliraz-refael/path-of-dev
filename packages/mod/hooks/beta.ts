@@ -96,6 +96,12 @@ export const listText = (list: BetaList, origin: string): string => {
   ].join('\n')
 }
 
+/**
+ * The most of a change's answer shown: the server's longest (a 39-letter admin removed, with the note that signup is
+ * open) is under 360, and anything past this is no answer of its.
+ */
+const changeLength = 400
+
 /** What the server made of an ask, in the player's words; `response` null: no answer at all. */
 export const betaTextOf = (
   ask: BetaAsk,
@@ -111,6 +117,6 @@ export const betaTextOf = (
   }
   const body = parsed(response.text)
   if (response.ok && ask.kind === 'list' && isList(body)) return listText(body, origin)
-  if (response.ok && ask.kind !== 'list' && isChange(body)) return printable(body.message, 240)
+  if (response.ok && ask.kind !== 'list' && isChange(body)) return printable(body.message, changeLength)
   return `The Path of Dev server at ${origin} answered the beta ${ask.kind} with ${response.status}.`
 }

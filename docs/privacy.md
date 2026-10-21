@@ -22,6 +22,10 @@ token, only your GitHub user id and login. One account per GitHub account:
 The mod never sends a prompt's text, only Haiku's grades for it. It never sends a repo's name either, only opaque keys.
 Slash-command names are counted in your stats.
 
+On your machine, the mod keeps the game token it got at sign-in in its own store on disk, where Claude Code keeps each
+plugin's data, and sends it only to the server it came from, over https. Anyone who can read that store can play as you
+until the token is revoked: `/pathofdev logout` revokes it on the server and forgets it, and so does a delete.
+
 ### What a graded prompt sends
 
 Haiku grades the prompt on your own Claude account. On a server that grades by rubric 2, as `api.pathof.dev` does,

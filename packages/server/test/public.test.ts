@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import { engineVersion } from "@pathofdev/engine"
-import { DevCommand } from "@pathofdev/schema"
+import { Command, DevCommand, PlayCommand } from "@pathofdev/schema"
 import { Effect, Exit, Layer, Option, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { describe, expect } from "vitest"
@@ -95,27 +95,35 @@ describe("the public server's settings", () => {
       }),
   )
 
-  it.effect.prop("take open signup, no beta list, the port, the public client id and no admins by default", [Config], ([drawn]) =>
-    Effect.gen(function* () {
-      const env: Partial<Record<PublicVar, string>> = { ...publicEnvOf(configOf(drawn)) }
-      delete env.SIGNUP
-      delete env.ALLOWED_LOGINS
-      delete env.PORT
-      delete env.GITHUB_CLIENT_ID
-      delete env.ADMIN_GITHUB_IDS
-      delete env.PROFILE_ORIGIN
-      const config = yield* publicConfigOf(env)
-      expect(config.signup).toBe("open")
-      expect(config.allowedLogins).toBe("")
-      expect(config.port).toBe(defaultPort)
-      expect(config.github.clientId).toBe(publicClientId)
-      expect(config.adminGithubIds).toEqual([])
-      expect(config.profileOrigin).toBe(defaultProfileOrigin)
-    }))
+  it.effect.prop(
+    "take open signup, no beta list, the port, the public client id and no admins by default",
+    [Config],
+    ([drawn]) =>
+      Effect.gen(function* () {
+        const env: Partial<Record<PublicVar, string>> = { ...publicEnvOf(configOf(drawn)) }
+        delete env.SIGNUP
+        delete env.ALLOWED_LOGINS
+        delete env.PORT
+        delete env.GITHUB_CLIENT_ID
+        delete env.ADMIN_GITHUB_IDS
+        delete env.PROFILE_ORIGIN
+        const config = yield* publicConfigOf(env)
+        expect(config.signup).toBe("open")
+        expect(config.allowedLogins).toBe("")
+        expect(config.port).toBe(defaultPort)
+        expect(config.github.clientId).toBe(publicClientId)
+        expect(config.adminGithubIds).toEqual([])
+        expect(config.profileOrigin).toBe(defaultProfileOrigin)
+      }),
+  )
 
   it.effect.prop(
     "read SIGNUP in any case, and stop the boot on anything but open or allowlist, naming it",
-    [Config, Schema.Literals(["Open", " allowlist ", "ALLOWLIST"]), Schema.Literals(["closed", "on", "true", "open,allowlist"])],
+    [
+      Config,
+      Schema.Literals(["Open", " allowlist ", "ALLOWLIST"]),
+      Schema.Literals(["closed", "on", "true", "open,allowlist"]),
+    ],
     ([drawn, spelt, bad]) =>
       Effect.gen(function* () {
         const env = publicEnvOf(configOf(drawn))
@@ -168,7 +176,10 @@ const FakeGitHub = (accounts: ReadonlyMap<string, GithubUser>) =>
 const withPublic = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.provide(
-      testPublicServices({ signup: "open", allowedLogins: "", adminGithubIds: [] }, FakeGitHub(new Map([["ada-token", ada]]))),
+      testPublicServices(
+        { signup: "open", allowedLogins: "", adminGithubIds: [] },
+        FakeGitHub(new Map([["ada-token", ada]])),
+      ),
     ),
   )
 
@@ -212,6 +223,17 @@ describe("the public build", () => {
         expect(yield* dump).toEqual(before)
       }),
     ))
+
+  it.prop(
+    "takes every command of play on the public route, and no dev command: one list makes both",
+    [Command],
+    ([command]) => {
+      expect({ type: command.type, isPlay: Schema.is(PlayCommand)(command) }).toEqual({
+        type: command.type,
+        isPlay: !command.type.startsWith("dev."),
+      })
+    },
+  )
 
   it.effect.prop(
     "refuses every dev command, never decoding it, and the save stays as it was",

@@ -30,7 +30,10 @@ In the open beta (`SIGNUP=open`, the default) anyone with a GitHub account signs
 
 `SIGNUP=allowlist` closes signup again: a switch for an emergency, set in Coolify and redeployed. Then who plays is the
 union of three lists, checked at sign-in and on every request, so a player on none of them is turned away (401 "not in
-the beta") on their next request, token or not:
+the beta") on their next request, token or not. This is the closed beta again, so it turns away players who joined in
+the open beta too: add the ones to keep with `/pathofdev beta add` first.
+
+The three lists:
 
 - `ALLOWED_LOGINS`, the logins the server starts with. Only a redeploy changes it.
 - The `beta_logins` table, which the admins keep from the mod. A change takes effect at once, with no redeploy.

@@ -464,7 +464,8 @@ describe("open signup", () => {
         expect(added.body["message"]).toBe(`carol is on the beta list now: they can sign in.${openNote}`)
         const removed = yield* answer(yield* remove(handle, admin, "carol"))
         expect(removed).toMatchObject({ status: 200, body: { login: "carol", changed: true } })
-        expect(removed.body["message"]).toContain(openNote)
+        // Nobody is turned away for being off the list while signup is open, and the answer says no such thing.
+        expect(removed.body["message"]).toBe(`carol is off the beta list.${openNote}`)
         expect((yield* rows).map((row) => row.login)).toEqual([])
         // A player who is no admin still can't read it.
         const player = yield* signedIn(handle, mallory)

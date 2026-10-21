@@ -49,7 +49,10 @@ export const adminIdsOf = (raw: string): ReadonlyArray<number> | null => {
 /** Whether anyone may sign in (the open beta), or only those the beta list lets in. */
 export type Signup = "open" | "allowlist"
 
-/** `SIGNUP` as the server reads it, in any case; null for anything but `open` or `allowlist`, so a typo stops the boot. */
+/**
+ * `SIGNUP` as the server reads it, in any case; null for anything but `open` or `allowlist`, so a typo stops the
+ * boot.
+ */
 export const signupOf = (raw: string): Signup | null => {
   const named = raw.trim().toLowerCase()
   return named === "open" || named === "allowlist" ? named : null
@@ -85,8 +88,8 @@ const AdminPlayer = Schema.Struct({ githubUserId: Schema.Int, githubLogin: Schem
 export class Allowlist extends Context.Service<
   Allowlist,
   {
-    /** Whether signup is open: everyone plays, whatever the lists say. */
-    readonly isOpen: boolean
+    /** Whether signup is open, everyone playing whatever the lists say, or closed to them. */
+    readonly signup: Signup
     /**
      * Whether the account plays: anyone while signup is open; else an admin by id, or a login on either list.
      * Answered from memory.
@@ -208,5 +211,5 @@ const make = (config: BetaConfig) =>
       ),
     )
 
-    return Allowlist.of({ isOpen, allows, isAdmin, entries, add, remove, standing, refresh })
+    return Allowlist.of({ signup: config.signup, allows, isAdmin, entries, add, remove, standing, refresh })
   })
