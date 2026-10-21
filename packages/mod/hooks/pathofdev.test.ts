@@ -887,6 +887,12 @@ describe('reporting work', () => {
    */
   const isMergeTold = (kept: Map<string, unknown>, sent: ReadonlyArray<Sent>) =>
     merges(sent).length > 0 || JSON.stringify(kept.get('queue') ?? []).includes('change.merged')
+  /** Waits for the mod to tell of a merge, then moves the clock past a flush and waits for that merge to be sent. */
+  const sendsMerge = async (clock: Clock, kept: Map<string, unknown>, sent: ReadonlyArray<Sent>) => {
+    await until(clock, () => isMergeTold(kept, sent))
+    await clock.advance(30_000)
+    await until(clock, () => merges(sent).length === 1)
+  }
 
   test('keeps a change opened in the session, and sends its merge outside Claude once, with its size', async ($, on) => {
     const clock = mock.clock(on, { now })
@@ -911,9 +917,7 @@ describe('reporting work', () => {
     expect(merges(sent)).toEqual([])
     views.set('acme/widgets#7', merged('Ada', 40, 2))
     await clock.advance(30 * 60_000)
-    await until(clock, () => isMergeTold(kept, sent))
-    await clock.advance(30_000)
-    await until(clock, () => merges(sent).length === 1)
+    await sendsMerge(clock, kept, sent)
     expect(merges(sent)[0]).toMatchObject({
       data: { change: { type: 'github', repo: 'acme/widgets', number: 7 }, additions: 40, deletions: 2, isOwnRepo: false },
     })
@@ -949,9 +953,7 @@ describe('reporting work', () => {
     const { sent } = fakeServer(on, clock, { run: fakeGh(views, asked) })
     await $.session.start(start)
     // The check at the start queues the merge; the next flush sends it.
-    await until(clock, () => isMergeTold(kept, sent))
-    await clock.advance(30_000)
-    await until(clock, () => merges(sent).length === 1)
+    await sendsMerge(clock, kept, sent)
     expect(merges(sent)[0]).toMatchObject({
       data: { change: { repo: 'ada/tools', number: 4 }, additions: 1, deletions: 0, isOwnRepo: true },
     })
@@ -974,9 +976,7 @@ describe('reporting work', () => {
     ])
     const { sent } = fakeServer(on, clock, { run: fakeGh(views, [], ['work-account', 'ada']) })
     await $.session.start(start)
-    await until(clock, () => isMergeTold(kept, sent))
-    await clock.advance(30_000)
-    await until(clock, () => merges(sent).length === 1)
+    await sendsMerge(clock, kept, sent)
     expect(merges(sent)[0]).toMatchObject({ data: { change: { number: 1 } } })
   })
 
@@ -988,9 +988,7 @@ describe('reporting work', () => {
     const views = new Map<string, unknown>([['acme/widgets#1', merged('ada', 10, 0)]])
     const { sent } = fakeServer(on, clock, { run: fakeGh(views, [], ['ada'], true) })
     await $.session.start(start)
-    await until(clock, () => isMergeTold(kept, sent))
-    await clock.advance(30_000)
-    await until(clock, () => merges(sent).length === 1)
+    await sendsMerge(clock, kept, sent)
   })
 
   test('review fix: a change opened under another repo goes by that name, opened and merged', async ($, on) => {
@@ -1009,9 +1007,7 @@ describe('reporting work', () => {
     await $.tool.call({ tool: 'Bash', command: 'gh pr create --repo upstream/widgets --fill' })
     // gh can't view it: the merge still goes by the change's own name.
     await $.tool.call({ tool: 'Bash', command: 'gh pr merge 7 --repo upstream/widgets' })
-    await until(clock, () => isMergeTold(kept, sent))
-    await clock.advance(30_000)
-    await until(clock, () => merges(sent).length === 1)
+    await sendsMerge(clock, kept, sent)
     const opens = eventsOf(sent).filter((event) => event['type'] === 'change.opened')
     expect(opens).toMatchObject([{ data: { change: { repo: 'upstream/widgets', number: 7 } } }])
     expect(merges(sent)).toMatchObject([{ data: { change: { repo: 'upstream/widgets', number: 7 } } }])
@@ -1072,9 +1068,7 @@ describe('reporting work', () => {
     await $.session.start(start)
     await until(clock, () => sent.some((one) => one.path === '/v1/stream'))
     await $.tool.call({ tool: 'Bash', command: 'gh pr merge 7 --squash' })
-    await until(clock, () => isMergeTold(kept, sent))
-    await clock.advance(30_000)
-    await until(clock, () => merges(sent).length === 1)
+    await sendsMerge(clock, kept, sent)
     expect(merges(sent)[0]).toMatchObject({
       data: { change: { repo: 'acme/widgets', number: 7 }, additions: 2, deletions: 0, isOwnRepo: false },
     })
@@ -4899,11 +4893,11 @@ describe('switching servers', () => {
     await clock.advance(1_000)
     // The check has read the kept changes, settled #1 and is reading them again to write them back: waited for, as
     // naming #1 takes real time.
-    await until(clock, () => reads === 2)
+    await until(clock, () => reads >= 2)
     const call = $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
     await clock.advance(1_000)
     // The open reads them once the check has written them back.
-    await until(clock, () => reads === 3)
+    await until(clock, () => reads >= 3)
     await clock.advance(1_000)
     await call
     expect(numbersKept(kept, 'prs')).toEqual([9])
