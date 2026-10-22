@@ -76,6 +76,25 @@ jobs:
       - run: claude plugin validate packages/mod
       - run: claude plugin test packages/mod
 
+  # The companion, `pathofdev watch`, in Rust: on Linux and macOS, as its socket and file modes are platform code. Its
+  # contract test reads the fixtures the TypeScript writes in `ci`, so a change to either side that the other didn't
+  # follow fails one of the two.
+  rust:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # The toolchain rust-toolchain.toml names, with rustfmt and clippy.
+      - run: rustup toolchain install && rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked
+
   # The public server's image, as Coolify builds it, booted against Postgres 18 as the public server runs: it must
   # migrate and answer its health check, and turn away a request with no token.
   image:

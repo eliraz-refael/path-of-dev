@@ -1,0 +1,24 @@
+{
+  "rows": [
+    "..o........o..",
+    ".obo......obo.",
+    ".obbo....obbo.",
+    ".obbboooobbbo.",
+    "obbbbbbbbbbbbo",
+    "obbewbbbbewbbo",
+    "obbeebbbbeebbo",
+    "obcbbbbbbbbcbo",
+    "obbbbllllbbbbo",
+    ".obbbllllbbbo.",
+    "..obbbbbbbbo..",
+    "...oo....oo..."
+  ],
+  "palette": {
+    "o": "#2a1f4a",
+    "b": "#9d8cff",
+    "l": "#d9d0ff",
+    "e": "#14101f",
+    "w": "#ffffff",
+    "c": "#ff8fb1"
+  }
+}

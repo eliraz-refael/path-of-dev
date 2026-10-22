@@ -1,0 +1,818 @@
+{
+  "events": [
+    {
+      "type": "quest.offered",
+      "data": {
+        "cadence": "daily",
+        "quests": [
+          {
+            "questId": "pinpoint",
+            "packId": "starter",
+            "title": "Pinpoint",
+            "description": "Write 3 prompts that point at exactly what they're about (8 or more) today.",
+            "cadence": "daily",
+            "start": "auto",
+            "status": "active",
+            "progress": 0,
+            "goal": 3,
+            "goalKind": "fact",
+            "rewards": {
+              "xp": 40,
+              "gold": 25
+            },
+            "expiresAt": "2026-10-10T00:00:00.000Z"
+          },
+          {
+            "questId": "finish-line",
+            "packId": "starter",
+            "title": "Finish Line",
+            "description": "Write 3 prompts that say what done looks like (7 or more) today.",
+            "cadence": "daily",
+            "start": "auto",
+            "status": "active",
+            "progress": 0,
+            "goal": 3,
+            "goalKind": "fact",
+            "rewards": {
+              "xp": 40,
+              "gold": 25
+            },
+            "expiresAt": "2026-10-10T00:00:00.000Z"
+          },
+          {
+            "questId": "save-points",
+            "packId": "starter",
+            "title": "Save Points",
+            "description": "Make 3 commits today.",
+            "cadence": "daily",
+            "start": "auto",
+            "status": "active",
+            "progress": 0,
+            "goal": 3,
+            "goalKind": "fact",
+            "rewards": {
+              "xp": 30,
+              "gold": 20
+            },
+            "expiresAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      },
+      "seq": 1,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "quest.offered",
+      "data": {
+        "cadence": "weekly",
+        "quests": [
+          {
+            "questId": "five-days",
+            "packId": "starter",
+            "title": "Five Days",
+            "description": "Play on 5 days this week.",
+            "cadence": "weekly",
+            "start": "pick",
+            "status": "offered",
+            "progress": 0,
+            "goal": 5,
+            "goalKind": "fact",
+            "rewards": {
+              "xp": 200,
+              "gold": 100
+            },
+            "expiresAt": "2026-10-12T00:00:00.000Z"
+          },
+          {
+            "questId": "conductor",
+            "packId": "starter",
+            "title": "Conductor",
+            "description": "Get a very well graded prompt in each of 3 sessions within 20 minutes, twice this week.",
+            "cadence": "weekly",
+            "start": "pick",
+            "status": "offered",
+            "progress": 0,
+            "goal": 2,
+            "goalKind": "parallel",
+            "rewards": {
+              "xp": 300,
+              "gold": 150,
+              "loot": {
+                "rarity": "rare"
+              }
+            },
+            "expiresAt": "2026-10-12T00:00:00.000Z"
+          },
+          {
+            "questId": "juggler",
+            "packId": "starter",
+            "title": "Juggler",
+            "description": "Get a well-graded prompt in each of 3 sessions within 20 minutes, once this week.",
+            "cadence": "weekly",
+            "start": "pick",
+            "status": "offered",
+            "progress": 0,
+            "goal": 1,
+            "goalKind": "parallel",
+            "rewards": {
+              "xp": 200,
+              "gold": 100
+            },
+            "expiresAt": "2026-10-12T00:00:00.000Z"
+          },
+          {
+            "questId": "red-to-green",
+            "packId": "starter",
+            "title": "Red to Green",
+            "description": "Turn a red test suite green 5 times this week.",
+            "cadence": "weekly",
+            "start": "pick",
+            "status": "offered",
+            "progress": 0,
+            "goal": 5,
+            "goalKind": "fact",
+            "rewards": {
+              "xp": 200,
+              "gold": 100,
+              "loot": {
+                "rarity": "uncommon"
+              }
+            },
+            "expiresAt": "2026-10-12T00:00:00.000Z"
+          },
+          {
+            "questId": "light-packer",
+            "packId": "starter",
+            "title": "Light Packer",
+            "description": "Keep context under 50% for 3 sessions this week.",
+            "cadence": "weekly",
+            "start": "pick",
+            "status": "offered",
+            "progress": 0,
+            "goal": 3,
+            "goalKind": "context",
+            "rewards": {
+              "xp": 200,
+              "gold": 100,
+              "loot": {
+                "rarity": "rare"
+              }
+            },
+            "expiresAt": "2026-10-12T00:00:00.000Z"
+          }
+        ]
+      },
+      "seq": 2,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "xp.granted",
+      "data": {
+        "amount": 10,
+        "tier": "reported",
+        "reason": "streak.day",
+        "totalAfter": 10
+      },
+      "seq": 3,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "streak.changed",
+      "data": {
+        "days": 1,
+        "restDaysLeftThisWeek": 1
+      },
+      "seq": 4,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "xp.granted",
+      "data": {
+        "amount": 250,
+        "tier": "reported",
+        "reason": "change.merged",
+        "totalAfter": 260
+      },
+      "seq": 5,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "level.up",
+      "data": {
+        "from": 0,
+        "to": 1,
+        "tier": "rare",
+        "glyph": "⚔"
+      },
+      "seq": 6,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "loot.dropped",
+      "data": {
+        "entry": {
+          "id": "01M4FTT60066F3G2KZXKBKV1FH",
+          "itemId": "copper-purse",
+          "acquiredAt": "2026-10-09T08:00:00.000Z",
+          "source": {
+            "kind": "drop",
+            "ref": "0"
+          },
+          "dye": null
+        },
+        "item": {
+          "id": "copper-purse",
+          "name": "Copper Purse",
+          "rarity": "common",
+          "category": "bandStyle",
+          "slot": "goldDisplay",
+          "sprite": null,
+          "lore": null,
+          "effect": null,
+          "look": {
+            "glyphs": {
+              "icon": "●"
+            },
+            "colors": {
+              "icon": "#d7875f",
+              "amount": "#d7af87"
+            },
+            "frames": null,
+            "fps": null
+          }
+        },
+        "gold": 10,
+        "pity": {
+          "sinceRare": 1,
+          "sinceEpic": 1
+        },
+        "tier": "common"
+      },
+      "seq": 7,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "gold.changed",
+      "data": {
+        "delta": 10,
+        "totalAfter": 10,
+        "reason": "drop"
+      },
+      "seq": 8,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "achievement.unlocked",
+      "data": {
+        "achievementId": "first-merge",
+        "title": "First merge",
+        "tier": "common",
+        "glyph": "🔀"
+      },
+      "seq": 9,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008002"
+    },
+    {
+      "type": "pet.hatched",
+      "data": {
+        "species": "fox",
+        "name": "Pixel",
+        "form": 0,
+        "mood": 100,
+        "equipped": {}
+      },
+      "seq": 10,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008003"
+    },
+    {
+      "type": "achievement.unlocked",
+      "data": {
+        "achievementId": "hatched",
+        "title": "Hatchling",
+        "tier": "common",
+        "glyph": "🥚"
+      },
+      "seq": 11,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008003"
+    },
+    {
+      "type": "loot.dropped",
+      "data": {
+        "entry": {
+          "id": "01M4FTT600K53FCEPPMB0BV3W0",
+          "itemId": "arcane-sigil",
+          "acquiredAt": "2026-10-09T08:00:00.000Z",
+          "source": {
+            "kind": "dev",
+            "ref": "dev.grantItem"
+          },
+          "dye": null
+        },
+        "item": {
+          "id": "arcane-sigil",
+          "name": "Arcane Sigil",
+          "rarity": "epic",
+          "category": "sigil",
+          "slot": "sigil",
+          "sprite": null,
+          "lore": "Hums when the done criteria are spelled out.",
+          "effect": null,
+          "look": null,
+          "sigil": {
+            "multiplier": 2,
+            "glyph": "✹",
+            "color": "#c77dff"
+          }
+        },
+        "gold": 0,
+        "pity": {
+          "sinceRare": 1,
+          "sinceEpic": 1
+        },
+        "tier": "epic"
+      },
+      "seq": 12,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008004"
+    },
+    {
+      "type": "item.equipped",
+      "data": {
+        "slot": "sigil",
+        "entryId": "01M4FTT600K53FCEPPMB0BV3W0"
+      },
+      "seq": 13,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008005"
+    },
+    {
+      "type": "xp.granted",
+      "data": {
+        "amount": 37,
+        "tier": "reported",
+        "reason": "prompt.graded",
+        "totalAfter": 297,
+        "grade": 9,
+        "sigil": 2
+      },
+      "seq": 14,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008006"
+    },
+    {
+      "type": "quest.progress",
+      "data": {
+        "questId": "pinpoint",
+        "progress": 1,
+        "goal": 3
+      },
+      "seq": 15,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008006"
+    },
+    {
+      "type": "quest.progress",
+      "data": {
+        "questId": "finish-line",
+        "progress": 1,
+        "goal": 3
+      },
+      "seq": 16,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008006"
+    },
+    {
+      "type": "stats.changed",
+      "data": {
+        "stats": {
+          "prompts": {
+            "graded": 1,
+            "gradedToday": 1,
+            "averageScore": 9,
+            "regretted": 1
+          },
+          "grades": {
+            "best": 9,
+            "dimensions": {
+              "clarity": 9,
+              "grammar": 9,
+              "specificity": 9,
+              "instructive": 9,
+              "context": 9,
+              "doneCriteria": 9,
+              "focus": 9
+            }
+          }
+        }
+      },
+      "seq": 17,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008006"
+    },
+    {
+      "type": "xp.granted",
+      "data": {
+        "amount": 37,
+        "tier": "reported",
+        "reason": "prompt.graded",
+        "totalAfter": 334,
+        "grade": 9,
+        "sigil": 2
+      },
+      "seq": 18,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "level.up",
+      "data": {
+        "from": 1,
+        "to": 2,
+        "tier": "rare",
+        "glyph": "⚔"
+      },
+      "seq": 19,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "loot.dropped",
+      "data": {
+        "entry": {
+          "id": "01M4FTT600RCCS7D0V7FHGJSKS",
+          "itemId": "tempered-steel",
+          "acquiredAt": "2026-10-09T08:00:00.000Z",
+          "source": {
+            "kind": "drop",
+            "ref": "2"
+          },
+          "dye": null
+        },
+        "item": {
+          "id": "tempered-steel",
+          "name": "Tempered Steel",
+          "rarity": "rare",
+          "category": "bandStyle",
+          "slot": "xpBar",
+          "sprite": null,
+          "lore": null,
+          "effect": null,
+          "look": {
+            "glyphs": {
+              "full": "━",
+              "head": "╸",
+              "empty": "╍"
+            },
+            "colors": {
+              "full": "#4ea8ff",
+              "head": "#b8dcff",
+              "empty": "#303a4e",
+              "label": "#87afff"
+            },
+            "frames": null,
+            "fps": null
+          }
+        },
+        "gold": 70,
+        "pity": {
+          "sinceRare": 0,
+          "sinceEpic": 2
+        },
+        "tier": "rare"
+      },
+      "seq": 20,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "gold.changed",
+      "data": {
+        "delta": 70,
+        "totalAfter": 80,
+        "reason": "drop"
+      },
+      "seq": 21,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "quest.progress",
+      "data": {
+        "questId": "pinpoint",
+        "progress": 2,
+        "goal": 3
+      },
+      "seq": 22,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "quest.progress",
+      "data": {
+        "questId": "finish-line",
+        "progress": 2,
+        "goal": 3
+      },
+      "seq": 23,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "loot.dropped",
+      "data": {
+        "entry": {
+          "id": "01M4FTT600WZFMJ6AMDAVK9948",
+          "itemId": "double-rule",
+          "acquiredAt": "2026-10-09T08:00:00.000Z",
+          "source": {
+            "kind": "drop",
+            "ref": "3"
+          },
+          "dye": null
+        },
+        "item": {
+          "id": "double-rule",
+          "name": "Double Rule",
+          "rarity": "common",
+          "category": "bandStyle",
+          "slot": "topEdge",
+          "sprite": null,
+          "lore": null,
+          "effect": null,
+          "look": {
+            "glyphs": {
+              "dot": "═",
+              "knot": "◇",
+              "left": "╡",
+              "line": "═",
+              "right": "╞"
+            },
+            "colors": {
+              "dot": "#808080",
+              "knot": "#a8a8a8",
+              "left": "#a8a8a8",
+              "line": "#808080",
+              "star": "#d0d0d0",
+              "right": "#a8a8a8",
+              "title": "#e4e4e4"
+            },
+            "frames": null,
+            "fps": null
+          }
+        },
+        "gold": 10,
+        "pity": {
+          "sinceRare": 1,
+          "sinceEpic": 3
+        },
+        "tier": "common"
+      },
+      "seq": 24,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "gold.changed",
+      "data": {
+        "delta": 10,
+        "totalAfter": 90,
+        "reason": "drop"
+      },
+      "seq": 25,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "stats.changed",
+      "data": {
+        "stats": {
+          "prompts": {
+            "graded": 2,
+            "gradedToday": 2,
+            "averageScore": 9,
+            "regretted": 2
+          },
+          "grades": {
+            "best": 9,
+            "dimensions": {
+              "clarity": 9,
+              "grammar": 9,
+              "specificity": 9,
+              "instructive": 9,
+              "context": 9,
+              "doneCriteria": 9,
+              "focus": 9
+            }
+          }
+        }
+      },
+      "seq": 26,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008007"
+    },
+    {
+      "type": "xp.granted",
+      "data": {
+        "amount": 25000,
+        "tier": "reported",
+        "reason": "dev",
+        "totalAfter": 25334
+      },
+      "seq": 27,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "level.up",
+      "data": {
+        "from": 2,
+        "to": 28,
+        "tier": "epic",
+        "glyph": "🐉",
+        "title": "Artisan",
+        "evolution": 2
+      },
+      "seq": 28,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "pet.changed",
+      "data": {
+        "form": 2
+      },
+      "seq": 29,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "loot.dropped",
+      "data": {
+        "entry": {
+          "id": "01M4FTT600QNVE2GZ7MMJVQ983",
+          "itemId": "copper-purse",
+          "acquiredAt": "2026-10-09T08:00:00.000Z",
+          "source": {
+            "kind": "dev",
+            "ref": "4"
+          },
+          "dye": null
+        },
+        "item": {
+          "id": "copper-purse",
+          "name": "Copper Purse",
+          "rarity": "common",
+          "category": "bandStyle",
+          "slot": "goldDisplay",
+          "sprite": null,
+          "lore": null,
+          "effect": null,
+          "look": {
+            "glyphs": {
+              "icon": "●"
+            },
+            "colors": {
+              "icon": "#d7875f",
+              "amount": "#d7af87"
+            },
+            "frames": null,
+            "fps": null
+          }
+        },
+        "gold": 10,
+        "pity": {
+          "sinceRare": 2,
+          "sinceEpic": 4
+        },
+        "tier": "common"
+      },
+      "seq": 30,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "gold.changed",
+      "data": {
+        "delta": 10,
+        "totalAfter": 100,
+        "reason": "dev"
+      },
+      "seq": 31,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "achievement.unlocked",
+      "data": {
+        "achievementId": "level-10",
+        "title": "Level 10",
+        "tier": "common",
+        "glyph": "🌱"
+      },
+      "seq": 32,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "achievement.unlocked",
+      "data": {
+        "achievementId": "level-25",
+        "title": "Level 25",
+        "tier": "rare",
+        "glyph": "🌳"
+      },
+      "seq": 33,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J0000000000008009"
+    },
+    {
+      "type": "quest.accepted",
+      "data": {
+        "quest": {
+          "questId": "five-days",
+          "packId": "starter",
+          "title": "Five Days",
+          "description": "Play on 5 days this week.",
+          "cadence": "weekly",
+          "start": "pick",
+          "status": "active",
+          "progress": 0,
+          "goal": 5,
+          "goalKind": "fact",
+          "rewards": {
+            "xp": 200,
+            "gold": 100
+          },
+          "expiresAt": "2026-10-12T00:00:00.000Z"
+        }
+      },
+      "seq": 34,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J000000000000800A"
+    },
+    {
+      "type": "quest.completed",
+      "data": {
+        "questId": "save-points",
+        "title": "Save Points",
+        "tier": "uncommon",
+        "rewards": {
+          "xp": 30,
+          "gold": 20
+        }
+      },
+      "seq": 35,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J000000000000800B"
+    },
+    {
+      "type": "xp.granted",
+      "data": {
+        "amount": 30,
+        "tier": "reported",
+        "reason": "dev",
+        "totalAfter": 25364
+      },
+      "seq": 36,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J000000000000800B"
+    },
+    {
+      "type": "gold.changed",
+      "data": {
+        "delta": 20,
+        "totalAfter": 120,
+        "reason": "dev"
+      },
+      "seq": 37,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J000000000000800B"
+    },
+    {
+      "type": "achievement.unlocked",
+      "data": {
+        "achievementId": "first-mission",
+        "title": "Mission accomplished",
+        "tier": "common",
+        "glyph": "🎯"
+      },
+      "seq": 38,
+      "at": "2026-10-09T08:00:00.000Z",
+      "cause": "01K6ZQ8W3J000000000000800B"
+    }
+  ],
+  "cursor": 38,
+  "rulesVersion": 14,
+  "minClientVersion": "0.0.0"
+}

@@ -15,3 +15,14 @@ site
 packages/*/test
 Dockerfile
 .dockerignore
+# The companion, in Rust, which the server's image never builds.
+crates
+contract
+target
+Cargo.toml
+Cargo.lock
+rust-toolchain.toml
+clippy.toml
+flake.nix
+flake.lock
+dist-workspace.toml
