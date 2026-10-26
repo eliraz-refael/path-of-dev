@@ -1,4 +1,4 @@
-import type { ClientEvent, Command, ProfileSettings, ServerEvent, Slot, WorkRef } from '@pathofdev/schema'
+import type { ClientEvent, Command, HistoryResponse, ProfileSettings, ServerEvent, Slot, WorkRef } from '@pathofdev/schema'
 import { atom, read, update } from 'claude-code'
 import type {
   ElementConstructor,
@@ -118,6 +118,24 @@ import {
 } from './account'
 import type { ExportStep } from './account'
 import type { BetaAsk } from './beta'
+import type { Tally } from './history'
+import {
+  countsOf,
+  freshTally,
+  historyAskOf,
+  importedText,
+  isHistoryAnswer,
+  isTranscript,
+  lineReader,
+  noTranscriptsText,
+  nothingBeforeText,
+  projectsDirOf,
+  readLimit,
+  restoreTally,
+  savedTally,
+  tallyLine,
+  tallyText,
+} from './history'
 import { betaAskOf, betaRouteOf, betaTextOf } from './beta'
 import { isSecret, newSecret, ulid } from './ids'
 import type { Opened, View } from './merges'
@@ -182,6 +200,7 @@ import {
   limitedText,
   notSignedIn,
   queueAfter,
+  Refused,
   requestOf,
   ServerDown,
   settledBy,
@@ -304,6 +323,7 @@ const scoresOpen = atom({ plugin: 'pathofdev', key: 'scoresOpen' }, false)
 const page = atom({ plugin: 'pathofdev', key: 'page' }, null)
 const modUpdate = atom({ plugin: 'pathofdev', key: 'modUpdate' }, null)
 const notice = atom({ plugin: 'pathofdev', key: 'notice' }, null)
+const history = atom({ plugin: 'pathofdev', key: 'history' }, null)
 
 /** This copy of the mod: a reload makes a new one, and a frame the old one left behind is never drawn. */
 const load = Math.random()
@@ -1829,6 +1849,7 @@ const forget = async ($: EngineInterface) => {
   await update($, welcome, () => null)
   await update($, wizard, () => null)
   await update($, abandoning, () => null)
+  await update($, history, () => null)
   await update($, gain, () => null)
   await update($, notice, () => null)
   await update($, modUpdate, () => null)
@@ -1883,6 +1904,7 @@ const switchServer = async ($: EngineInterface, to: ServerName): Promise<string>
     await begin($, await $.session.cwd(), null)
     const reached = await refresh($, true).then(() => null, (error: unknown) => error)
     if (reached instanceof ServerDown) await setLink($, 'offline')
+    if (isPaneOpen) later($, () => learnHistory($))
     return `${nowText(target, named)}${reachText(reached)}`
   } finally {
     isSwitching = false
@@ -2029,7 +2051,9 @@ const trade = async ($: EngineInterface, flow: SigningIn, githubToken: string) =
   if (target.kind === 'online' && target.origin === origin) {
     isSignedOut = false
     await update($, page, () => null)
+    await update($, history, () => null)
     if (isPaneOpen) later($, () => learnPage($))
+    if (isPaneOpen) later($, () => learnHistory($))
     await connect($)
   }
 }
@@ -2129,6 +2153,15 @@ const notePage = async ($: EngineInterface, to: Online, token: string, settings:
  * never on a draw. Signed out, or on a local server, it asks nothing; an answer that isn't the settings changes
  * nothing, and one that comes after a sign-in as someone else, or a switch of server, is theirs to drop.
  */
+/** Whether the player's public page on `to` shows the history section, as its server says; null when it doesn't say. */
+const isHistoryShown = async ($: EngineInterface, to: Online): Promise<boolean | null> => {
+  const token = tokenOf(await $.store.get(storeKey(to, 'token')))
+  if (token === null) return null
+  const response = await sendOnline($, { to, token }, profileRouteOf({ kind: 'view' })).catch(() => null)
+  const settings = response === null ? null : settingsIn(response)
+  return settings === null ? null : !settings.hidden.includes('history')
+}
+
 const learnPage = async ($: EngineInterface) => {
   if (target.kind !== 'online' || isSignedOut) return
   const to = target
@@ -2193,11 +2226,145 @@ const deleteAccount = async ($: EngineInterface, ask: Extract<DataAsk, { kind: '
     if (target === to) {
       isSignedOut = true
       await setLink($, 'offline')
+      // The deleted account's import, gone from the server with it, leaves the Stats tab too.
+      if (isOwnerStill) await update($, history, () => null)
     }
   } else if (response?.status === 401) {
     await forgetToken()
   }
   return deleteTextOf(response, to.origin)
+}
+
+/** A transcript to read: where it is, its project's folder and its session by name, and its size in bytes. */
+type Transcript = { path: string; project: string; session: string; size: number }
+
+/** How often a long import says how far it got, in ms. */
+const importLogEveryMs = 5_000
+
+/** An import under way: a second one is turned away rather than read every file again beside it. */
+let isImporting = false
+
+/** What the player hears when the server didn't take a history ask. */
+const historyFailed = (error: unknown): string =>
+  error instanceof Limited
+    ? limitedText(error.retryAfterMs)
+    : error instanceof ServerDown
+      ? notAnswering()
+      : error instanceof Refused && error.status === 400 && error.said !== ''
+        ? `The Path of Dev server turned the history away: ${error.said}.`
+        : 'The Path of Dev server answered something unexpected. A server older than this mod keeps no history: ' +
+          'restart it, then import again.'
+
+/** Every session's transcript under Claude Code's `projects` folder, a folder per project; none when it isn't there. */
+const transcriptsIn = async ($: EngineInterface, dir: string): Promise<ReadonlyArray<Transcript>> => {
+  const found: Array<Transcript> = []
+  for (const project of await $.fs.list(dir).catch(() => [])) {
+    if (project.kind !== 'dir') continue
+    const at = `${dir}/${project.name}`
+    for (const entry of await $.fs.list(at).catch(() => [])) {
+      if (!isTranscript(entry)) continue
+      found.push({ path: `${at}/${entry.name}`, project: project.name, session: entry.name.slice(0, -6), size: entry.size })
+    }
+  }
+  return found
+}
+
+/**
+ * Counts a transcript bigger than `$.fs.read` takes, streamed through `cat` a piece at a time, so no more than a line
+ * of it is held at once: false when it can't be read so, where there is no `cat` to run (Windows) or it fails.
+ */
+const streamTranscript = async ($: EngineInterface, tally: Tally, file: Transcript): Promise<boolean> => {
+  // A stream that fails part way is left out whole, as the reply says: what it counted before failing goes too.
+  const saved = savedTally(tally)
+  const lines = lineReader((line) => tallyLine(tally, line, file.project, file.session))
+  const isRead = await (async () => {
+    try {
+      const child = $.process.spawn({ argv: ['cat', '--', file.path] })
+      for await (const piece of child) if (piece.stream === 'stdout') lines.push(piece.text)
+      lines.end()
+      return (await child.result).code === 0
+    } catch {
+      return false
+    }
+  })()
+  if (!isRead) restoreTally(tally, saved)
+  return isRead
+}
+
+/** Counts one transcript: read whole when `$.fs.read` takes it, else streamed. False when it couldn't be read. */
+const tallyTranscript = async ($: EngineInterface, tally: Tally, file: Transcript): Promise<boolean> => {
+  if (file.size <= readLimit) {
+    const text = await $.fs.read(file.path).catch(() => null)
+    if (text !== null) {
+      tallyText(tally, text, file.project, file.session)
+      return true
+    }
+  }
+  return streamTranscript($, tally, file)
+}
+
+/**
+ * `/pathofdev import history`: asks the server when the player started, counts Claude Code's transcripts on this
+ * machine from before then, and sends the counts alone, which the server keeps in place of any it kept before. Each
+ * file is read by an await of its own, so the session draws between them; a long import says how far it got.
+ */
+const importHistory = async ($: EngineInterface): Promise<string> => {
+  if (isImporting) return 'An import of your Claude Code history is under way already.'
+  isImporting = true
+  try {
+    const to = target
+    // A sign-in as someone else meanwhile: the counts are for the player whose start was asked, and go to no other.
+    const epoch = ownerEpoch
+    let asked: HistoryResponse
+    try {
+      asked = await call($, '/v1/history', isHistoryAnswer)
+    } catch (error) {
+      return historyFailed(error)
+    }
+    const dir = projectsDirOf(await $.env.get('CLAUDE_CONFIG_DIR'), home)
+    if (dir === null) return "There is no home folder to find Claude Code's transcripts in: set CLAUDE_CONFIG_DIR."
+    const files = await transcriptsIn($, dir)
+    if (files.length === 0) return noTranscriptsText(dir)
+    const tally = freshTally(Date.parse(asked.before), timeZoneOf())
+    let skipped = 0
+    let saidAt = await $.clock.now()
+    for (const [i, file] of files.entries()) {
+      if (!(await tallyTranscript($, tally, file))) skipped += 1
+      const now = await $.clock.now()
+      if (now - saidAt >= importLogEveryMs && i + 1 < files.length) {
+        saidAt = now
+        $.ui.log(`Path of Dev: counted ${i + 1} of ${files.length} Claude Code transcripts…`)
+      }
+    }
+    const counts = countsOf(tally)
+    if (counts.prompts === 0) return nothingBeforeText(asked.before, files.length, skipped)
+    // The counts are for the server that said when the player started: after a switch, they go nowhere.
+    if (target !== to) return 'The server changed while your history was counted: run /pathofdev import history again.'
+    if (ownerEpoch !== epoch) {
+      return 'You signed in as someone else while your history was counted: run /pathofdev import history again.'
+    }
+    let kept: HistoryResponse
+    try {
+      kept = await call($, '/v1/history', isHistoryAnswer, counts, undefined, epoch)
+    } catch (error) {
+      return historyFailed(error)
+    }
+    if (target === to && ownerEpoch === epoch) await update($, history, () => kept.history)
+    return importedText(counts, to, skipped, to.kind === 'online' ? await isHistoryShown($, to) : null)
+  } finally {
+    isImporting = false
+  }
+}
+
+/**
+ * Asks the server for the player's imported history, for the Stats tab: as the pane opens, never on a draw. No answer
+ * changes nothing; one from the server the mod played on before a switch is dropped.
+ */
+const learnHistory = async ($: EngineInterface) => {
+  const at = generation
+  const owner = ownerEpoch
+  const answer = await call($, '/v1/history', isHistoryAnswer).catch(() => null)
+  if (answer !== null && at === generation && owner === ownerEpoch) await update($, history, () => answer.history)
 }
 
 /** A dev button in the pane: a toast says why, when it did nothing. */
@@ -2218,6 +2385,7 @@ const openPane = async ($: EngineInterface, focus = false) => {
   await syncLoop($)
   // Asked as the pane opens, not again for each /pathofdev while it is up.
   if (!wasOpen) later($, () => learnPage($))
+  if (!wasOpen) later($, () => learnHistory($))
   return opened
 }
 
@@ -2356,8 +2524,8 @@ const draftStep = async ($: EngineInterface, change: Partial<Pick<Wizard, 'name'
 }
 
 /**
- * What `/pathofdev <args>` answers: the pane opened, the welcome, a sign-in or out, the beta list, the profile, the
- * account's export or delete, the servers' answer, or dev mode's to `dev …`.
+ * What `/pathofdev <args>` answers: the pane opened, the welcome, a sign-in or out, the beta list, the profile, an
+ * import of the history, the account's export or delete, the servers' answer, or dev mode's to `dev …`.
  */
 const runCommandLine = async ($: EngineInterface, args: string): Promise<string> => {
   if (args.trim() === 'welcome') return openWelcome($)
@@ -2370,6 +2538,8 @@ const runCommandLine = async ($: EngineInterface, args: string): Promise<string>
   if (profile !== null) return typeof profile === 'string' ? profile : keepProfile($, profile)
   const petAsk = petAskOf(args)
   if (petAsk !== null) return typeof petAsk === 'string' ? petAsk : petCommand($, petAsk)
+  const imported = historyAskOf(args)
+  if (imported !== null) return typeof imported === 'string' ? imported : importHistory($)
   const data = dataAskOf(args)
   if (data !== null) {
     if (typeof data === 'string') return data
@@ -2539,6 +2709,7 @@ export const register: Register = (on, options) => {
     // A pane the last copy of the mod opened stays up across a reload: the engine keeps the record.
     isPaneOpen = (await $.ui.panes().catch(() => [])).some((pane) => pane.id === paneId)
     if (isPaneOpen) later($, () => learnPage($))
+    if (isPaneOpen) later($, () => learnHistory($))
     // A fresh copy starts its own minute; a reload took the last copy's with it.
     paneClock?.cancel()
     paneClock = null
@@ -2565,7 +2736,8 @@ export const register: Register = (on, options) => {
           'guide, `last` for how your last prompt was scored, `server` to say or switch which server you play on, ' +
           '`login` and `logout` for the online server, ' +
           '`profile public|private|hide|show` for your public page there, `account export|delete` for your data ' +
-          'there, `beta list|add|remove` for its admins, `pet still|move|hide|show|tip` for your pet on the band, ' +
+          'there, `beta list|add|remove` for its admins, `import history` to count your Claude Code work from ' +
+          'before Path of Dev (counts only, no XP), `pet still|move|hide|show|tip` for your pet on the band, ' +
           '`dev …` on the dev server)',
       })
       .catch(() => undefined)
@@ -3418,7 +3590,7 @@ export const register: Register = (on, options) => {
         )
       }
       // Cards of label and number rows, each as wide as its card: one column, or two side by side on a wide pane.
-      const layout = statsLayout(counted, current, columns, { looks: wornLooks(owned), loop: moving })
+      const layout = statsLayout(counted, current, columns, { looks: wornLooks(owned), loop: moving }, await read($, history))
       // Under the intro, online, where the player's public page is: what it shows is what this tab counts.
       const facts = pageFactsOf(target, isSignedOut, await read($, page))
       const pageLine = facts === null ? null : pageRow(facts, Math.max(20, columns))

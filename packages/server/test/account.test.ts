@@ -138,7 +138,9 @@ const expectOwnExport = (exported: Effect.Success<ReturnType<typeof exportAll>>,
         ? exported.parts[table.into.part]!
         : table.into.as === "tokens"
           ? (exported.head.tokens as Array<Record<string, unknown>>)
-          : [(table.into.as === "player" ? exported.head.player : exported.head.state) as Record<string, unknown>]
+          : table.into.as === "history"
+            ? (exported.head.history === null ? [] : [exported.head.history as Record<string, unknown>])
+            : [(table.into.as === "player" ? exported.head.player : exported.head.state) as Record<string, unknown>]
     expect({ table: table.name, rows: asSet(got) }).toEqual({ table: table.name, rows: asSet(expected) })
   }
   for (const part of exported.head.parts) expect(exported.parts[part.part]).toHaveLength(part.rows)
@@ -257,7 +259,7 @@ const PrivacyStep = Schema.Union([
     op: Schema.Literal("change"),
     request: Schema.Union([
       ProfileChangeRequest,
-      Schema.Struct({ kind: Schema.Literals(["hide", "show"]), section: Schema.Literals([...profileSections, "history", "Pet", ""]) }),
+      Schema.Struct({ kind: Schema.Literals(["hide", "show"]), section: Schema.Literals([...profileSections, "gold", "Pet", ""]) }),
     ]),
   }),
 ])
@@ -337,7 +339,7 @@ describe("the privacy endpoint", () => {
         yield* sql`UPDATE players SET profile = '"public"'::jsonb WHERE id = ${player.id}`
         expect(yield* json(yield* handle(request("/v1/account/profile", "GET", bearer)))).toMatchObject({ isPublic: false })
         const changed = yield* handle(request("/v1/account/profile", "POST", bearer, { kind: "hide", section: "pet" }))
-        expect(yield* json(changed)).toMatchObject({ isPublic: false, hidden: ["pet"] })
+        expect(yield* json(changed)).toMatchObject({ isPublic: false, hidden: ["pet", "history"] })
         expect((yield* storedPrivacy(player.id)).stored).toEqual({ pet: false })
       }),
     ), serverRuns.timeout)
@@ -352,7 +354,22 @@ const LifeStep = Schema.Union([
   Schema.Struct({ op: Schema.Literal("delete"), who: Who, login: Schema.Literals(["own", "OWN", "other", "nobody", ""]) }),
   Schema.Struct({ op: Schema.Literal("signIn"), who: Who }),
   Schema.Struct({ op: Schema.Literal("privacy"), who: Who, kind: Schema.Literals(["public", "private"]) }),
+  Schema.Struct({ op: Schema.Literal("import"), who: Who, n: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4 })) }),
 ])
+
+/** Counts an import could send: `n` prompts, one a day, in one session of one project. */
+const countsOf = (n: number) => ({
+  prompts: n,
+  sessions: 1,
+  projects: 1,
+  days: n,
+  longestStreak: n,
+  tools: { bash: n, read: 0, edit: 0, search: 0, web: 0, agent: 0, mcp: 0, other: 0 },
+  testRuns: 0,
+  commits: 0,
+  firstDay: "2026-01-01",
+  lastDay: `2026-01-0${n}`,
+})
 
 /** What the model holds of each account: who it is now, the tokens it was ever given, and the ids it sent. */
 interface Held {
@@ -419,6 +436,11 @@ describe("an account", () => {
               expect(sent.status).toBe(200)
               me.sent.push(id)
               expect((yield* handle(request("/v1/commands", "POST", bearer, hatch()))).status).toBe(200)
+            }
+
+            if (step.op === "import") {
+              const imported = yield* handle(request("/v1/history", "POST", bearer, countsOf(step.n)))
+              expect(yield* json(imported)).toMatchObject({ history: countsOf(step.n) })
             }
 
             if (step.op === "privacy") {

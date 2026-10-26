@@ -1,6 +1,7 @@
 import type {
   AchievementDef,
   Criterion,
+  ImportedHistory,
   Player as PlayerType,
   Privacy,
   ProfileSection,
@@ -18,6 +19,7 @@ import type { SqlError } from "effect/sql/SqlError"
 import { Allowlist } from "./auth/allowlist.ts"
 import { rules } from "./game.ts"
 import { limitAddress, limitedResponse, limits } from "./limits.ts"
+import { History } from "./history.ts"
 import { gaugeOf, notFoundPage, pageContentType, pageHeaders, profilePage, unavailablePage } from "./pages.ts"
 import type { ProfileRead } from "./players.ts"
 import { playerColumns, Players } from "./players.ts"
@@ -33,10 +35,10 @@ import { RateLimiter } from "./rate-limit.ts"
 //     ├─ Profiles.byLogin: no player holds it ───▶ 404   one query, on lower(github_login)
 //     ├─ privacyOf(profile) is not public ───────▶ 404   checked before the save is read, so a private player's
 //     ├─ signup closed, not on the beta list ────▶ 404     save, newer or broken, never shows through a 503
-//     └─ Players.profile: the snapshot, and how far each locked badge is
+//     └─ Players.profile: the snapshot, and how far each locked badge is; History.read only while it is shown
 //          ├─ PlayerGone: deleted since ─────────▶ 404
 //          ├─ anything else fails ───────────────▶ 503, logged: a database down never looks like a missing page
-//          └─▶ profileOf(read, privacy) ─────────▶ 200 profilePage   only the sections shown, allow-listed
+//          └─▶ profileOf(read, privacy, history) ▶ 200 profilePage   only the sections shown, allow-listed
 //
 // Every 404 is the same constant page with the same headers, whatever the reason. Pages are never cached
 // (`no-store`), so a hide, a private or a delete takes effect on the next view.
@@ -91,6 +93,22 @@ export interface PublicProfile {
     /** The average context peak, in percent. */
     readonly contextPeak: number
   }
+  /** Shown only once the player shows it, and only when an import brought one. */
+  readonly history?: PublicHistory
+}
+
+/** The counts an import brought from before Path of Dev, as a page shows them: when it was taken left out. */
+export interface PublicHistory {
+  readonly prompts: number
+  readonly sessions: number
+  readonly projects: number
+  readonly days: number
+  readonly longestStreak: number
+  readonly toolCalls: number
+  readonly testRuns: number
+  readonly commits: number
+  readonly firstDay: string | null
+  readonly lastDay: string | null
 }
 
 /** Every badge the rules define, the player's earned ones counted: "`earned` of `of`". */
@@ -163,8 +181,30 @@ export const badgesOf = (
 
 const speciesName = (species: string): string => rules.pet.species.find((one) => one.id === species)?.name ?? species
 
-/** What `login`'s page shows of their save under `privacy`: the allow-list between a save and the web. */
-export const profileOf = (login: string, read: ProfileRead, privacy: Privacy): PublicProfile => {
+/** The history a page shows, field by field, the tool calls summed. */
+export const publicHistoryOf = (history: ImportedHistory): PublicHistory => ({
+  prompts: history.prompts,
+  sessions: history.sessions,
+  projects: history.projects,
+  days: history.days,
+  longestStreak: history.longestStreak,
+  toolCalls: Object.values(history.tools).reduce((sum, count) => sum + count, 0),
+  testRuns: history.testRuns,
+  commits: history.commits,
+  firstDay: history.firstDay,
+  lastDay: history.lastDay,
+})
+
+/**
+ * What `login`'s page shows of their save under `privacy`: the allow-list between a save and the web. `history` is
+ * the import kept, if any, which the page shows only while the player shows it.
+ */
+export const profileOf = (
+  login: string,
+  read: ProfileRead,
+  privacy: Privacy,
+  history: ImportedHistory | null = null,
+): PublicProfile => {
   const { snapshot, badgeProgress } = read
   const { character, pet, stats } = snapshot
   const shown = (section: ProfileSection) => isShown(privacy, section)
@@ -212,6 +252,7 @@ export const profileOf = (login: string, read: ProfileRead, privacy: Privacy): P
         },
       }
       : {}),
+    ...(shown("history") && history !== null ? { history: publicHistoryOf(history) } : {}),
   }
 }
 
@@ -256,6 +297,7 @@ export const ProfilePages = HttpRouter.use((router) =>
     const allowlist = yield* Allowlist
     const { origin } = yield* ProfileOrigin
     const limiter = yield* RateLimiter
+    const history = yield* History
 
     /** `page`, once the client address is within its limit on pages: over it, the 429, and nothing read. */
     const limited = <E, R>(page: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>) =>
@@ -275,7 +317,9 @@ export const ProfilePages = HttpRouter.use((router) =>
         const login = player.githubLogin
         if (!privacy.public || login === null || !(yield* allowlist.allows(player))) return notFound
         const read = yield* players.profile(player)
-        return page(profilePage(profileOf(login, read, privacy), profileUrlOf(origin, login)), 200)
+        // Read only while shown: a hidden history never leaves its table for a page.
+        const kept = isShown(privacy, "history") ? Option.getOrNull(yield* history.read(player.id)) : null
+        return page(profilePage(profileOf(login, read, privacy, kept), profileUrlOf(origin, login)), 200)
       }).pipe(
         Effect.catchTag("PlayerGone", () => Effect.succeed(notFound)),
         // A request cut short (the viewer left, the server stopping) stays interrupted: no 503, nothing logged.

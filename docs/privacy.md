@@ -17,6 +17,7 @@ token, only your GitHub user id and login. One account per GitHub account:
 | `rolls` | Each loot roll and what it drew |
 | `quarantine` | Any event the game failed on, kept to look into |
 | `sessions` | Each Claude Code session the mod kept live: when it opened, was last heard from, and closed |
+| `player_history` | What you imported of your Claude Code work from before Path of Dev, if you did: counts and two days, and when you imported them. Nothing in the game reads it |
 | `api_tokens` | A hash of each game token the mod holds, and when it was made. The hash signs nobody in |
 
 The mod never sends a prompt's text, only Haiku's grades for it. It never sends a repo's name either, only opaque keys.
@@ -59,6 +60,30 @@ any change, the `change.merged` event carries the change's opaque keys and:
 
 Without `gh`, or signed out of it, nothing is checked. A merge from before the mod saw the change opened is never sent.
 
+### What an import of your history sends
+
+Nothing, until you run it yourself:
+
+```text
+/pathofdev import history
+```
+
+The mod reads Claude Code's own transcripts on your machine, under `~/.claude/projects/` (or
+`$CLAUDE_CONFIG_DIR/projects/`), and counts what is dated before you started Path of Dev on that server. Only the counts
+leave your machine:
+
+- `prompts`, `sessions`, `projects` and `days`: how many prompts you typed, in how many sessions, project folders and
+  days. Slash commands, tool results and what Claude Code writes itself aren't prompts.
+- `longestStreak`: the most days in a row you prompted on.
+- `tools`: how many tool calls Claude made, by kind: bash, read, edit, search, web, agent, MCP and other.
+- `testRuns` and `commits`: how many of those shell commands ran tests, or `git commit`, as the mod counts them in a
+  session.
+- `firstDay` and `lastDay`: the first and last day you prompted on.
+
+It never sends a prompt, an answer, a command, a file's path or a project's name. The server keeps one import per
+player: another replaces it. It gives no XP, badge or quest, and the game never reads it. It shows on your profile only
+if you show the `history` section.
+
 ## Your profile
 
 Your profile is private until you make it public:
@@ -67,12 +92,12 @@ Your profile is private until you make it public:
 /pathofdev profile                  # what it shows, and the sections there are
 /pathofdev profile public           # anyone can see it
 /pathofdev profile private          # nobody can
-/pathofdev profile hide <section>   # leave a section out: badges, pet, streak or stats
+/pathofdev profile hide <section>   # leave a section out: badges, pet, streak, stats or history
 /pathofdev profile show <section>
 ```
 
 Your page is at `https://pathof.dev/u/<your-github-login>`, in any case. A public profile shows your login, character
-name, level, title, prestige and XP, plus each section you haven't hidden:
+name, level, title, prestige and XP, plus each section you haven't hidden. Every section but `history` starts shown:
 
 | Section | What it shows |
 | --- | --- |
@@ -80,6 +105,7 @@ name, level, title, prestige and XP, plus each section you haven't hidden:
 | `pet` | Your pet's name, species, form and mood (hidden, your level's glyph takes its place) |
 | `streak` | Your streak, your best, and your rest days left this week |
 | `stats` | Prompts graded, your average and best grade, each quality's average, your average context peak |
+| `history` | What you imported from before Path of Dev: your prompts, sessions, projects, days, longest streak, tool calls, test runs and commits, and the first and last day. It shows once you `show history`, and only after an import |
 
 It never shows your name on GitHub, your stats' command names, your regretted prompts, your items or your gold. A
 private page, one that was deleted and a login nobody plays under all answer the same "No profile here" page, so the
@@ -94,7 +120,8 @@ page doesn't tell them apart. Pages are never cached: making yours private or hi
 The export writes everything above that is yours to files under `~/.pathofdev/exports/<login>-<time>/`, or under
 `$PATHOFDEV_HOME/exports/` when that is set:
 
-- `head.json`: your `players` row, your save, when each token was made, and how many rows each part has.
+- `head.json`: your `players` row, your save, your imported history, when each token was made, and how many rows each
+  part has.
 - One file per page of each part: `events-0001.json`, `serverEvents-0001.json`, and so on. A page holds at most a
   mebibyte.
 - `complete.json`, written last. An export without it stopped part way; run it again.

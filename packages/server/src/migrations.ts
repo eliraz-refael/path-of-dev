@@ -480,6 +480,19 @@ const gradingV2 = Effect.gen(function* () {
   yield* sql`UPDATE player_state SET engine_version = 15, rules_version = 13 WHERE engine_version < 15`
 })
 
+// The player's history from before Path of Dev (schema history.ts): one row a player, its counts replaced by each
+// import. No part of the game: no engine reads it, and no state or log row changes with it.
+const history = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`
+    CREATE TABLE player_history (
+      player_id text PRIMARY KEY REFERENCES players (id),
+      counts jsonb NOT NULL,
+      imported_at text NOT NULL
+    )
+  `
+})
+
 /** Every migration, by the name the migrator records it under. */
 export const migrations = {
   "0001_initial": initial,
@@ -497,6 +510,7 @@ export const migrations = {
   "0013_beta": beta,
   "0014_achievements": achievements,
   "0015_grading_v2": gradingV2,
+  "0016_history": history,
 }
 
 /** A migration: what it needs past the database is the server's randomness, for the ids of the inputs it logs. */

@@ -1,8 +1,10 @@
+import type { ImportedHistory } from '@pathofdev/schema'
 import type { BandLook, BandSlot, BandView, Loop, StatsView, Tier } from '../types'
 import { goldRow, labelRun, levelRow } from './band'
 import type { Row, Run } from './cells'
-import { blank, cellsOf, cellsOfRow, clip, dim } from './cells'
+import { blank, cellsOf, cellsOfRow, clip, counted, dim } from './cells'
 import { barRow, rarityColors } from './frames'
+import { historyRows, historySpan } from './history'
 import { multiplierText } from './sigils'
 
 // The pane's Stats tab, laid out as rows of styled runs that register.tsx draws: cards under a titled rule, a label on
@@ -67,8 +69,7 @@ const gradeTier = (grade: number): Tier =>
 /** A context fill's color: low is the habit the stats reward. */
 const fillColor = (pct: number): string => (pct >= 75 ? 'error' : pct >= 50 ? 'warning' : 'success')
 
-/** A whole number with its thousands grouped. */
-export const counted = (value: number): string => String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+export { counted }
 
 const graded = (value: number): string => value.toFixed(1)
 const percent = (value: number): string => `${Math.round(value)}%`
@@ -358,14 +359,41 @@ const commandsCard = (stats: StatsView, width: number): StatCard => {
   return { key: 'commands', title: 'Top commands', rows }
 }
 
-/** The tab for a pane `columns` wide: the cards in reading order, or in two columns side by side on a wide pane. */
-export const statsLayout = (stats: StatsView, view: BandView, columns: number, worn: StatsLooks): StatsLayout => {
+/**
+ * What an import counted from before Path of Dev, apart from the game's numbers: no XP came of it. The mod's own word
+ * on it, from the server's answer to `/v1/history`, not the snapshot's.
+ */
+const historyCard = (history: ImportedHistory, width: number): StatCard => ({
+  key: 'history',
+  title: 'Before Path of Dev',
+  rows: [
+    ...historyRows(history).map((row) => line(row.label, [{ text: row.value }], width)),
+    hint(historySpan(history), width),
+  ],
+})
+
+/**
+ * The tab for a pane `columns` wide: the cards in reading order, or in two columns side by side on a wide pane, and
+ * last the history an import brought, when there is one.
+ */
+export const statsLayout = (
+  stats: StatsView,
+  view: BandView,
+  columns: number,
+  worn: StatsLooks,
+  history: ImportedHistory | null = null,
+): StatsLayout => {
   const isWide = columns >= twoColumnsFrom
   const width = isWide
     ? Math.min(maxCard, Math.floor((columns - cardGap) / 2))
     : Math.max(20, Math.min(columns, maxCard))
   const left = [progressCard(stats, view, width, worn), streakCard(stats, width), promptsCard(stats, width)]
-  const right = [profileCard(stats, width), contextCard(stats, width), commandsCard(stats, width)]
+  const right = [
+    profileCard(stats, width),
+    contextCard(stats, width),
+    commandsCard(stats, width),
+    ...(history === null ? [] : [historyCard(history, width)]),
+  ]
   const room = Math.max(20, columns)
   const intro = fitting(
     [

@@ -510,6 +510,24 @@ export type ModUpdate = { from: string; to: string; needs: string | null }
 /** The band's line about an update, shown until `until` (clock ms), when it fades. */
 export type Notice = { text: string; until: number }
 
+/**
+ * What `/pathofdev import history` counted from before Path of Dev, as the server keeps it: the schema's
+ * `ImportedHistory`, written out so this file stands alone. Counts and two days (`YYYY-MM-DD`), never a name.
+ */
+export type HistoryView = {
+  prompts: number
+  sessions: number
+  projects: number
+  days: number
+  longestStreak: number
+  tools: { bash: number; read: number; edit: number; search: number; web: number; agent: number; mcp: number; other: number }
+  testRuns: number
+  commits: number
+  firstDay: string | null
+  lastDay: string | null
+  importedAt: string
+}
+
 declare module 'claude-code' {
   interface PluginState {
     // Under the mod's plugin id: the engine keys the mod's state, its store and the player's options by it.
@@ -559,6 +577,11 @@ declare module 'claude-code' {
       modUpdate: ModUpdate | null
       /** The band's line about that update, once a version, until it fades. */
       notice: Notice | null
+      /**
+       * The counts `/pathofdev import history` brought from before Path of Dev, as the server keeps them, for the Stats
+       * tab; null before the server said, or when it keeps none.
+       */
+      history: HistoryView | null
     }
   }
 }
