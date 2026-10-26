@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { ImportedHistory } from '@pathofdev/schema'
+import type { Target } from './server'
 import {
   countsOf,
   freshTally,
@@ -242,8 +243,13 @@ describe('the command and its reply', () => {
       'Imported your Claude Code history from before Path of Dev (2025-03-02 to 2026-10-08): 1,234 prompts in 210 ' +
         'sessions across 14 projects, on 96 days (longest streak 12 days); 8,901 tool calls, 412 test runs and 230 ' +
         'commits. Only these counts left this machine: no prompt, code, path or project name. It earns no XP. It shows ' +
-        'in the Stats tab of /pathofdev, and starts hidden on your public page: /pathofdev profile show history adds it.',
+        'in the Stats tab of /pathofdev; /pathofdev profile says whether your public page shows it.',
     )
+    const online = { kind: 'online', origin: 'https://api.pathof.dev' } satisfies Target
+    expect(importedText(counts, online, 0, false)).toMatch(
+      / It shows in the Stats tab of \/pathofdev, and is hidden on your public page: \/pathofdev profile show history adds it\.$/,
+    )
+    expect(importedText(counts, online, 0, true)).toMatch(/ It shows in the Stats tab of \/pathofdev, and on your public page while that is public\.$/)
     expect(importedText({ ...counts, prompts: 1, sessions: 1, projects: 1, days: 1, longestStreak: 1, lastDay: '2025-03-02' }, { kind: 'local' }, 2)).toBe(
       'Imported your Claude Code history from before Path of Dev (2025-03-02): 1 prompt in 1 session across 1 project, ' +
         'on 1 day (longest streak 1 day); 8,901 tool calls, 412 test runs and 230 commits. Only these counts left this ' +

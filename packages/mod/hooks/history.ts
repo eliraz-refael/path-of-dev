@@ -341,8 +341,11 @@ export const toolCallsOf = (tools: Readonly<Record<string, number>>): number =>
 /** The day an instant falls on, as the reply names it: the date alone. */
 const dayOf = (iso: string): string => iso.slice(0, 10)
 
-/** What the player hears once the counts are kept, with how to show them, and the files that could not be read. */
-export const importedText = (counts: HistoryCounts, target: Target, skipped: number): string => {
+/**
+ * What the player hears once the counts are kept, with how to show them, and the files that could not be read. Online,
+ * `isShown` is whether the public page shows the history section, as the server last said; null when it didn't say.
+ */
+export const importedText = (counts: HistoryCounts, target: Target, skipped: number, isShown: boolean | null = null): string => {
   const span =
     counts.firstDay === null || counts.lastDay === null
       ? ''
@@ -355,9 +358,13 @@ export const importedText = (counts: HistoryCounts, target: Target, skipped: num
     `(longest streak ${some(counts.longestStreak, 'day', 'days')}); ${some(toolCallsOf(counts.tools), 'tool call', 'tool calls')}, ` +
     `${some(counts.testRuns, 'test run', 'test runs')} and ${some(counts.commits, 'commit', 'commits')}.`
   const where =
-    target.kind === 'online'
-      ? ' It shows in the Stats tab of /pathofdev, and starts hidden on your public page: /pathofdev profile show history adds it.'
-      : ' It shows in the Stats tab of /pathofdev.'
+    target.kind !== 'online'
+      ? ' It shows in the Stats tab of /pathofdev.'
+      : isShown === true
+        ? ' It shows in the Stats tab of /pathofdev, and on your public page while that is public.'
+        : isShown === false
+          ? ' It shows in the Stats tab of /pathofdev, and is hidden on your public page: /pathofdev profile show history adds it.'
+          : ' It shows in the Stats tab of /pathofdev; /pathofdev profile says whether your public page shows it.'
   const unread = skipped === 0 ? '' : ` ${some(skipped, 'transcript', 'transcripts')} could not be read and ${skipped === 1 ? 'was' : 'were'} left out.`
   return (
     `Imported your Claude Code history from before Path of Dev${span}: ${numbers} Only these counts left this ` +

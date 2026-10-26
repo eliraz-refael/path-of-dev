@@ -372,7 +372,7 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
       if (!accounts.tokens.has(token)) return reply(401, signInAgain)
       const account = accounts.account
       if (account !== undefined && path.startsWith('/v1/account/')) {
-        const sections = ['pet', 'streak', 'stats']
+        const sections = ['pet', 'streak', 'stats', ...(options.history === undefined ? [] : ['history'])]
         const url = `https://pathof.dev/u/${accounts.login.toLowerCase()}`
         const settings = () => ({ isPublic: account.isPublic, hidden: sections.filter((one) => account.hidden.includes(one)), sections, url })
         if (path === '/v1/account/profile' && account.profileTakes !== undefined) await clock.sleep(account.profileTakes)
@@ -6096,15 +6096,20 @@ describe('importing the history', () => {
     mock.env(on, { HOME: '/home/player' })
     disk(on)
     const history = { kept: null, before: started, imports: [] as Array<unknown> }
-    const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat' }
+    const account = { isPublic: true, hidden: ['history'], parts: {}, deleted: false }
+    const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat', account }
     const { sent } = fakeServer(on, clock, { level: 4, accounts, history })
     await $.session.start(start)
     await until(clock, async () => /Lv 4/.test((await band($).catch(() => ({ all: '' }))).all))
     const text = (await run($, 'import history')).text
-    expect(text).toContain('It shows in the Stats tab of /pathofdev, and starts hidden on your public page: /pathofdev profile show history adds it.')
+    expect(text).toContain('It shows in the Stats tab of /pathofdev, and is hidden on your public page: /pathofdev profile show history adds it.')
     const asked = sent.filter((one) => one.path === '/v1/history')
     expect(asked.map((one) => [one.method, one.authorization])).toEqual([['GET', 'Bearer pod_player'], ['POST', 'Bearer pod_player']])
     expect(history.imports).toEqual([expected])
+    // Shown already, the next import says so, and no more how to show it.
+    await run($, 'profile show history')
+    expect(account.hidden).toEqual([])
+    expect((await run($, 'import history')).text).toContain('It shows in the Stats tab of /pathofdev, and on your public page while that is public.')
   })
 
   test('sends nothing when nothing came before the player started, or there are no transcripts, or no server answers', async ($, on) => {

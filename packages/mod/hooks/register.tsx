@@ -2153,6 +2153,15 @@ const notePage = async ($: EngineInterface, to: Online, token: string, settings:
  * never on a draw. Signed out, or on a local server, it asks nothing; an answer that isn't the settings changes
  * nothing, and one that comes after a sign-in as someone else, or a switch of server, is theirs to drop.
  */
+/** Whether the player's public page on `to` shows the history section, as its server says; null when it doesn't say. */
+const isHistoryShown = async ($: EngineInterface, to: Online): Promise<boolean | null> => {
+  const token = tokenOf(await $.store.get(storeKey(to, 'token')))
+  if (token === null) return null
+  const response = await sendOnline($, { to, token }, profileRouteOf({ kind: 'view' })).catch(() => null)
+  const settings = response === null ? null : settingsIn(response)
+  return settings === null ? null : !settings.hidden.includes('history')
+}
+
 const learnPage = async ($: EngineInterface) => {
   if (target.kind !== 'online' || isSignedOut) return
   const to = target
@@ -2341,7 +2350,7 @@ const importHistory = async ($: EngineInterface): Promise<string> => {
       return historyFailed(error)
     }
     if (target === to && ownerEpoch === epoch) await update($, history, () => kept.history)
-    return importedText(counts, to, skipped)
+    return importedText(counts, to, skipped, to.kind === 'online' ? await isHistoryShown($, to) : null)
   } finally {
     isImporting = false
   }
