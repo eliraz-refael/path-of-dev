@@ -70,6 +70,9 @@ export const runsOf = (cells: ReadonlyArray<Cell>): Row => {
 /** A dim run of text. */
 export const dim = (text: string): Run => ({ text, dim: true })
 
+/** A whole number with its thousands grouped. */
+export const counted = (value: number): string => String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
 /** A run of `cells` spaces; none for a count below one. */
 export const blank = (cells: number): Run => ({ text: ' '.repeat(Math.max(0, cells)) })
 

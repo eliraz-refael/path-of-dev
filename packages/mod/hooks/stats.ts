@@ -2,7 +2,7 @@ import type { ImportedHistory } from '@pathofdev/schema'
 import type { BandLook, BandSlot, BandView, Loop, StatsView, Tier } from '../types'
 import { goldRow, labelRun, levelRow } from './band'
 import type { Row, Run } from './cells'
-import { blank, cellsOf, cellsOfRow, clip, dim } from './cells'
+import { blank, cellsOf, cellsOfRow, clip, counted, dim } from './cells'
 import { barRow, rarityColors } from './frames'
 import { historyRows, historySpan } from './history'
 import { multiplierText } from './sigils'
@@ -69,8 +69,7 @@ const gradeTier = (grade: number): Tier =>
 /** A context fill's color: low is the habit the stats reward. */
 const fillColor = (pct: number): string => (pct >= 75 ? 'error' : pct >= 50 ? 'warning' : 'success')
 
-/** A whole number with its thousands grouped. */
-export const counted = (value: number): string => String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+export { counted }
 
 const graded = (value: number): string => value.toFixed(1)
 const percent = (value: number): string => `${Math.round(value)}%`

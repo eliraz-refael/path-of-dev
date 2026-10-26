@@ -250,9 +250,9 @@ type ServerOptions = {
   minClientVersion?: string
   /**
    * The history the server keeps from an import, the time it counts before, and each import's body; a server older
-   * than imports, answering 404, when unset.
+   * than imports, answering 404, when unset. With `refuses`, an import is turned away with a 400 saying it.
    */
-  history?: { kept: unknown; before: string; imports: Array<unknown> }
+  history?: { kept: unknown; before: string; imports: Array<unknown>; refuses?: string }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
@@ -429,6 +429,7 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
       const history = options.history
       if (history === undefined) return reply(404, { code: 'not_found', message: 'Not found' })
       if (method === 'POST') {
+        if (history.refuses !== undefined) return reply(400, { _tag: 'InvalidHistory', message: history.refuses })
         history.imports.push(body)
         history.kept = { ...(isRecord(body) ? body : {}), importedAt: '2026-10-09T08:00:00.000Z' }
       }
@@ -6020,7 +6021,11 @@ describe('importing the history', () => {
     })
     on('process.spawn', async function* ($, e) {
       streamed.push(e.argv)
-      if (e.argv.at(-1) !== big.replace(config, root)) return { value: { code: 1, signal: null } }
+      if (e.argv.at(-1) !== big.replace(config, root)) {
+        // One that fails part way, after a whole line: nothing of it may count.
+        yield { stream: 'stdout' as const, text: `${prompt('zqpromptzq: half read', '2026-09-04T12:00:00.000Z', 'p6')}\n` }
+        return { value: { code: 1, signal: null } }
+      }
       for (let at = 0; at < bigText.length; at += 37) yield { stream: 'stdout' as const, text: bigText.slice(at, at + 37) }
       return { value: { code: 0, signal: null } }
     })
@@ -6120,6 +6125,15 @@ describe('importing the history', () => {
     })
     await streaming($, on, ownedOf(), false, { history })
     expect((await run($, 'import history')).text).toMatch(/^Found no Claude Code transcripts in \/home\/player\/\.claude\/projects/)
+    expect(history.imports).toEqual([])
+  })
+
+  test('says why the server turned the counts away, and keeps no import of them', async ($, on) => {
+    const refuses = 'The history counts days from after you started Path of Dev'
+    const history = { kept: null, before: started, imports: [] as Array<unknown>, refuses }
+    disk(on)
+    await streaming($, on, ownedOf(), false, { history })
+    expect((await run($, 'import history')).text).toBe(`The Path of Dev server turned the history away: ${refuses}.`)
     expect(history.imports).toEqual([])
   })
 

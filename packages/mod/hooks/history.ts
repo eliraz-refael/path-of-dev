@@ -1,6 +1,6 @@
 import type { HistoryCounts, HistoryResponse, ImportedHistory, ToolCounts } from '@pathofdev/schema'
 import type { Row } from './cells'
-import { dim } from './cells'
+import { counted, dim } from './cells'
 import { commitsIn, testRunner } from './observe'
 import type { Target } from './server'
 import { argsOf, isRecord } from './server'
@@ -163,6 +163,34 @@ export const freshTally = (before: number, timeZone: string): Tally => {
   }
 }
 
+/** What `tally` has counted so far, as a copy it can be put back to: for a file that may fail part way. */
+export const savedTally = (tally: Tally): Tally => ({
+  ...tally,
+  prompts: new Set(tally.prompts),
+  toolCalls: new Set(tally.toolCalls),
+  tools: { ...tally.tools },
+  days: new Set(tally.days),
+  sessions: new Set(tally.sessions),
+  projects: new Set(tally.projects),
+})
+
+/** Puts `tally` back to `saved`, so a file that failed part way leaves nothing of itself counted. */
+export const restoreTally = (tally: Tally, saved: Tally): void => {
+  const refill = (set: Set<string>, from: Set<string>) => {
+    set.clear()
+    for (const item of from) set.add(item)
+  }
+  refill(tally.prompts, saved.prompts)
+  refill(tally.toolCalls, saved.toolCalls)
+  refill(tally.days, saved.days)
+  refill(tally.sessions, saved.sessions)
+  refill(tally.projects, saved.projects)
+  Object.assign(tally.tools, saved.tools)
+  tally.testRuns = saved.testRuns
+  tally.commits = saved.commits
+  tally.unnamed = saved.unnamed
+}
+
 const parsedLine = (line: string): unknown => {
   try {
     return JSON.parse(line)
@@ -297,11 +325,12 @@ export const isImported = (value: unknown): value is ImportedHistory =>
   (value['firstDay'] === null || typeof value['firstDay'] === 'string') &&
   (value['lastDay'] === null || typeof value['lastDay'] === 'string')
 
+/** A server's answer to `/v1/history`, its `before` an instant: one that doesn't parse would let every line count. */
 export const isHistoryAnswer = (value: unknown): value is HistoryResponse =>
-  isRecord(value) && typeof value['before'] === 'string' && (value['history'] === null || isImported(value['history']))
-
-/** A whole number with its thousands grouped. */
-const counted = (value: number): string => String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  isRecord(value) &&
+  typeof value['before'] === 'string' &&
+  Number.isFinite(Date.parse(value['before'])) &&
+  (value['history'] === null || isImported(value['history']))
 
 const some = (count: number, one: string, many: string): string => `${counted(count)} ${count === 1 ? one : many}`
 

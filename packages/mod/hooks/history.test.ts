@@ -14,6 +14,8 @@ import {
   longestStreakOf,
   nothingBeforeText,
   projectsDirOf,
+  restoreTally,
+  savedTally,
   tallyLine,
   tallyText,
   toolKindOf,
@@ -155,6 +157,20 @@ describe('the counts', () => {
     })
   })
 
+  test('go back to what they were before a file that failed part way, leaving nothing of it counted', () => {
+    const counted = tally()
+    tallyText(counted, [user('one', '2026-09-01T10:00:00Z'), assistant([tool('t1', 'Bash', { command: 'pnpm test' })])].join('\n'), '-a', 's1')
+    const first = countsOf(counted)
+    const saved = savedTally(counted)
+    tallyText(counted, [user('two', '2026-09-02T10:00:00Z'), assistant([tool('t2', 'Bash', { command: 'git commit -m x' })])].join('\n'), '-b', 's2')
+    expect(countsOf(counted)).not.toEqual(first)
+    restoreTally(counted, saved)
+    expect(countsOf(counted)).toEqual(first)
+    // And counting goes on from there as if the file had never been read.
+    tallyLine(counted, user('three', '2026-09-02T10:00:00Z'), '-b', 's2')
+    expect(countsOf(counted)).toMatchObject({ prompts: 2, sessions: 2, projects: 2, days: 2, commits: 0 })
+  })
+
   test('are all zero, and no day, from nothing', () => {
     expect(countsOf(tally())).toMatchObject({ prompts: 0, days: 0, longestStreak: 0, firstDay: null, lastDay: null })
   })
@@ -246,6 +262,8 @@ describe('the command and its reply', () => {
     expect(isHistoryAnswer({ history: null, before: '2026-10-09T08:00:00.000Z' })).toBe(true)
     expect(isHistoryAnswer({ history: { ...history, prompts: '1' }, before: 'x' })).toBe(false)
     expect(isHistoryAnswer({ history })).toBe(false)
+    // A start that is no time would let every line count.
+    expect(isHistoryAnswer({ history: null, before: 'soon' })).toBe(false)
     expect(isHistoryAnswer(null)).toBe(false)
   })
 

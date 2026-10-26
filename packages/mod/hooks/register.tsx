@@ -131,6 +131,8 @@ import {
   nothingBeforeText,
   projectsDirOf,
   readLimit,
+  restoreTally,
+  savedTally,
   tallyLine,
   tallyText,
 } from './history'
@@ -198,6 +200,7 @@ import {
   limitedText,
   notSignedIn,
   queueAfter,
+  Refused,
   requestOf,
   ServerDown,
   settledBy,
@@ -2048,7 +2051,9 @@ const trade = async ($: EngineInterface, flow: SigningIn, githubToken: string) =
   if (target.kind === 'online' && target.origin === origin) {
     isSignedOut = false
     await update($, page, () => null)
+    await update($, history, () => null)
     if (isPaneOpen) later($, () => learnPage($))
+    if (isPaneOpen) later($, () => learnHistory($))
     await connect($)
   }
 }
@@ -2212,6 +2217,8 @@ const deleteAccount = async ($: EngineInterface, ask: Extract<DataAsk, { kind: '
     if (target === to) {
       isSignedOut = true
       await setLink($, 'offline')
+      // The deleted account's import, gone from the server with it, leaves the Stats tab too.
+      if (isOwnerStill) await update($, history, () => null)
     }
   } else if (response?.status === 401) {
     await forgetToken()
@@ -2234,8 +2241,10 @@ const historyFailed = (error: unknown): string =>
     ? limitedText(error.retryAfterMs)
     : error instanceof ServerDown
       ? notAnswering()
-      : 'The Path of Dev server answered something unexpected. A server older than this mod keeps no history: ' +
-        'restart it, then import again.'
+      : error instanceof Refused && error.status === 400 && error.said !== ''
+        ? `The Path of Dev server turned the history away: ${error.said}.`
+        : 'The Path of Dev server answered something unexpected. A server older than this mod keeps no history: ' +
+          'restart it, then import again.'
 
 /** Every session's transcript under Claude Code's `projects` folder, a folder per project; none when it isn't there. */
 const transcriptsIn = async ($: EngineInterface, dir: string): Promise<ReadonlyArray<Transcript>> => {
@@ -2256,15 +2265,21 @@ const transcriptsIn = async ($: EngineInterface, dir: string): Promise<ReadonlyA
  * of it is held at once: false when it can't be read so, where there is no `cat` to run (Windows) or it fails.
  */
 const streamTranscript = async ($: EngineInterface, tally: Tally, file: Transcript): Promise<boolean> => {
+  // A stream that fails part way is left out whole, as the reply says: what it counted before failing goes too.
+  const saved = savedTally(tally)
   const lines = lineReader((line) => tallyLine(tally, line, file.project, file.session))
-  try {
-    const child = $.process.spawn({ argv: ['cat', '--', file.path] })
-    for await (const piece of child) if (piece.stream === 'stdout') lines.push(piece.text)
-    lines.end()
-    return (await child.result).code === 0
-  } catch {
-    return false
-  }
+  const isRead = await (async () => {
+    try {
+      const child = $.process.spawn({ argv: ['cat', '--', file.path] })
+      for await (const piece of child) if (piece.stream === 'stdout') lines.push(piece.text)
+      lines.end()
+      return (await child.result).code === 0
+    } catch {
+      return false
+    }
+  })()
+  if (!isRead) restoreTally(tally, saved)
+  return isRead
 }
 
 /** Counts one transcript: read whole when `$.fs.read` takes it, else streamed. False when it couldn't be read. */
@@ -2289,6 +2304,8 @@ const importHistory = async ($: EngineInterface): Promise<string> => {
   isImporting = true
   try {
     const to = target
+    // A sign-in as someone else meanwhile: the counts are for the player whose start was asked, and go to no other.
+    const epoch = ownerEpoch
     let asked: HistoryResponse
     try {
       asked = await call($, '/v1/history', isHistoryAnswer)
@@ -2314,13 +2331,16 @@ const importHistory = async ($: EngineInterface): Promise<string> => {
     if (counts.prompts === 0) return nothingBeforeText(asked.before, files.length, skipped)
     // The counts are for the server that said when the player started: after a switch, they go nowhere.
     if (target !== to) return 'The server changed while your history was counted: run /pathofdev import history again.'
+    if (ownerEpoch !== epoch) {
+      return 'You signed in as someone else while your history was counted: run /pathofdev import history again.'
+    }
     let kept: HistoryResponse
     try {
-      kept = await call($, '/v1/history', isHistoryAnswer, counts)
+      kept = await call($, '/v1/history', isHistoryAnswer, counts, undefined, epoch)
     } catch (error) {
       return historyFailed(error)
     }
-    if (target === to) await update($, history, () => kept.history)
+    if (target === to && ownerEpoch === epoch) await update($, history, () => kept.history)
     return importedText(counts, to, skipped)
   } finally {
     isImporting = false
@@ -2333,8 +2353,9 @@ const importHistory = async ($: EngineInterface): Promise<string> => {
  */
 const learnHistory = async ($: EngineInterface) => {
   const at = generation
+  const owner = ownerEpoch
   const answer = await call($, '/v1/history', isHistoryAnswer).catch(() => null)
-  if (answer !== null && at === generation) await update($, history, () => answer.history)
+  if (answer !== null && at === generation && owner === ownerEpoch) await update($, history, () => answer.history)
 }
 
 /** A dev button in the pane: a toast says why, when it did nothing. */

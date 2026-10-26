@@ -40,6 +40,20 @@ export class Limited extends ServerDown {
   }
 }
 
+/**
+ * The server answered with a status no route of the mod's settles by itself (a 400, a 404, …): `said` is its
+ * `message`, printable, or '' when it gave none.
+ */
+export class Refused extends Error {
+  readonly status: number
+  readonly said: string
+  constructor(message: string, status: number, said: string) {
+    super(message)
+    this.status = status
+    this.said = said
+  }
+}
+
 /** The least and the most a 429 makes the mod wait, whatever it says: a second, and ten minutes. */
 export const minWaitMs = 1_000
 export const maxWaitMs = 600_000
@@ -240,7 +254,9 @@ export const answerOf = <A>(path: string, response: HttpResponse, is: (value: un
   if (failure === 'signedOut') throw new SignedOut(`${path} answered 401: sign in again`)
   if (response.status === 429) throw new Limited(`${path} answered 429`, retryAfterOf(response))
   if (failure === 'unavailable') throw new ServerDown(`${path} answered ${response.status}`)
-  if (failure === 'unexpected') throw new Error(`${path} answered ${response.status}`)
+  if (failure === 'unexpected') {
+    throw new Refused(`${path} answered ${response.status}`, response.status, messageOf(response.text, 160))
+  }
   const body = parsed(response.text)
   if (!is(body)) throw new Error(`${path} answered something unexpected`)
   return body

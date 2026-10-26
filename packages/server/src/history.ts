@@ -11,8 +11,11 @@ import { PlayerGone } from "./writer.ts"
 //
 //   read(player)              ─▶ SELECT counts, imported_at ─▶ ImportedHistory, or none (none kept, or a row this
 //                                                               build can't read: a page then shows no section)
-//   replace(player, counts, now) ─▶ INSERT … SELECT FROM players WHERE id … ON CONFLICT (player_id) DO UPDATE
+//   replace(player, counts, now) ─▶ INSERT … SELECT FROM players WHERE id … FOR KEY SHARE ON CONFLICT … DO UPDATE
 //                                     └─ no players row (deleted meanwhile) ─▶ PlayerGone
+//
+// FOR KEY SHARE waits out a delete under way (account.ts holds the players row FOR UPDATE), then finds no row: a
+// PlayerGone, not the foreign key's violation it would meet had it read the row before the delete committed.
 
 const Row = Schema.Struct({ counts: Schema.Unknown, imported_at: Schema.String })
 const decodeRows = Schema.decodeUnknownEffect(Schema.Array(Row))
@@ -55,7 +58,7 @@ export class History extends Context.Service<
           const encoded = JSON.stringify(encodeCounts(counts))
           const rows = yield* sql`
             INSERT INTO player_history (player_id, counts, imported_at)
-            SELECT id, ${encoded}::jsonb, ${now} FROM players WHERE id = ${playerId}
+            SELECT id, ${encoded}::jsonb, ${now} FROM players WHERE id = ${playerId} FOR KEY SHARE
             ON CONFLICT (player_id) DO UPDATE SET counts = excluded.counts, imported_at = excluded.imported_at
             RETURNING player_id
           `
