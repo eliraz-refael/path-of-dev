@@ -41,7 +41,8 @@ import { lockPlayer, PlayerGone } from "./writer.ts"
 // the append-only tables never change at or below it, so pages read later still add up to the head's counts without
 // a transaction held open across requests. Sessions change, so theirs is the table as each page reads it.
 //
-//   GET /v1/account/export ─▶ one tx: players (no roll_seed) · player_state · tokens (created_at only) · counts ≤ upto
+//   GET /v1/account/export ─▶ one tx: players (no roll_seed) · player_state · tokens (created_at only) · history
+//                              · counts ≤ upto
 //   GET /v1/account/export/{part}?after&upto
 //     └─▶ WHERE owner = me AND key > after [AND ≤ upto] ORDER BY key LIMIT 1001 ─▶ pageOf(1 MiB, 1000) ─▶ {rows, next}
 //
@@ -52,7 +53,8 @@ import { lockPlayer, PlayerGone } from "./writer.ts"
 //
 //   POST /v1/account/delete {login} ─▶ confirmed ── another login ─▶ 400, nothing deleted
 //     └─▶ erase: lockPlayer (player_state FOR UPDATE) ─▶ players FOR UPDATE
-//           ─▶ DELETE api_tokens, sessions, quarantine, rolls, server_events, event_log, player_state, players
+//           ─▶ DELETE api_tokens, sessions, quarantine, rolls, server_events, event_log, player_history, player_state,
+//              players
 //           ─▶ commit ─▶ StreamHub.notify: held polls wake, find no player, answer 401
 //     └─▶ 200 {deleted, onBetaList}: true while signup is open; beta_logins is the admins' list, and stays
 
@@ -65,7 +67,7 @@ type Bound =
 
 /** Where a table's rows go in an export: into the head, or a part of their own, paged by `key`. */
 type Into =
-  | { readonly kind: "head"; readonly as: "player" | "state" | "tokens" }
+  | { readonly kind: "head"; readonly as: "player" | "state" | "tokens" | "history" }
   | {
     readonly kind: "part"
     readonly part: ExportPart
@@ -160,6 +162,13 @@ export const playerTables: ReadonlyArray<PlayerTable> = [
     },
   },
   {
+    name: "player_history",
+    owner: "player_id",
+    exported: ["counts", "imported_at"],
+    withheld: [],
+    into: { kind: "head", as: "history" },
+  },
+  {
     name: "player_state",
     owner: "player_id",
     exported: ["state", "log_seq", "server_seq", "stream_epoch", "engine_version", "rules_version"],
@@ -185,7 +194,7 @@ export const partTables: ReadonlyArray<PartTable> = playerTables.filter(isPart).
 /** The table of an export's part. */
 export const partTableOf = (part: ExportPart): PartTable => partTables.find((table) => table.into.part === part)!
 
-const headTableOf = (as: "player" | "state" | "tokens"): PlayerTable =>
+const headTableOf = (as: "player" | "state" | "tokens" | "history"): PlayerTable =>
   playerTables.find((table) => table.into.kind === "head" && table.into.as === as)!
 
 /** A page's most rows, and its most bytes of JSON: the mod writes each page to a file of its own, under 4 MiB. */
@@ -253,6 +262,7 @@ export class AccountData extends Context.Service<
         readonly player: unknown
         readonly state: unknown
         readonly tokens: ReadonlyArray<unknown>
+        readonly history: unknown
         readonly parts: ReadonlyArray<{ part: ExportPart; rows: number; upto: number | null }>
       },
       Failure
@@ -345,6 +355,8 @@ export class AccountData extends Context.Service<
           const tokens = (yield* jsonRows(headTableOf("tokens"), playerId, sql``, sql`ORDER BY created_at`)).map(
             (row) => parse(row.json),
           )
+          const [historyRow] = yield* jsonRows(headTableOf("history"), playerId)
+          const history = historyRow === undefined ? null : parse(historyRow.json)
           const parts = yield* Effect.forEach(partTables, (table) => {
             const upto = uptoOf(table, counters)
             return Effect.map(
@@ -355,7 +367,7 @@ export class AccountData extends Context.Service<
               ([counted]) => ({ part: table.into.part, rows: counted?.rows ?? 0, upto }),
             )
           })
-          return { player, state, tokens, parts }
+          return { player, state, tokens, history, parts }
         }).pipe(sql.withTransaction)
 
       const page = (playerId: string, part: ExportPart, after: number | string, upto: number | undefined) =>

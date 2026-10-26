@@ -4,7 +4,7 @@ import { petSprite } from "@pathofdev/schema"
 import { createHash } from "node:crypto"
 import type { Html } from "./html.ts"
 import { html, raw, spriteSvg } from "./html.ts"
-import type { PublicBadge, PublicBadges, PublicProfile } from "./profile.ts"
+import type { PublicBadge, PublicBadges, PublicHistory, PublicProfile } from "./profile.ts"
 
 // The pages `/u/<login>` answers, from a PublicProfile (profile.ts), which holds only what the player shows:
 //
@@ -13,7 +13,8 @@ import type { PublicBadge, PublicBadges, PublicProfile } from "./profile.ts"
 //   │ │ portrait       │  │ Badges          (badges)                │ │
 //   │ │  pet, or glyph │  │ Pet (pet)  │ Streak (streak)            │ │
 //   │ │ name, @login   │  │ Prompting       (stats)                 │ │
-//   │ │ level · title  │  └─────────────────────────────────────────┘ │
+//   │ │ level · title  │  │ Before Path of Dev (history, opt-in)    │ │
+//   │ │                │  └─────────────────────────────────────────┘ │
 //   │ │ XP bar         │   a section the player hides is not drawn,   │
 //   │ │ mini facts     │   nor named                                  │
 //   │ └────────────────┘                                              │
@@ -117,6 +118,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; }
 .facts b { display: block; font: 700 1.5rem/1.1 var(--display); font-variant-numeric: tabular-nums; }
 .facts span { font-size: 0.82rem; color: var(--muted); }
+.facts.wide { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 .qualities { display: grid; gap: 9px; }
 .quality { display: grid; grid-template-columns: 7rem minmax(0, 1fr) 2.2rem; gap: 12px; align-items: center; font-size: 0.88rem; }
 .quality b { text-align: right; font: 700 0.85rem/1 var(--mono); font-variant-numeric: tabular-nums; }
@@ -341,6 +343,28 @@ const statsCard = (stats: NonNullable<PublicProfile["stats"]>): Html => {
 </section>`
 }
 
+/** The dates an import's counts span, as a page reads them: "Mar 2, 2025 – Oct 8, 2026", or one day alone. */
+const spanOf = (first: string | null, last: string | null): string =>
+  first === null || last === null ? "" : first === last ? day(first) : `${day(first)} – ${day(last)}`
+
+const historyCard = (history: PublicHistory): Html => {
+  const facts: ReadonlyArray<readonly [string, string]> = [
+    [fmt(history.prompts), history.prompts === 1 ? "prompt" : "prompts"],
+    [fmt(history.sessions), history.sessions === 1 ? "session" : "sessions"],
+    [fmt(history.days), history.days === 1 ? "day active" : "days active"],
+    [fmt(history.longestStreak), "longest streak, in days"],
+    [fmt(history.projects), history.projects === 1 ? "project" : "projects"],
+    [fmt(history.toolCalls), history.toolCalls === 1 ? "tool call" : "tool calls"],
+    [fmt(history.testRuns), history.testRuns === 1 ? "test run" : "test runs"],
+    [fmt(history.commits), history.commits === 1 ? "commit" : "commits"],
+  ]
+  return html`<section class="card" aria-labelledby="history">
+<div class="head"><h2 id="history">Before Path of Dev</h2><span class="count">${spanOf(history.firstDay, history.lastDay)}</span></div>
+<div class="facts wide">${facts.map(([n, label]) => html`<div><b>${n}</b><span>${label}</span></div>`)}</div>
+<p class="sub">Counted from Claude Code's own records on the player's machine, before they started Path of Dev. No XP comes of it.</p>
+</section>`
+}
+
 const main = (view: PublicProfile): Html => {
   const pair = [
     view.pet === undefined ? null : petCard(view.pet),
@@ -350,6 +374,7 @@ const main = (view: PublicProfile): Html => {
     view.badges === undefined ? null : badgesCard(view.badges),
     pair.length === 0 ? null : html`<div class="pair">${pair}</div>`,
     view.stats === undefined ? null : statsCard(view.stats),
+    view.history === undefined ? null : historyCard(view.history),
   ].filter((card) => card !== null)
   return html`<div class="main">${cards.length === 0 ? html`<section class="card"><p class="empty">This player shows only their level.</p></section>` : cards}</div>`
 }

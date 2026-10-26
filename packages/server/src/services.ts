@@ -3,6 +3,7 @@ import { Layer } from "effect"
 import type { Database } from "./db.ts"
 import { sqlLayer } from "./db.ts"
 import { DevMode } from "./game.ts"
+import { History } from "./history.ts"
 import { StreamHub } from "./hub.ts"
 import { migrate } from "./migrations.ts"
 import type { ServerKind } from "./players.ts"
@@ -22,8 +23,8 @@ import { PlayerWriter } from "./writer.ts"
 //   DevMode (local only) ───────┤
 //   RateLimiter (online only) ──┤
 //   ModRelease (online only) ───┤
-//   Database ─▶ migrate ────────┼─▶ QuestPacks ─▶ StreamHub ─▶ PlayerWriter ─▶ Players(kind), Presence (+ sweep)
-//                               ┘
+//   Database ─▶ migrate ────────┼─▶ QuestPacks ─▶ StreamHub ─▶ PlayerWriter ─▶ Players(kind), Presence (+ sweep),
+//                               ┘                                              History (no part of the game)
 
 export interface CoreOptions {
   /** The engine's step, swappable so tests can make it fail. */
@@ -68,7 +69,7 @@ const Base = (database: Database, seed: string | undefined) =>
  */
 export const core = (kind: ServerKind, database: Database, options: CoreOptions = {}) => {
   const Live = Presence.sweeper.pipe(Layer.provideMerge(Presence.layer))
-  return Layer.mergeAll(Players.layer(kind), Live).pipe(
+  return Layer.mergeAll(Players.layer(kind), Live, History.layer).pipe(
     Layer.provideMerge(PlayerWriter.make(options.stepper ?? step)),
     Layer.provideMerge(StreamHub.layer),
     Layer.provideMerge(QuestPacks.layer),

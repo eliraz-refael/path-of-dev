@@ -158,10 +158,11 @@ describe("a profile page", () => {
           expect(page.body).toContain(`<h1 class="name">${escapeHtml(characterName)}</h1>`)
           expect(page.body).toContain(`<link rel="canonical" href="https://pathof.dev/u/ada">`)
           expect(page.body).not.toContain(ada.name!)
+          // The history starts hidden, and has nothing to draw until an import (history.test.ts).
           for (const section of profileSections) {
             expect({ section, drawn: page.body.includes(`aria-labelledby="${section}"`) }).toEqual({
               section,
-              drawn: !hidden.includes(section),
+              drawn: section !== "history" && !hidden.includes(section),
             })
           }
           // The same bytes for any viewer, signed in or not, and nothing written.

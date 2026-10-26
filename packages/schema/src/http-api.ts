@@ -23,6 +23,7 @@ import {
 import { EventsRequest } from "./client-events.ts"
 import { Command, PlayCommand } from "./commands.ts"
 import type { Player } from "./domain.ts"
+import { HistoryCounts, HistoryResponse } from "./history.ts"
 import { Count, Ulid } from "./primitives.ts"
 import { ProfileChangeRequest, ProfileSettings } from "./profile.ts"
 
@@ -66,6 +67,13 @@ export class InvalidLogin extends Schema.TaggedError<InvalidLogin>()(
 /** The section to hide or show is none the page has, or the page's own change named one. Nothing was written. */
 export class InvalidSection extends Schema.TaggedError<InvalidSection>()(
   "InvalidSection",
+  { message: Schema.String },
+  { httpApiStatus: 400 },
+) {}
+
+/** An import's counts don't hold together, or count days from after the player started. Nothing was written. */
+export class InvalidHistory extends Schema.TaggedError<InvalidHistory>()(
+  "InvalidHistory",
   { message: Schema.String },
   { httpApiStatus: 400 },
 ) {}
@@ -134,7 +142,8 @@ export class AccountAuthentication extends HttpApiMiddleware.Service<
 /**
  * The mod's routes, taking `command` on `/v1/commands`. Every route that acts for a player answers 401 too once the
  * account is deleted under a request still in flight. `/v1/snapshot` is the session's snapshot without the session,
- * for a client that only watches: it writes nothing.
+ * for a client that only watches: it writes nothing. `/v1/history` is the player's history from before Path of Dev
+ * (history.ts), which is no part of the game: reading it or replacing it changes no save.
  */
 const modGroup = <C extends Schema.Top>(command: C) =>
   HttpApiGroup.make("mod", { topLevel: true })
@@ -167,6 +176,15 @@ const modGroup = <C extends Schema.Top>(command: C) =>
       HttpApiEndpoint.get("snapshot", "/v1/snapshot", {
         success: SnapshotResponse,
         error: [ServerBehind, Unauthorized, RateLimited],
+      }),
+      HttpApiEndpoint.get("history", "/v1/history", {
+        success: HistoryResponse,
+        error: [Unauthorized, RateLimited],
+      }),
+      HttpApiEndpoint.post("importHistory", "/v1/history", {
+        payload: HistoryCounts,
+        success: HistoryResponse,
+        error: [InvalidHistory, Unauthorized, RateLimited],
       }),
     )
     .middleware(Authentication)

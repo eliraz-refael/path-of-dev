@@ -181,7 +181,8 @@ export interface ExportPartHead extends Schema.Schema.Type<typeof ExportPartHead
 /**
  * `GET /v1/account/export`: everything kept of the player that fits in a row, read in one transaction, and how many
  * rows each part has up to where the head was read. The rows are the tables' own, as JSON: the player's row without
- * its roll seed (which would predict their loot), their save as stored, and each token's creation time only.
+ * its roll seed (which would predict their loot), their save as stored, each token's creation time only, and their
+ * imported history.
  */
 export const ExportHead = Schema.Struct({
   format: Schema.Literal(1),
@@ -189,6 +190,8 @@ export const ExportHead = Schema.Struct({
   player: Schema.Unknown,
   state: Schema.Unknown,
   tokens: Schema.Array(Schema.Unknown),
+  /** The history an import brought from before Path of Dev, as kept; null when there is none. */
+  history: Schema.NullOr(Schema.Unknown),
   /**
    * Whether the server still lets this GitHub account in: always while signup is open; while it is closed, whether the
    * beta list names it, which the admins keep, so it outlives a delete.

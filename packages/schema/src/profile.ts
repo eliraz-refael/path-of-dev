@@ -2,7 +2,8 @@ import { Predicate, Schema } from "effect"
 
 // What a player shows of themselves on their public page, `pathof.dev/u/<login>`, as `players.profile` keeps it: a
 // jsonb the player changes from the mod with `/pathofdev profile`. Private until they say otherwise; a section the
-// jsonb has no key for takes its default, which is shown for every section so far.
+// jsonb has no key for takes its default: shown, but for `history`, the counts an import brought from before Path of
+// Dev, which a page shows only once the player shows it.
 //
 //   isShown(privacy, section)
 //     ├─ privacy.public is not literally true ───▶ hidden: the whole page is private (missing, junk: private)
@@ -13,19 +14,26 @@ import { Predicate, Schema } from "effect"
 // The header (login, character name, level, title, glyph, XP, prestige) is the page itself: hiding it is `private`.
 
 /** The sections a player can hide or show, in the order the page draws them: the one list. */
-export const profileSections = ["badges", "pet", "streak", "stats"] as const
+export const profileSections = ["badges", "pet", "streak", "stats", "history"] as const
 
 export const ProfileSection = Schema.Literals(profileSections)
 export type ProfileSection = typeof ProfileSection.Type
 
 /** What a section with no key in the jsonb shows: a later section may start hidden. */
-export const defaultShown: Readonly<Record<ProfileSection, boolean>> = { badges: true, pet: true, streak: true, stats: true }
+export const defaultShown: Readonly<Record<ProfileSection, boolean>> = {
+  badges: true,
+  pet: true,
+  streak: true,
+  stats: true,
+  history: false,
+}
 
 const sectionFields = {
   badges: Schema.optionalKey(Schema.Boolean),
   pet: Schema.optionalKey(Schema.Boolean),
   streak: Schema.optionalKey(Schema.Boolean),
   stats: Schema.optionalKey(Schema.Boolean),
+  history: Schema.optionalKey(Schema.Boolean),
 } satisfies Record<ProfileSection, unknown>
 
 /** A player's privacy, decoded: public or not, and a choice for each section they set one for. */

@@ -3,6 +3,8 @@ import type {
   CommandResponse,
   EventResult,
   EventsRequest,
+  HistoryCounts,
+  HistoryResponse,
   ServerBehind,
   ServerEvent,
   SessionRequest,
@@ -11,18 +13,21 @@ import {
   accountDeleted,
   clientEventTypes,
   CurrentPlayer,
+  historyProblem,
+  InvalidHistory,
   OnlineApi,
   PathOfDevApi,
   Unauthorized,
 } from "@pathofdev/schema"
 import type { Schema } from "effect"
-import { Clock, Duration, Effect, Layer } from "effect"
+import { Clock, Duration, Effect, Layer, Option } from "effect"
 import type { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 import type { SqlError } from "effect/sql/SqlError"
 import type { Admitted } from "./edge.ts"
 import { admit } from "./edge.ts"
 import { minClientVersion, nowIso, rules } from "./game.ts"
+import { History } from "./history.ts"
 import { StreamHub } from "./hub.ts"
 import { limitSnapshot, limitWrite } from "./limits.ts"
 import { Players } from "./players.ts"
@@ -38,6 +43,7 @@ import { PlayerWriter } from "./writer.ts"
 // handler reads the player it acts for from its own request, which the server's `Authentication` provides: the
 // services are built once and shared by every player. On the public server a player's events, commands and snapshots
 // are rate-limited (limits.ts) before anything is read or written: over a limit is a 429 that says when to try again.
+// The history routes (history.ts) touch no save: an import counts as a write against the limits, a read as a snapshot.
 
 /** A held stream answers with nothing after this long, under the proxies' 30-second limit. */
 export const streamTimeout = Duration.seconds(25)
@@ -77,6 +83,7 @@ const modHandlers = Effect.gen(function* () {
   const presence = yield* Presence
   const limiter = yield* RateLimiter
   const release = yield* ModRelease
+  const history = yield* History
 
   /** The request's player within their limits for a write of `events` events: over one, a 429, nothing written. */
   const limited = (events: number) =>
@@ -84,6 +91,10 @@ const modHandlers = Effect.gen(function* () {
 
   /** The request's player within their limit on snapshots, apart from their writes: over it, a 429, nothing read. */
   const snapshotLimited = Effect.flatMap(CurrentPlayer, (player) => limitSnapshot(limiter, player.id))
+
+  /** The player's history as kept, and the time before which an import counts: when the player started here. */
+  const historyOf = (playerId: string, before: string) =>
+    Effect.map(history.read(playerId), (kept): HistoryResponse => ({ history: Option.getOrNull(kept), before }))
 
   return {
     openSession: ({ payload, request }: {
@@ -175,6 +186,21 @@ const modHandlers = Effect.gen(function* () {
         const snapshot = yield* players.snapshot(player)
         return { snapshot, rules, minClientVersion }
       }).pipe(asModErrors)),
+
+    history: () =>
+      Effect.andThen(snapshotLimited, Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        return yield* historyOf(player.id, player.createdAt)
+      }).pipe(Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }))),
+
+    importHistory: ({ payload }: { readonly payload: HistoryCounts }) =>
+      Effect.andThen(limited(0), Effect.gen(function* () {
+        const player = yield* CurrentPlayer
+        const problem = historyProblem(payload, player.createdAt)
+        if (problem !== null) return yield* new InvalidHistory({ message: problem })
+        const kept = yield* history.replace(player.id, payload, yield* nowIso)
+        return { history: kept, before: player.createdAt }
+      }).pipe(goneAsUnauthorized, Effect.catchTags({ SqlError: Effect.die, SchemaError: Effect.die }))),
   }
 })
 

@@ -8,9 +8,10 @@ import { argsOf, commonTextOf, isRecord, messageOf, parsed, printable, publicOri
 import { fitting } from './stats'
 
 // What the player's public page shows, from the prompt: `/pathofdev profile [public|private|hide <s>|show <s>]`, on the
-// online server. The page is private until the player makes it public; a section is shown unless they hide it. The
-// server alone knows which sections there are: the mod sends the word the player typed, and shows what the server
-// says, the list of sections included.
+// online server. The page is private until the player makes it public; a section is shown unless they hide it, but for
+// `history` (what `/pathofdev import history` counted), which starts hidden until they show it. The server alone knows
+// which sections there are: the mod sends the word the player typed, and shows what the server says, the list of
+// sections included.
 //
 //   /pathofdev profile ───────────────▶ GET  <origin>/v1/account/profile                  ─┐
 //   /pathofdev profile public|private ─▶ POST <origin>/v1/account/profile {kind}           ─┼─▶ Bearer <game token>

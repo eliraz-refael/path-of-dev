@@ -248,6 +248,11 @@ type ServerOptions = {
   latestModVersion?: string
   /** The oldest mod the session answer says the server talks to; 0.0.0 when unset. */
   minClientVersion?: string
+  /**
+   * The history the server keeps from an import, the time it counts before, and each import's body; a server older
+   * than imports, answering 404, when unset.
+   */
+  history?: { kept: unknown; before: string; imports: Array<unknown> }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
@@ -419,6 +424,15 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
           : changed ? `${login} is on the beta list now: they can sign in.` : `${login} was on the beta list already: nothing changed.`
         return reply(200, { login, changed, message })
       }
+    }
+    if (path === '/v1/history') {
+      const history = options.history
+      if (history === undefined) return reply(404, { code: 'not_found', message: 'Not found' })
+      if (method === 'POST') {
+        history.imports.push(body)
+        history.kept = { ...(isRecord(body) ? body : {}), importedAt: '2026-10-09T08:00:00.000Z' }
+      }
+      return reply(200, { history: history.kept, before: history.before })
     }
     if (method === 'DELETE' && path.startsWith('/v1/sessions/')) {
       if (options.closeTakes !== undefined) await clock.sleep(options.closeTakes)
@@ -5921,5 +5935,203 @@ describe('an update to the mod', () => {
     await until(clock, () => sent.filter((one) => one.path === '/v1/sessions').length === 2)
     await clock.settle()
     expect((await band($)).all).toContain(needed)
+  })
+})
+
+describe('importing the history', () => {
+  const run = ($: Parameters<TestBody>[0], args: string) =>
+    $.command.run({ command: 'pathofdev', args, origin: composer, presentation })
+  const statsNow = async ($: Parameters<TestBody>[0]) => {
+    const ui = await mountPane($)
+    const texts = await textsOf(ui)
+    await ui.unmount()
+    return texts
+  }
+  const started = '2026-10-09T08:00:00.000Z'
+
+  // Every string the transcripts hold that is the player's own: none may leave the mod.
+  const secrets = ['zqpromptzq', 'zqpathzq', 'zqprojectzq', 'zqsessionzq', 'zqcodezq', 'zqtoolzq', 'zqbranchzq']
+
+  const prompt = (text: string, at: string, uuid: string) =>
+    JSON.stringify({ type: 'user', uuid, timestamp: at, sessionId: 'zqsessionzq', cwd: '/home/zqpathzq/zqprojectzq', gitBranch: 'zqbranchzq', message: { role: 'user', content: text } })
+  const toolResult = (at: string) =>
+    JSON.stringify({ type: 'user', uuid: `r-${at}`, timestamp: at, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'zqcodezq' }] }, toolUseResult: { stdout: 'zqcodezq' } })
+  const calls = (at: string, ...blocks: Array<{ id: string; name: string; input?: unknown }>) =>
+    JSON.stringify({ type: 'assistant', uuid: `a-${at}`, timestamp: at, message: { role: 'assistant', content: blocks.map((block) => ({ type: 'tool_use', input: {}, ...block })) } })
+
+  const config = '/home/player/.claude/projects'
+  const one = '-home-zqpathzq-zqprojectzq'
+  const two = '-home-zqpathzq-other'
+  /** What Claude Code keeps on disk: two projects, their sessions, and what is no transcript. */
+  const files: Record<string, string> = {
+    [`${config}/${one}/11111111-zqsessionzq.jsonl`]: [
+      prompt('zqpromptzq: fix the login test', '2026-09-01T12:00:00.000Z', 'p1'),
+      calls('2026-09-01T12:00:05.000Z', { id: 't1', name: 'Bash', input: { command: 'pnpm test && git commit -am "zqcodezq"' } }, { id: 't2', name: 'mcp__zqtoolzq__deploy' }),
+      toolResult('2026-09-01T12:00:06.000Z'),
+      '<command-name>/review</command-name>',
+      JSON.stringify({ type: 'user', timestamp: '2026-09-01T12:01:00.000Z', message: { content: '<command-name>/review</command-name>' } }),
+      '{"type":"user", broken',
+      prompt('zqpromptzq: and again the next day', '2026-09-02T12:00:00.000Z', 'p2'),
+      // From the game's own time on: counted already.
+      prompt('zqpromptzq: after starting', '2026-10-09T09:00:00.000Z', 'p3'),
+      '',
+    ].join('\n'),
+    [`${config}/${one}/22222222.orphaned-1760000000-ab.jsonl`]: prompt('zqpromptzq: set aside', '2026-09-03T12:00:00.000Z', 'p9'),
+    [`${config}/${two}/33333333.jsonl`]: [
+      prompt('zqpromptzq: a third', '2026-09-05T12:00:00.000Z', 'p4'),
+      calls('2026-09-05T12:00:01.000Z', { id: 't3', name: 'Read' }, { id: 't4', name: 'Edit' }),
+    ].join('\n'),
+  }
+  /** A transcript past what `$.fs.read` takes, streamed in pieces that cut its lines anywhere. */
+  const big = `${config}/${two}/44444444.jsonl`
+  const bigText = [prompt('zqpromptzq: a long session', '2026-09-06T12:00:00.000Z', 'p5'), calls('2026-09-06T12:00:01.000Z', { id: 't5', name: 'Grep' })].join('\n')
+  /** One the file system won't read. */
+  const unreadable = `${config}/${two}/55555555.jsonl`
+
+  const disk = (on: On, root = config, streamed: Array<ReadonlyArray<string>> = []) => {
+    const dirs: Record<string, Array<{ name: string; kind: 'file' | 'dir' | 'other'; size: number; mtimeMs: number; isLink: boolean }>> = {
+      [root]: [
+        { name: one, kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
+        { name: two, kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
+        { name: 'notes.txt', kind: 'file', size: 3, mtimeMs: 0, isLink: false },
+      ],
+      [`${root}/${one}`]: [
+        { name: '11111111-zqsessionzq.jsonl', kind: 'file', size: 2_000, mtimeMs: 0, isLink: false },
+        { name: '22222222.orphaned-1760000000-ab.jsonl', kind: 'file', size: 200, mtimeMs: 0, isLink: false },
+        { name: 'memory', kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
+      ],
+      [`${root}/${two}`]: [
+        { name: '33333333.jsonl', kind: 'file', size: 400, mtimeMs: 0, isLink: false },
+        { name: '44444444.jsonl', kind: 'file', size: 5 * 1024 * 1024, mtimeMs: 0, isLink: false },
+        { name: '55555555.jsonl', kind: 'file', size: 100, mtimeMs: 0, isLink: false },
+      ],
+    }
+    on('fs.list', ($, e) => {
+      const listed = dirs[e.path]
+      if (listed === undefined) throw new Error(`ENOENT: ${e.path}`)
+      return { value: listed }
+    })
+    on('fs.read', ($, e) => {
+      const path = e.path.replace(root, config)
+      if (path === big) throw new Error('over 4 MiB')
+      const text = files[path]
+      if (text === undefined) throw new Error(`EACCES: ${e.path}`)
+      return { value: text }
+    })
+    on('process.spawn', async function* ($, e) {
+      streamed.push(e.argv)
+      if (e.argv.at(-1) !== big.replace(config, root)) return { value: { code: 1, signal: null } }
+      for (let at = 0; at < bigText.length; at += 37) yield { stream: 'stdout' as const, text: bigText.slice(at, at + 37) }
+      return { value: { code: 0, signal: null } }
+    })
+  }
+
+  const expected = {
+    prompts: 4,
+    sessions: 3,
+    projects: 2,
+    days: 4,
+    longestStreak: 2,
+    tools: { bash: 1, read: 1, edit: 1, search: 1, web: 0, agent: 0, mcp: 1, other: 0 },
+    testRuns: 1,
+    commits: 1,
+    firstDay: '2026-09-01',
+    lastDay: '2026-09-06',
+  }
+
+  /** Every string a value holds, keys apart. */
+  const stringsIn = (value: unknown): Array<string> =>
+    typeof value === 'string' ? [value] : typeof value === 'object' && value !== null ? Object.values(value).flatMap(stringsIn) : []
+
+  test('counts the transcripts from before the player started, sends the counts alone, and shows them in the Stats tab', async ($, on) => {
+    const history = { kept: null, before: started, imports: [] as Array<unknown> }
+    const streamed: Array<ReadonlyArray<string>> = []
+    disk(on, config, streamed)
+    const { sent, clock } = await streaming($, on, ownedOf(), false, { counted: playing, history })
+    expect((await run($, 'import history')).text).toBe(
+      'Imported your Claude Code history from before Path of Dev (2026-09-01 to 2026-09-06): 4 prompts in 3 sessions ' +
+        'across 2 projects, on 4 days (longest streak 2 days); 5 tool calls, 1 test run and 1 commit. Only these counts ' +
+        'left this machine: no prompt, code, path or project name. It earns no XP. It shows in the Stats tab of ' +
+        '/pathofdev. 1 transcript could not be read and was left out.',
+    )
+    expect(history.imports).toEqual([expected])
+    // The big one streamed through cat, as was the one the file system wouldn't read.
+    expect(streamed).toEqual([['cat', '--', big], ['cat', '--', unreadable]])
+    // Fixed keys, numbers and the two days: nothing of the transcripts' own goes to the server.
+    expect(stringsIn(history.imports[0])).toEqual(['2026-09-01', '2026-09-06'])
+    const said = JSON.stringify(sent.map((one) => one.body))
+    for (const secret of secrets) expect(said).not.toContain(secret)
+
+    await openStats($)
+    await clock.settle()
+    const texts = await statsNow($)
+    expect(texts).toContain('Before Path of Dev')
+    expect(texts).toMatch(/^ {2}Prompts +4$/m)
+    expect(texts).toMatch(/^ {2}Longest streak +2 days$/m)
+    expect(texts).toMatch(/^ {2}└ MCP +1$/m)
+    expect(texts).toContain('2026-09-01 to 2026-09-06, before Path of Dev')
+  })
+
+  test('reads the transcripts under CLAUDE_CONFIG_DIR when it is set', async ($, on) => {
+    const history = { kept: null, before: started, imports: [] as Array<unknown> }
+    disk(on, '/srv/claude/projects')
+    const clock = mock.clock(on, { now: Date.parse(started) })
+    mock.store(on)
+    mock.env(on, { HOME: '/home/player', CLAUDE_CONFIG_DIR: '/srv/claude/' })
+    fakeServer(on, clock, { level: 4, history })
+    await $.session.start(start)
+    await until(clock, async () => /Lv 4/.test((await band($).catch(() => ({ all: '' }))).all))
+    expect((await run($, 'import history')).text).toMatch(/^Imported your Claude Code history/)
+    expect(history.imports).toEqual([expected])
+  })
+
+  test('online, sends the counts with the token, and says how to show them on the public page', { options: { server: 'online' } }, async ($, on) => {
+    const clock = mock.clock(on, { now: Date.parse(started) })
+    mock.store(on, { 'token@https://api.pathof.dev': 'pod_player' })
+    mock.env(on, { HOME: '/home/player' })
+    disk(on)
+    const history = { kept: null, before: started, imports: [] as Array<unknown> }
+    const accounts: Accounts = { tokens: new Set(['pod_player']), githubToken: 'gho_unused', issue: 'pod_issued', login: 'Octocat' }
+    const { sent } = fakeServer(on, clock, { level: 4, accounts, history })
+    await $.session.start(start)
+    await until(clock, async () => /Lv 4/.test((await band($).catch(() => ({ all: '' }))).all))
+    const text = (await run($, 'import history')).text
+    expect(text).toContain('It shows in the Stats tab of /pathofdev, and starts hidden on your public page: /pathofdev profile show history adds it.')
+    const asked = sent.filter((one) => one.path === '/v1/history')
+    expect(asked.map((one) => [one.method, one.authorization])).toEqual([['GET', 'Bearer pod_player'], ['POST', 'Bearer pod_player']])
+    expect(history.imports).toEqual([expected])
+  })
+
+  test('sends nothing when nothing came before the player started, or there are no transcripts, or no server answers', async ($, on) => {
+    const history = { kept: null, before: '2026-08-01T00:00:00.000Z', imports: [] as Array<unknown> }
+    disk(on)
+    await streaming($, on, ownedOf(), false, { history })
+    expect((await run($, 'import history')).text).toBe(
+      'None of your 4 Claude Code transcripts has a prompt from before you started Path of Dev on 2026-08-01, and 1 ' +
+        'transcript could not be read: nothing to import.',
+    )
+    expect(history.imports).toEqual([])
+  })
+
+  test('says there are no transcripts to read when the folder is not there', async ($, on) => {
+    const history = { kept: null, before: started, imports: [] as Array<unknown> }
+    on('fs.list', () => {
+      throw new Error('ENOENT')
+    })
+    await streaming($, on, ownedOf(), false, { history })
+    expect((await run($, 'import history')).text).toMatch(/^Found no Claude Code transcripts in \/home\/player\/\.claude\/projects/)
+    expect(history.imports).toEqual([])
+  })
+
+  test('says to restart a server older than imports, and to start one that does not answer', async ($, on) => {
+    disk(on)
+    await streaming($, on, ownedOf())
+    expect((await run($, 'import history')).text).toBe(
+      'The Path of Dev server answered something unexpected. A server older than this mod keeps no history: restart ' +
+        'it, then import again.',
+    )
+    expect((await run($, 'import')).text).toBe(
+      'Counts your Claude Code work from before Path of Dev, from its transcripts on this machine: /pathofdev import history.',
+    )
   })
 })
