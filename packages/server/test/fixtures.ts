@@ -272,16 +272,17 @@ export const testOnlineServices = <A, E>(auth: Layer.Layer<A, E, SqlClient.SqlCl
 
 /**
  * The public server's services over a fresh database, as its entry wires them, with the clock at `start`: the beta's
- * logins and admins of `beta`, and `github` answering for GitHub.
+ * logins and admins of `beta` (and the mod's latest version it names, none when unset), and `github` answering for
+ * GitHub.
  */
 export const testPublicServices = <E>(
-  beta: BetaConfig & { readonly profileOrigin?: string },
+  beta: BetaConfig & { readonly profileOrigin?: string; readonly latestModVersion?: string | null },
   github: Layer.Layer<GitHub, E>,
 ) =>
   Layer.unwrap(
     Effect.map(freshDatabase, (database) =>
       Layer.mergeAll(
-        publicServices(database, { profileOrigin: defaultProfileOrigin, ...beta }, github),
+        publicServices(database, { profileOrigin: defaultProfileOrigin, latestModVersion: null, ...beta }, github),
         HttpServer.layerServices,
       ).pipe(Layer.provideMerge(watchedClock)),
     ),

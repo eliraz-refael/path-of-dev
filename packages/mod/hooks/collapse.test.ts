@@ -6,6 +6,7 @@ import { bandModeOf, holdMs, isBandShown, isHeld, kicked, openingAfter } from '.
 import { gradeSegment, statusText } from './status'
 import type { Moments } from './collapse'
 import { runningCount } from './missions'
+import { clientVersion } from './server'
 import { until } from '../test/until'
 
 // The band as the `band` option has it: shut at rest in `auto` and open for a moment of play, always open in `full`,
@@ -51,25 +52,35 @@ const reply = (status: number, body: unknown) => ({
 })
 
 /**
- * What the world beneath holds: no server when it is `down`, Haiku's reply when there is a `grader`, and the
- * missions its snapshot carries, with the rules that say the server knows them.
+ * What the world beneath holds: no server when it is `down`, Haiku's reply when there is a `grader`, the missions its
+ * snapshot carries, with the rules that say the server knows them, and the mod's `latest` version its session names.
  */
-type More = { down?: boolean; grader?: string; quests?: ReadonlyArray<unknown>; rules?: Record<string, unknown> }
+type More = {
+  down?: boolean
+  grader?: string
+  quests?: ReadonlyArray<unknown>
+  rules?: Record<string, unknown>
+  latest?: string
+}
 
 const missionRules = {
   missions: { daily: { count: 3, tier: 'uncommon' }, weekly: { offered: 5, active: 3, tier: 'rare' } },
 }
 
 /**
- * The engine beneath the mod, with what the status line was sent, the band's site and the ids of the prompts graded,
- * and a local server that answers its routes and hands the stream the test's events.
+ * The engine beneath the mod, with what the status line and the toasts were sent, the band's site and the ids of the
+ * prompts graded, and a server that answers its routes and hands the stream the test's events.
  */
 const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More = {}) => {
   const statuses: Array<string | undefined> = []
+  const toasts: Array<string> = []
   const gradedIds: Array<string> = []
   const bodies: Array<string> = []
   const site = { requestId: '' }
-  on('ui.toast', () => ({ value: undefined }))
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
   on('ui.focus', () => ({}))
   on('ui.status', ($, e) => {
     statuses.push(e.text)
@@ -111,7 +122,8 @@ const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More 
     if (url.pathname === '/v1/sessions') {
       const shot = more.quests === undefined ? snapshot : { ...snapshot, quests: more.quests }
       const rules = { ...(more.quests === undefined ? careRules : { ...careRules, ...missionRules }), ...more.rules }
-      return reply(200, { snapshot: shot, rules, minClientVersion: '0.0.0', acceptedEventTypes: [] })
+      const latest = more.latest === undefined ? {} : { latestModVersion: more.latest }
+      return reply(200, { snapshot: shot, rules, minClientVersion: '0.0.0', acceptedEventTypes: [], ...latest })
     }
     if (url.pathname === '/v1/events') {
       const body: unknown = e.init?.body === undefined ? undefined : JSON.parse(e.init.body)
@@ -130,7 +142,7 @@ const world = (on: On, clock: Clock, stream: Array<{ seq: number }>, more: More 
     const cursor = Math.max(0, ...events.map((event) => event.seq))
     return reply(200, { events, cursor, rulesVersion: 1, minClientVersion: '0.0.0' })
   })
-  return { statuses, site, gradedIds, bodies }
+  return { statuses, toasts, site, gradedIds, bodies }
 }
 
 const start: SessionStartInput = { cwd: '/work/widgets', surface: 'terminal', isInteractive: true }
@@ -151,7 +163,7 @@ const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}, m
   mock.store(on, { explored: ['acme/widgets'], ...store })
   mock.env(on, { HOME: '/home/player' })
   const stream: Array<{ seq: number }> = []
-  const { statuses, site, gradedIds } = world(on, clock, stream, more)
+  const { statuses, toasts, site, gradedIds } = world(on, clock, stream, more)
   await $.session.start(start)
   await until(clock, () => statuses.at(-1)?.startsWith('⚔ Lv') === true)
   await clock.settle()
@@ -161,7 +173,7 @@ const playing = async ($: Dollar, on: On, store: Record<string, unknown> = {}, m
     await until(clock, () => stream.length === 0)
     await clock.settle()
   }
-  return { clock, send, statuses, site, gradedIds }
+  return { clock, send, statuses, toasts, site, gradedIds }
 }
 
 const hintProps = (isWorking = false, isDraft = false): RenderPropsOf['PromptHint'] => ({
@@ -410,6 +422,16 @@ describe('the band, auto', () => {
     expect(statuses.at(-1)).toBe('⚔ Lv 4 ▰▱▱▱▱ 30/203 xp · 1 mission')
   })
 
+  test('a newer mod opens it with its line, shut holdMs after', { options: { server: 'online' } }, async ($, on) => {
+    const origin = 'https://api.pathof.dev'
+    const stored = { [`explored@${origin}`]: ['acme/widgets'], [`token@${origin}`]: 'pod_player' }
+    const { clock, toasts } = await playing($, on, stored, { latest: '99.0.0' })
+    expect(await bandNow($)).toContain(`Update available: ${clientVersion} → 99.0.0 · claude plugin update pathofdev@path-of-dev`)
+    expect(toasts.join('\n')).not.toContain('Update')
+    await clock.advance(holdMs + 500)
+    expect(await bandNow($)).toBeNull()
+  })
+
   test('the status line says what to do while the server is down', async ($, on) => {
     const clock = mock.clock(on, { now: Date.parse('2026-10-09T08:00:00Z') })
     mock.store(on)
@@ -513,6 +535,14 @@ describe('the band, line', () => {
     expect(statuses.at(-1)).toBe('⚔ Lv 4 ▰▱▱▱▱ 30/203 xp · last prompt 9.0')
     // The tip comes here, as the band has no pet to say it.
     expect(await run($, 'pet tip')).not.toContain('beside itself')
+  })
+
+  test('a newer mod is a toast, as the band never opens', { options: { band: 'line', server: 'online' } }, async ($, on) => {
+    const origin = 'https://api.pathof.dev'
+    const stored = { [`explored@${origin}`]: ['acme/widgets'], [`token@${origin}`]: 'pod_player' }
+    const { clock, toasts } = await playing($, on, stored, { latest: '99.0.0' })
+    expect(toasts).toContain(`Update available: ${clientVersion} → 99.0.0 · claude plugin update pathofdev@path-of-dev`)
+    expect(await openRuns($, clock, 2_000)).toEqual([])
   })
 })
 

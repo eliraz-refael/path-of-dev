@@ -27,6 +27,7 @@ import { core } from "./services.ts"
 //     ADMIN_GITHUB_IDS ──────────▶   the admins, by GitHub user id: always in, and they keep the beta list
 //     GITHUB_CLIENT_ID, _SECRET ─▶ GitHub: the token check, asked as the app
 //     PROFILE_ORIGIN ────────────▶ where the public pages live: https://pathof.dev/u/<login> unless it says otherwise
+//   the mod's manifest ─▶ readModVersion (release.ts) ─▶ the mod's latest version, told each session it opens
 //       └─▶ publicServices ─▶ PublicRoutes (OnlineRoutes, ProfilePages, Healthz, RetryAfter) ─▶ node http on PORT
 //
 // A request, from the mod or a browser over HTTPS:
@@ -208,9 +209,13 @@ export const RetryAfter = HttpRouter.middleware(
  */
 export const PublicRoutes = Layer.mergeAll(OnlineRoutes, ProfilePages, Healthz, RetryAfter)
 
-/** What the public server's services read from its settings: the beta, and where the public pages live. */
+/**
+ * What the public server's services read from its settings: the beta, where the public pages live, and the mod's
+ * latest version, which each session the server opens is told (none when null).
+ */
 export interface PublicSettings extends BetaConfig {
   readonly profileOrigin: string
+  readonly latestModVersion: string | null
 }
 
 /**
@@ -221,12 +226,18 @@ export interface PublicSettings extends BetaConfig {
 export const publicServices = <E>(database: Database, settings: PublicSettings, github: Layer.Layer<GitHub, E>) =>
   Layer.mergeAll(accounts(settings), AccountData.layer, Profiles.layer, github).pipe(
     Layer.provideMerge(ProfileOrigin.layer(settings.profileOrigin)),
-    Layer.provideMerge(core("online", database)),
+    Layer.provideMerge(core("online", database, { latestModVersion: settings.latestModVersion })),
   )
 
-/** The public server, listening on `config.port` until the scope closes. */
-export const publicServer = (config: PublicConfig) =>
+/** The public server, listening on `config.port` until the scope closes, telling the mod's latest version. */
+export const publicServer = (config: PublicConfig, latestModVersion: string) =>
   HttpRouter.serve(PublicRoutes).pipe(
     Layer.provide(NodeHttpServer.layer(createServer, { port: config.port })),
-    Layer.provide(publicServices({ kind: "postgres", url: config.databaseUrl }, config, GitHub.layer(config.github))),
+    Layer.provide(
+      publicServices(
+        { kind: "postgres", url: config.databaseUrl },
+        { ...config, latestModVersion },
+        GitHub.layer(config.github),
+      ),
+    ),
   )

@@ -11,6 +11,7 @@ import { Presence } from "./presence.ts"
 import { QuestPacks } from "./quest-packs.ts"
 import { ServerRandom } from "./random.ts"
 import { RateLimiter } from "./rate-limit.ts"
+import { ModRelease } from "./release.ts"
 import type { Stepper } from "./writer.ts"
 import { PlayerWriter } from "./writer.ts"
 
@@ -20,6 +21,7 @@ import { PlayerWriter } from "./writer.ts"
 //   ServerRandom (seeded once) ─┐
 //   DevMode (local only) ───────┤
 //   RateLimiter (online only) ──┤
+//   ModRelease (online only) ───┤
 //   Database ─▶ migrate ────────┼─▶ QuestPacks ─▶ StreamHub ─▶ PlayerWriter ─▶ Players(kind), Presence (+ sweep)
 //                               ┘
 
@@ -30,6 +32,8 @@ export interface CoreOptions {
   readonly dev?: boolean | undefined
   /** Seeds the server's randomness, so a test sees the same ids twice; from the OS when unset. */
   readonly seed?: string | undefined
+  /** The mod's latest version, which an online server tells each session it opens (release.ts); none when unset. */
+  readonly latestModVersion?: string | null | undefined
 }
 
 /**
@@ -44,6 +48,13 @@ export const devModeOf = (kind: ServerKind, options: CoreOptions): boolean => ki
  */
 export const rateLimiterOf = (kind: ServerKind) => (kind === "online" ? RateLimiter.layer : RateLimiter.unlimited)
 
+/**
+ * The mod's latest version a `kind` server built with `options` tells: an online one's, from its options; a local one
+ * tells none, as it runs from a clone and knows nothing of what the marketplace offers.
+ */
+export const latestModVersionOf = (kind: ServerKind, options: CoreOptions): string | null =>
+  kind === "online" ? (options.latestModVersion ?? null) : null
+
 /** The server's randomness, seeded once, then the database, migrated. */
 const Base = (database: Database, seed: string | undefined) =>
   Layer.effectDiscard(migrate).pipe(
@@ -53,7 +64,7 @@ const Base = (database: Database, seed: string | undefined) =>
 
 /**
  * The services behind the routes of a `kind` server, over `database`: migrated, with the presence sweep running, in
- * dev mode only as `devModeOf` allows, and rate-limited only online.
+ * dev mode only as `devModeOf` allows, rate-limited only online, and telling the mod's latest version only online.
  */
 export const core = (kind: ServerKind, database: Database, options: CoreOptions = {}) => {
   const Live = Presence.sweeper.pipe(Layer.provideMerge(Presence.layer))
@@ -64,5 +75,6 @@ export const core = (kind: ServerKind, database: Database, options: CoreOptions 
     Layer.provideMerge(Base(database, options.seed)),
     Layer.provideMerge(DevMode.layer(devModeOf(kind, options))),
     Layer.provideMerge(rateLimiterOf(kind)),
+    Layer.provideMerge(ModRelease.layer(latestModVersionOf(kind, options))),
   )
 }

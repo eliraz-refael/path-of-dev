@@ -146,6 +146,12 @@ jobs:
           echo "$headers" | grep --quiet '^HTTP/1.1 404' || { echo "::error::/u/nobody did not answer 404"; exit 1; }
           echo "$headers" | grep --quiet --ignore-case '^cache-control: no-store' || { echo "::error::/u/nobody is cacheable"; exit 1; }
           echo "$headers" | grep --quiet --ignore-case '^content-type: text/html' || { echo "::error::/u/nobody is not a page"; exit 1; }
+      - name: The server tells the mod's version from its manifest
+        run: |
+          version=$(jq -r .version packages/mod/.claude-plugin/plugin.json)
+          # grep reads it all, not --quiet: an early exit would cut the pipe, and pipefail fail the step on a match.
+          docker logs server 2>&1 | grep --fixed-strings "the mod's latest version is $version" > /dev/null \
+            || { echo "::error::the server's log names no mod version $version"; exit 1; }
       - name: The image's own health check passes
         run: |
           # Docker runs the first check one interval (30 seconds) after the start.

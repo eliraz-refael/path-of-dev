@@ -26,6 +26,11 @@ export const SessionResponse = Schema.Struct({
   minClientVersion: Schema.String,
   /** Event types this server accepts, so a newer mod holds back types an older local server would reject. */
   acceptedEventTypes: Schema.Array(Schema.String),
+  /**
+   * The mod's latest version, which the marketplace offers: a mod behind it tells the player to update. Only the
+   * public server says it; a local one, which runs from a clone, leaves it out.
+   */
+  latestModVersion: Schema.optionalKey(Schema.String),
 })
 export interface SessionResponse extends Schema.Schema.Type<typeof SessionResponse> {}
 

@@ -4,10 +4,13 @@
 # Node, run as an unprivileged user. Coolify builds it from this file on a deploy; CI builds it too, and smoke-tests it.
 #
 #   build:   pnpm fetch (the lockfile alone, so the layer is cached) ─▶ install ─▶ tsc -b ─▶ pnpm deploy --prod /out
-#   runtime: /out as /app, user `node`, GET /healthz as the health check, node dist/public-main.js
+#   runtime: /out as /app, the mod's manifest at /mod, user `node`, GET /healthz as the health check,
+#            node dist/public-main.js
 #
 # The settings come from the environment at run time (packages/server/src/public.ts): DATABASE_URL, ALLOWED_LOGINS,
-# GITHUB_CLIENT_SECRET, and optionally PORT and GITHUB_CLIENT_ID. None is baked in.
+# GITHUB_CLIENT_SECRET, and optionally PORT and GITHUB_CLIENT_ID. None is baked in. What is baked in is the mod's
+# manifest from the same commit, whose version the server tells each session as the mod's latest (release.ts): the
+# marketplace offers that same commit's mod once the merge that deploys this image lands on main.
 
 FROM node:22-alpine AS build
 RUN npm install --global pnpm@12.9.0
@@ -26,6 +29,8 @@ ENV PORT=3000
 WORKDIR /app
 # Owned by root, so the server can't change its own code.
 COPY --from=build /out ./
+# Where the repo keeps it relative to the server's code, so dist/release.js finds it at ../../mod as src/ does.
+COPY --from=build /repo/packages/mod/.claude-plugin/plugin.json /mod/.claude-plugin/plugin.json
 USER node
 EXPOSE 3000
 # busybox wget fails on any answer but a 2xx, so a 503 (the database not answering) marks the container unhealthy.

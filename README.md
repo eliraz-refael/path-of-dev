@@ -37,6 +37,21 @@ On older Claude Code, add the marketplace first, then install from it:
 Playing locally instead, on a save in `~/.pathofdev`, needs a clone running the server: see
 [Development](#development).
 
+### Updating
+
+Claude Code leaves auto-update off for a marketplace like this one, so the mod stays at the version you installed. On
+the online server the band says when there is a newer one, once (a toast says it with the band set to `line`), and
+the `/pathofdev` pane keeps a line about it. To update, run this in your shell, then restart Claude Code:
+
+```
+claude plugin update pathofdev@path-of-dev
+```
+
+Or, in a session, open `/plugin`, find `pathofdev` on the **Installed** tab, and choose **Update now**. To get each
+release without asking, turn auto-update on for the marketplace: `/plugin`, the **Marketplaces** tab, `path-of-dev`,
+**Enable auto-update**. A local server tells no version, so playing locally the mod never says there is an update:
+update the plugin the same way, and pull the clone the server runs from.
+
 ## How it fits together
 
 - **The mod** is a thin Claude Code plugin. It reports what happened in a session (a turn finished, tests went
