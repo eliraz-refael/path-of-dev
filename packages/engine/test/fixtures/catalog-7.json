@@ -1,0 +1,2555 @@
+[
+  {
+    "id": "plain-cap",
+    "name": "Plain Cap",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "plain-cap",
+    "lore": "Fits every head, flatters none, never falls off.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "wool-beanie",
+    "name": "Wool Beanie",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "wool-beanie",
+    "lore": "Knitted during one very slow CI run.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "paper-crown",
+    "name": "Paper Crown",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "paper-crown",
+    "lore": "Folded from a printout of the changelog.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "sprout-clip",
+    "name": "Sprout Clip",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "sprout-clip",
+    "lore": "It waters itself whenever the tests pass.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "propeller-cap",
+    "name": "Propeller Cap",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "propeller-cap",
+    "lore": "Spins a little faster near a good idea.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "focus-headphones",
+    "name": "Focus Headphones",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "focus-headphones",
+    "lore": "They play nothing at all. That is the point.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "daisy-chain",
+    "name": "Daisy Chain",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "daisy-chain",
+    "lore": "Picked one by one during a long code freeze.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "wizard-hat",
+    "name": "Wizard Hat",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "wizard-hat",
+    "lore": "Pointed, patient, and full of half-remembered spells.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "tinker-goggles",
+    "name": "Tinker Goggles",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "tinker-goggles",
+    "lore": "Every diff looks sharper through them.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "thinking-cap",
+    "name": "Thinking Cap",
+    "rarity": "epic",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "thinking-cap",
+    "lore": "Lights up a little when the plan clicks.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "plumed-helm",
+    "name": "Plumed Helm",
+    "rarity": "epic",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "plumed-helm",
+    "lore": "The plume stands up straight when the build goes red.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "evergreen-crown",
+    "name": "Evergreen Crown",
+    "rarity": "legendary",
+    "category": "wearable",
+    "slot": "head",
+    "sprite": "evergreen-crown",
+    "lore": "Grows a new leaf for every day the streak holds.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "paper-scarf",
+    "name": "Paper Scarf",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "paper-scarf",
+    "lore": "Warm enough for a demo, if nobody opens a window.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "bow-tie",
+    "name": "Bow Tie",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "bow-tie",
+    "lore": "For demos, and only for demos.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "lanyard",
+    "name": "Lanyard",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "lanyard",
+    "lore": "Holds a badge that opens no doors, proudly.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "knit-scarf",
+    "name": "Knit Scarf",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "knit-scarf",
+    "lore": "Every stripe a sprint, and not one dropped stitch.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "bell-collar",
+    "name": "Bell Collar",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "bell-collar",
+    "lore": "Rings once for every passing test.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "silver-locket",
+    "name": "Silver Locket",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "silver-locket",
+    "lore": "Inside, a tiny picture of the first green build.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "comet-pendant",
+    "name": "Comet Pendant",
+    "rarity": "epic",
+    "category": "wearable",
+    "slot": "neck",
+    "sprite": "comet-pendant",
+    "lore": "Its tail grows longer with every streak day kept.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "canvas-tote",
+    "name": "Canvas Tote",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "canvas-tote",
+    "lore": "Room for a laptop, a charger and one snack too many.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "towel-cape",
+    "name": "Towel Cape",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "towel-cape",
+    "lore": "Tied on for a hero's afternoon of bug fixing.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "paper-wings",
+    "name": "Paper Wings",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "paper-wings",
+    "lore": "Folded from the old spec. They fly better than it read.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "trail-pack",
+    "name": "Trail Pack",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "trail-pack",
+    "lore": "Packed light: a map, a lamp and a spare idea.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "night-cloak",
+    "name": "Night Cloak",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "night-cloak",
+    "lore": "Stitched from the hours after the last meeting.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "rocket-pack",
+    "name": "Rocket Pack",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "rocket-pack",
+    "lore": "Two settings: off, and shipping.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "drake-wings",
+    "name": "Drake Wings",
+    "rarity": "epic",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "drake-wings",
+    "lore": "Borrowed from a dragon that reviews pull requests.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "phoenix-wings",
+    "name": "Phoenix Wings",
+    "rarity": "legendary",
+    "category": "wearable",
+    "slot": "back",
+    "sprite": "phoenix-wings",
+    "lore": "They rise again after every revert.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "coffee-mug",
+    "name": "Coffee Mug",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "coffee-mug",
+    "lore": "It says \"works on my machine\" on the side.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "rubber-duck",
+    "name": "Rubber Duck",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "rubber-duck",
+    "lore": "Hears every bug out, and never interrupts.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "pencil",
+    "name": "Pencil",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "pencil",
+    "lore": "Chewed at the end, sharp where it counts.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "magnifying-glass",
+    "name": "Magnifying Glass",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "magnifying-glass",
+    "lore": "For reading stack traces up close.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "brass-lantern",
+    "name": "Brass Lantern",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "brass-lantern",
+    "lore": "Burns brightest in the oldest code.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "quill",
+    "name": "Quill",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "quill",
+    "lore": "Writes commit messages that say why.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "starlight-staff",
+    "name": "Starlight Staff",
+    "rarity": "epic",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "starlight-staff",
+    "lore": "Two taps on the floor, and the flaky test passes.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "moonlit-blade",
+    "name": "Moonlit Blade",
+    "rarity": "legendary",
+    "category": "wearable",
+    "slot": "hand",
+    "sprite": "moonlit-blade",
+    "lore": "Cuts scope cleanly, and never the corners.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "static-spark",
+    "name": "Static Spark",
+    "rarity": "common",
+    "category": "wearable",
+    "slot": "aura",
+    "sprite": "static-spark",
+    "lore": "A little crackle from leaning on a wool sweater.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "firefly-ring",
+    "name": "Firefly Ring",
+    "rarity": "uncommon",
+    "category": "wearable",
+    "slot": "aura",
+    "sprite": "firefly-ring",
+    "lore": "A few fireflies that like the light of your screen.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "rune-circle",
+    "name": "Rune Circle",
+    "rarity": "rare",
+    "category": "wearable",
+    "slot": "aura",
+    "sprite": "rune-circle",
+    "lore": "Turns slowly, in the order the tests run.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "thunder-halo",
+    "name": "Thunder Halo",
+    "rarity": "epic",
+    "category": "wearable",
+    "slot": "aura",
+    "sprite": "thunder-halo",
+    "lore": "Hums at the pitch of a passing build.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "id": "aurora-crown",
+    "name": "Aurora Crown",
+    "rarity": "legendary",
+    "category": "artefact",
+    "slot": "aura",
+    "sprite": "aurora-crown",
+    "lore": "Said to glow brighter with every merge.",
+    "effect": null,
+    "look": null
+  },
+  {
+    "sprite": null,
+    "lore": "Baked in the shape of a tiny paw.",
+    "effect": null,
+    "look": null,
+    "id": "honey-biscuit",
+    "name": "Honey Biscuit",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "A thumbprint of jam, pressed in with care.",
+    "effect": null,
+    "look": null,
+    "id": "jam-drop",
+    "name": "Jam Drop",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Crisp, cold, and cut into exactly eight.",
+    "effect": null,
+    "look": null,
+    "id": "apple-slices",
+    "name": "Apple Slices",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Saved for a pet that sat through a long build.",
+    "effect": null,
+    "look": null,
+    "id": "sugar-plum",
+    "name": "Sugar Plum",
+    "rarity": "uncommon",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Unrolls slowly, like a good explanation.",
+    "effect": null,
+    "look": null,
+    "id": "cinnamon-roll",
+    "name": "Cinnamon Roll",
+    "rarity": "uncommon",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Nuts, seeds and the odd chocolate chip.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 60
+    },
+    "look": null,
+    "id": "trail-mix",
+    "name": "Trail Mix",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Steeped overnight, like a long-running test.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 60
+    },
+    "look": null,
+    "id": "cold-brew",
+    "name": "Cold Brew",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Packed for a long session, gone before the first build.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 60
+    },
+    "look": null,
+    "id": "rice-ball",
+    "name": "Rice Ball",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Mostly oats, partly optimism.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 60
+    },
+    "look": null,
+    "id": "granola-bar",
+    "name": "Granola Bar",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "It says: your next commit will be a small one.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 60
+    },
+    "look": null,
+    "id": "fortune-cookie",
+    "name": "Fortune Cookie",
+    "rarity": "common",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Still warm, and gone in two bites.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 120
+    },
+    "look": null,
+    "id": "berry-tart",
+    "name": "Berry Tart",
+    "rarity": "uncommon",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Warm enough for one more refactor.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 120
+    },
+    "look": null,
+    "id": "miso-soup",
+    "name": "Miso Soup",
+    "rarity": "uncommon",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Folded shut, like a well-kept function.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 120
+    },
+    "look": null,
+    "id": "pocket-pie",
+    "name": "Pocket Pie",
+    "rarity": "uncommon",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Fell from a branch that grows only over green builds.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 180
+    },
+    "look": null,
+    "id": "starfruit",
+    "name": "Starfruit",
+    "rarity": "rare",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Stamped with a pattern only night owls can read.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 180
+    },
+    "look": null,
+    "id": "mooncake",
+    "name": "Mooncake",
+    "rarity": "rare",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "Built cell by cell, like a good test suite.",
+    "effect": {
+      "xpBoostPct": 10,
+      "minutes": 180
+    },
+    "look": null,
+    "id": "honeycomb",
+    "name": "Honeycomb",
+    "rarity": "rare",
+    "category": "food",
+    "slot": null
+  },
+  {
+    "sprite": null,
+    "lore": "One string to pull, one level to cheer.",
+    "effect": null,
+    "look": null,
+    "id": "party-popper",
+    "name": "Party Popper",
+    "rarity": "common",
+    "category": "levelUpEffect",
+    "slot": "levelUpEffect"
+  },
+  {
+    "sprite": null,
+    "lore": "Mostly paper, entirely earned.",
+    "effect": null,
+    "look": null,
+    "id": "confetti-pop",
+    "name": "Confetti Pop",
+    "rarity": "uncommon",
+    "category": "levelUpEffect",
+    "slot": "levelUpEffect"
+  },
+  {
+    "sprite": null,
+    "lore": "Green on black, the way the old screens glowed.",
+    "effect": null,
+    "look": null,
+    "id": "terminal-green",
+    "name": "Terminal Green",
+    "rarity": "uncommon",
+    "category": "scene",
+    "slot": "scene"
+  },
+  {
+    "sprite": null,
+    "lore": "Loud enough to wake the logs.",
+    "effect": null,
+    "look": null,
+    "id": "fireworks",
+    "name": "Fireworks",
+    "rarity": "rare",
+    "category": "levelUpEffect",
+    "slot": "levelUpEffect"
+  },
+  {
+    "sprite": null,
+    "lore": "Draws the new level number across the sky.",
+    "effect": null,
+    "look": null,
+    "id": "comet-trail",
+    "name": "Comet Trail",
+    "rarity": "rare",
+    "category": "levelUpEffect",
+    "slot": "levelUpEffect"
+  },
+  {
+    "sprite": null,
+    "lore": "Circles twice, roars once, then naps on your gold.",
+    "effect": null,
+    "look": null,
+    "id": "pixel-dragon",
+    "name": "Pixel Dragon",
+    "rarity": "epic",
+    "category": "levelUpEffect",
+    "slot": "levelUpEffect"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "█",
+        "empty": "░"
+      },
+      "colors": {
+        "full": "#87d787",
+        "empty": "#4e4e4e"
+      }
+    },
+    "id": "solid-bar",
+    "name": "Solid Bar",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "line": "═",
+        "left": "╡",
+        "right": "╞",
+        "knot": "◇",
+        "dot": "═"
+      },
+      "colors": {
+        "line": "#808080",
+        "left": "#a8a8a8",
+        "right": "#a8a8a8",
+        "star": "#d0d0d0",
+        "title": "#e4e4e4",
+        "knot": "#a8a8a8",
+        "dot": "#808080"
+      }
+    },
+    "id": "double-rule",
+    "name": "Double Rule",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "icon": "●"
+      },
+      "colors": {
+        "icon": "#d7875f",
+        "amount": "#d7af87"
+      }
+    },
+    "id": "copper-purse",
+    "name": "Copper Purse",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "●",
+        "empty": "○"
+      },
+      "colors": {
+        "full": "#5fd7ff",
+        "empty": "#585858",
+        "label": "#87d7ff"
+      }
+    },
+    "id": "bead-string",
+    "name": "Bead String",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "left": "⟦",
+        "right": "⟧"
+      },
+      "colors": {
+        "level": "#5fd75f",
+        "left": "#87af87",
+        "right": "#87af87",
+        "title": "#afd7af"
+      }
+    },
+    "id": "squires-plate",
+    "name": "Squire's Plate",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "line": "╌",
+        "knot": "✧",
+        "dot": "╌"
+      },
+      "colors": {
+        "line": "#5f875f",
+        "left": "#5f875f",
+        "right": "#5f875f",
+        "star": "#87d787",
+        "title": "#d7ffaf",
+        "knot": "#87d787",
+        "dot": "#5f875f"
+      }
+    },
+    "id": "meadow-rule",
+    "name": "Meadow Rule",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "━",
+        "empty": "╍",
+        "head": "╸"
+      },
+      "colors": {
+        "full": "#4ea8ff",
+        "empty": "#303a4e",
+        "head": "#b8dcff",
+        "label": "#87afff"
+      }
+    },
+    "id": "tempered-steel",
+    "name": "Tempered Steel",
+    "rarity": "rare",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "icon": "◆",
+        "spark": "✧"
+      },
+      "colors": {
+        "icon": "#4ea8ff",
+        "amount": "#b8dcff",
+        "spark": "#87afff"
+      }
+    },
+    "id": "sapphire-purse",
+    "name": "Sapphire Purse",
+    "rarity": "rare",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": null,
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "lv": "ʟᴠ",
+        "left": "❮",
+        "right": "❯"
+      },
+      "colors": {
+        "glyph": "#b8dcff",
+        "level": "#4ea8ff",
+        "title": "#87afff",
+        "left": "#5f87d7",
+        "right": "#5f87d7"
+      }
+    },
+    "id": "runic-crest",
+    "name": "Runic Crest",
+    "rarity": "rare",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "It hums when the tests go green.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "glyphs": {
+            "head": "✦"
+          },
+          "colors": {
+            "head": "#e0aaff"
+          }
+        },
+        {
+          "glyphs": {
+            "head": "✧"
+          },
+          "colors": {
+            "head": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "head": "⋆"
+          },
+          "colors": {
+            "head": "#c77dff"
+          }
+        },
+        {
+          "glyphs": {
+            "head": "✧"
+          },
+          "colors": {
+            "head": "#ffffff"
+          }
+        }
+      ],
+      "fps": 6,
+      "glyphs": {
+        "full": "▰",
+        "empty": "▱",
+        "head": "✦"
+      },
+      "colors": {
+        "full": "#9d4edd",
+        "empty": "#3c2a4d",
+        "head": "#e0aaff",
+        "label": "#c77dff"
+      },
+      "sheen": {
+        "colors": [
+          "#7b2cbf",
+          "#c77dff",
+          "#e0aaff",
+          "#ffffff"
+        ],
+        "rest": 6
+      }
+    },
+    "id": "arcane-current",
+    "name": "Arcane Current",
+    "rarity": "epic",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Cut from the night the first merge landed.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "glyphs": {
+            "star": "✦"
+          },
+          "marks": [
+            {
+              "at": 0.06,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            },
+            {
+              "at": 0.19,
+              "glyph": "✦",
+              "color": "#ffffff"
+            },
+            {
+              "at": 0.47,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.6,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✦"
+          },
+          "marks": [
+            {
+              "at": 0.06,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.19,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.47,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.6,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.74,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            },
+            {
+              "at": 0.88,
+              "glyph": "✦",
+              "color": "#ffffff"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✧"
+          },
+          "marks": [
+            {
+              "at": 0.06,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.19,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.33,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            },
+            {
+              "at": 0.47,
+              "glyph": "✦",
+              "color": "#ffffff"
+            },
+            {
+              "at": 0.74,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✧"
+          },
+          "marks": [
+            {
+              "at": 0.06,
+              "glyph": "✦",
+              "color": "#ffffff"
+            },
+            {
+              "at": 0.33,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.47,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.74,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✦"
+          },
+          "marks": [
+            {
+              "at": 0.06,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.33,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.47,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.6,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            },
+            {
+              "at": 0.74,
+              "glyph": "✦",
+              "color": "#ffffff"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✦"
+          },
+          "marks": [
+            {
+              "at": 0.06,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.19,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            },
+            {
+              "at": 0.33,
+              "glyph": "✦",
+              "color": "#ffffff"
+            },
+            {
+              "at": 0.6,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.74,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✧"
+          },
+          "marks": [
+            {
+              "at": 0.19,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.33,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.6,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.74,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            }
+          ]
+        },
+        {
+          "glyphs": {
+            "star": "✧"
+          },
+          "marks": [
+            {
+              "at": 0.19,
+              "glyph": "✧",
+              "color": "#e0aaff"
+            },
+            {
+              "at": 0.33,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            },
+            {
+              "at": 0.47,
+              "glyph": "·",
+              "color": "#7b6cf6"
+            },
+            {
+              "at": 0.6,
+              "glyph": "✦",
+              "color": "#ffffff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "⋆",
+              "color": "#9d8cff"
+            }
+          ]
+        }
+      ],
+      "fps": 5,
+      "glyphs": {
+        "star": "✦",
+        "knot": "✧"
+      },
+      "colors": {
+        "line": "#5a4a78",
+        "left": "#7b6cf6",
+        "right": "#7b6cf6",
+        "star": "#c77dff",
+        "title": "#e0aaff",
+        "knot": "#9d8cff",
+        "dot": "#5a4a78"
+      }
+    },
+    "id": "starlit-edge",
+    "name": "Starlit Edge",
+    "rarity": "epic",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": "Hammered from a fallen star.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "glyphs": {
+            "head": "✸"
+          },
+          "colors": {
+            "head": "#fff1a8"
+          }
+        },
+        {
+          "glyphs": {
+            "head": "✦"
+          },
+          "colors": {
+            "head": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "head": "✧"
+          },
+          "colors": {
+            "head": "#ffd23f"
+          }
+        },
+        {
+          "glyphs": {
+            "head": "✦"
+          },
+          "colors": {
+            "head": "#ffffff"
+          }
+        }
+      ],
+      "fps": 6,
+      "glyphs": {
+        "full": "▰",
+        "empty": "▱",
+        "head": "✸"
+      },
+      "colors": {
+        "full": "#ffb627",
+        "empty": "#4d3a12",
+        "head": "#fff1a8",
+        "label": "#ffd23f"
+      },
+      "sheen": {
+        "colors": [
+          "#ff9f1c",
+          "#ffd23f",
+          "#fff1a8",
+          "#ffffff"
+        ],
+        "rest": 4
+      }
+    },
+    "id": "starforged-bar",
+    "name": "Starforged Bar",
+    "rarity": "legendary",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Every coin remembers the quest that paid it.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "glyphs": {
+            "icon": "◈",
+            "spark": "✧"
+          },
+          "colors": {
+            "icon": "#ffb627",
+            "spark": "#fff1a8"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◈",
+            "spark": "✦"
+          },
+          "colors": {
+            "icon": "#ffd23f",
+            "spark": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◆",
+            "spark": "⋆"
+          },
+          "colors": {
+            "icon": "#ffffff",
+            "spark": "#ffd23f"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◈",
+            "spark": "·"
+          },
+          "colors": {
+            "icon": "#ffd23f",
+            "spark": "#ff9f1c"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◈",
+            "spark": "˚"
+          },
+          "colors": {
+            "icon": "#ffb627",
+            "spark": "#ffd23f"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◇",
+            "spark": "·"
+          },
+          "colors": {
+            "icon": "#ff9f1c",
+            "spark": "#fff1a8"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◈",
+            "spark": "⋆"
+          },
+          "colors": {
+            "icon": "#ffb627",
+            "spark": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "icon": "◈",
+            "spark": "✦"
+          },
+          "colors": {
+            "icon": "#ffd23f",
+            "spark": "#fff1a8"
+          }
+        }
+      ],
+      "fps": 4,
+      "glyphs": {
+        "icon": "◈",
+        "spark": "✧"
+      },
+      "colors": {
+        "icon": "#ffb627",
+        "amount": "#ffd23f",
+        "spark": "#fff1a8"
+      }
+    },
+    "id": "dragons-hoard",
+    "name": "Dragon's Hoard",
+    "rarity": "legendary",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Worn by those who never break the streak.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "glyphs": {
+            "left": "✧",
+            "right": "✦"
+          },
+          "colors": {
+            "left": "#ffffff",
+            "right": "#ffb627"
+          }
+        },
+        {
+          "glyphs": {
+            "left": "✦",
+            "right": "✧"
+          },
+          "colors": {
+            "left": "#ffd23f",
+            "right": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "left": "⋆",
+            "right": "·"
+          },
+          "colors": {
+            "left": "#ffb627",
+            "right": "#ffd23f"
+          }
+        },
+        {
+          "glyphs": {
+            "left": "✦",
+            "right": "✧"
+          },
+          "colors": {
+            "left": "#ffffff",
+            "right": "#ffb627"
+          }
+        },
+        {
+          "glyphs": {
+            "left": "✧",
+            "right": "✦"
+          },
+          "colors": {
+            "left": "#ffd23f",
+            "right": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "left": "·",
+            "right": "⋆"
+          },
+          "colors": {
+            "left": "#ffb627",
+            "right": "#ffd23f"
+          }
+        }
+      ],
+      "fps": 4,
+      "glyphs": {
+        "left": "✧",
+        "right": "✧"
+      },
+      "colors": {
+        "glyph": "#ffd23f",
+        "level": "#ffb627",
+        "title": "#ffe8a3",
+        "left": "#ffd23f",
+        "right": "#ffd23f"
+      }
+    },
+    "id": "crown-of-ages",
+    "name": "Crown of Ages",
+    "rarity": "legendary",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Sign here, then keep going.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "•",
+        "empty": "·"
+      },
+      "colors": {
+        "full": "#d0d0d0",
+        "empty": "#585858"
+      }
+    },
+    "id": "dotted-line",
+    "name": "Dotted Line",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Progress, the way an old installer drew it.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "#",
+        "empty": "-",
+        "left": "[",
+        "right": "]"
+      },
+      "colors": {
+        "full": "#87af87",
+        "empty": "#4e4e4e",
+        "left": "#808080",
+        "right": "#808080"
+      }
+    },
+    "id": "hash-bar",
+    "name": "Hash Bar",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Laid one commit at a time.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "▓",
+        "empty": "░"
+      },
+      "colors": {
+        "full": "#d7875f",
+        "empty": "#4e3a30",
+        "label": "#d7af87"
+      }
+    },
+    "id": "brick-bar",
+    "name": "Brick Bar",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Square brackets, for a level that means business.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "left": "[",
+        "right": "]"
+      },
+      "colors": {
+        "level": "#d0d0d0",
+        "left": "#808080",
+        "right": "#808080",
+        "title": "#a8a8a8"
+      }
+    },
+    "id": "bracket-badge",
+    "name": "Bracket Badge",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Optional, but you wore it anyway.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "left": "(",
+        "right": ")"
+      },
+      "colors": {
+        "level": "#d7af87",
+        "left": "#af875f",
+        "right": "#af875f",
+        "title": "#d7c3a8"
+      }
+    },
+    "id": "paren-badge",
+    "name": "Paren Badge",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Opened like a tag, and properly closed.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "left": "<",
+        "right": ">"
+      },
+      "colors": {
+        "level": "#87afd7",
+        "left": "#5f87af",
+        "right": "#5f87af",
+        "title": "#afc8e4"
+      }
+    },
+    "id": "angle-badge",
+    "name": "Angle Badge",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Cut along the dotted line, carefully.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "line": "┄",
+        "left": "┤",
+        "right": "├",
+        "knot": "·",
+        "dot": "┄"
+      },
+      "colors": {
+        "line": "#6c6c6c",
+        "left": "#8a8a8a",
+        "right": "#8a8a8a",
+        "star": "#bcbcbc",
+        "title": "#d0d0d0",
+        "knot": "#8a8a8a",
+        "dot": "#6c6c6c"
+      }
+    },
+    "id": "dashed-rule",
+    "name": "Dashed Rule",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": "Knotted every so often, to hold the band up.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "line": "~",
+        "left": "{",
+        "right": "}",
+        "knot": "∘",
+        "dot": "~"
+      },
+      "colors": {
+        "line": "#af875f",
+        "left": "#d7af87",
+        "right": "#d7af87",
+        "star": "#d7af87",
+        "title": "#e4d0b8",
+        "knot": "#d7af87",
+        "dot": "#af875f"
+      }
+    },
+    "id": "rope-rule",
+    "name": "Rope Rule",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": "Off an old coat, and worth more than it looks.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "icon": "◉"
+      },
+      "colors": {
+        "icon": "#c9a227",
+        "amount": "#e4c86a"
+      }
+    },
+    "id": "brass-button",
+    "name": "Brass Button",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Rattles more than it holds.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "icon": "○"
+      },
+      "colors": {
+        "icon": "#a8a8a8",
+        "amount": "#c6c6c6"
+      }
+    },
+    "id": "tin-purse",
+    "name": "Tin Purse",
+    "rarity": "common",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Etched one connection at a time.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "━",
+        "empty": "┄"
+      },
+      "colors": {
+        "full": "#5fd787",
+        "empty": "#2f4f3f",
+        "label": "#87d7af"
+      }
+    },
+    "id": "circuit-trace",
+    "name": "Circuit Trace",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Unrolled anew for every level.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "left": "⟨",
+        "right": "⟩"
+      },
+      "colors": {
+        "glyph": "#e4d8b8",
+        "level": "#d7af5f",
+        "left": "#af875f",
+        "right": "#af875f",
+        "title": "#e4d8b8"
+      }
+    },
+    "id": "scroll-tag",
+    "name": "Scroll Tag",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Babbles along, like a log at debug level.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "line": "≈",
+        "left": "╡",
+        "right": "╞",
+        "knot": "◦",
+        "dot": "≈"
+      },
+      "colors": {
+        "line": "#5f87af",
+        "left": "#5f87af",
+        "right": "#5f87af",
+        "star": "#87d7ff",
+        "title": "#d7f4ff",
+        "knot": "#87d7ff",
+        "dot": "#5f87af"
+      }
+    },
+    "id": "brook-rule",
+    "name": "Brook Rule",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": "Polished each time a bug is fixed.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "icon": "◇"
+      },
+      "colors": {
+        "icon": "#d0d0d0",
+        "amount": "#e4e4e4"
+      }
+    },
+    "id": "silver-purse",
+    "name": "Silver Purse",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Carved from a stone that sat by a quiet server.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "icon": "◆"
+      },
+      "colors": {
+        "icon": "#3faf7f",
+        "amount": "#87d7af"
+      }
+    },
+    "id": "jade-purse",
+    "name": "Jade Purse",
+    "rarity": "uncommon",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Clear and cold, like a well-written error.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "line": "─",
+        "left": "┤",
+        "right": "├",
+        "star": "✻",
+        "knot": "✻",
+        "dot": "·"
+      },
+      "colors": {
+        "line": "#5f87af",
+        "left": "#87afd7",
+        "right": "#87afd7",
+        "star": "#d7f4ff",
+        "title": "#ffffff",
+        "knot": "#afd7ff",
+        "dot": "#5f87af"
+      }
+    },
+    "id": "frost-rule",
+    "name": "Frost Rule",
+    "rarity": "rare",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": "Fired hot, cooled slowly, and never cracked.",
+    "effect": null,
+    "look": {
+      "frames": null,
+      "fps": null,
+      "glyphs": {
+        "full": "▮",
+        "empty": "▯",
+        "head": "▸"
+      },
+      "colors": {
+        "full": "#ff875f",
+        "empty": "#4e2a1f",
+        "head": "#ffd7af",
+        "label": "#ffaf87"
+      }
+    },
+    "id": "kiln-bar",
+    "name": "Kiln Bar",
+    "rarity": "rare",
+    "category": "bandStyle",
+    "slot": "xpBar"
+  },
+  {
+    "sprite": null,
+    "lore": "Splits one level into every colour.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "colors": {
+            "left": "#ff5f5f",
+            "right": "#87d75f",
+            "glyph": "#ffaf5f"
+          }
+        },
+        {
+          "colors": {
+            "left": "#ffaf5f",
+            "right": "#5fafff",
+            "glyph": "#ffd75f"
+          }
+        },
+        {
+          "colors": {
+            "left": "#ffd75f",
+            "right": "#af87ff",
+            "glyph": "#87d75f"
+          }
+        },
+        {
+          "colors": {
+            "left": "#87d75f",
+            "right": "#ff5f5f",
+            "glyph": "#5fafff"
+          }
+        },
+        {
+          "colors": {
+            "left": "#5fafff",
+            "right": "#ffaf5f",
+            "glyph": "#af87ff"
+          }
+        },
+        {
+          "colors": {
+            "left": "#af87ff",
+            "right": "#ffd75f",
+            "glyph": "#ff5f5f"
+          }
+        }
+      ],
+      "fps": 3,
+      "glyphs": {
+        "left": "⟪",
+        "right": "⟫"
+      },
+      "colors": {
+        "glyph": "#ffffff",
+        "level": "#ffffff",
+        "title": "#e0aaff",
+        "left": "#ff5f5f",
+        "right": "#5fafff"
+      }
+    },
+    "id": "prism-plate",
+    "name": "Prism Plate",
+    "rarity": "epic",
+    "category": "bandStyle",
+    "slot": "levelDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "Every coin leaves a little tail.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "glyphs": {
+            "spark": "✦"
+          },
+          "colors": {
+            "icon": "#c77dff",
+            "spark": "#ffffff"
+          }
+        },
+        {
+          "glyphs": {
+            "spark": "✧"
+          },
+          "colors": {
+            "icon": "#e0aaff",
+            "spark": "#e0aaff"
+          }
+        },
+        {
+          "glyphs": {
+            "spark": "⋆"
+          },
+          "colors": {
+            "icon": "#ffffff",
+            "spark": "#c77dff"
+          }
+        },
+        {
+          "glyphs": {
+            "spark": "·"
+          },
+          "colors": {
+            "icon": "#e0aaff",
+            "spark": "#9d4edd"
+          }
+        },
+        {
+          "glyphs": {
+            "spark": " "
+          },
+          "colors": {
+            "icon": "#c77dff",
+            "spark": "#9d4edd"
+          }
+        },
+        {
+          "glyphs": {
+            "spark": "·"
+          },
+          "colors": {
+            "icon": "#9d4edd",
+            "spark": "#c77dff"
+          }
+        }
+      ],
+      "fps": 4,
+      "glyphs": {
+        "icon": "◈",
+        "spark": "✦"
+      },
+      "colors": {
+        "icon": "#c77dff",
+        "amount": "#e0aaff",
+        "spark": "#ffffff"
+      }
+    },
+    "id": "comet-purse",
+    "name": "Comet Purse",
+    "rarity": "epic",
+    "category": "bandStyle",
+    "slot": "goldDisplay"
+  },
+  {
+    "sprite": null,
+    "lore": "The northern lights, folded over the band.",
+    "effect": null,
+    "look": {
+      "frames": [
+        {
+          "colors": {
+            "star": "#3fd7af"
+          },
+          "marks": [
+            {
+              "at": 0.12,
+              "glyph": "·",
+              "color": "#3fd7af"
+            },
+            {
+              "at": 0.38,
+              "glyph": "✧",
+              "color": "#5fafff"
+            },
+            {
+              "at": 0.62,
+              "glyph": "·",
+              "color": "#3fd7af"
+            },
+            {
+              "at": 0.88,
+              "glyph": "✧",
+              "color": "#5fafff"
+            }
+          ]
+        },
+        {
+          "colors": {
+            "star": "#3fd7af"
+          },
+          "marks": [
+            {
+              "at": 0.12,
+              "glyph": "✧",
+              "color": "#5fafff"
+            },
+            {
+              "at": 0.62,
+              "glyph": "✧",
+              "color": "#5fafff"
+            }
+          ]
+        },
+        {
+          "colors": {
+            "star": "#5fafff"
+          },
+          "marks": [
+            {
+              "at": 0.12,
+              "glyph": "✦",
+              "color": "#c77dff"
+            },
+            {
+              "at": 0.62,
+              "glyph": "✦",
+              "color": "#c77dff"
+            }
+          ]
+        },
+        {
+          "colors": {
+            "star": "#5fafff"
+          },
+          "marks": [
+            {
+              "at": 0.12,
+              "glyph": "✧",
+              "color": "#5fafff"
+            },
+            {
+              "at": 0.38,
+              "glyph": "·",
+              "color": "#3fd7af"
+            },
+            {
+              "at": 0.62,
+              "glyph": "✧",
+              "color": "#5fafff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "·",
+              "color": "#3fd7af"
+            }
+          ]
+        },
+        {
+          "colors": {
+            "star": "#c77dff"
+          },
+          "marks": [
+            {
+              "at": 0.38,
+              "glyph": "✧",
+              "color": "#5fafff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "✧",
+              "color": "#5fafff"
+            }
+          ]
+        },
+        {
+          "colors": {
+            "star": "#c77dff"
+          },
+          "marks": [
+            {
+              "at": 0.38,
+              "glyph": "✦",
+              "color": "#c77dff"
+            },
+            {
+              "at": 0.88,
+              "glyph": "✦",
+              "color": "#c77dff"
+            }
+          ]
+        }
+      ],
+      "fps": 5,
+      "glyphs": {
+        "star": "✦",
+        "knot": "✧"
+      },
+      "colors": {
+        "line": "#1f4f4f",
+        "left": "#3fd7af",
+        "right": "#c77dff",
+        "star": "#3fd7af",
+        "title": "#d7fff4",
+        "knot": "#5fafff",
+        "dot": "#1f4f4f"
+      },
+      "sheen": {
+        "colors": [
+          "#1f6f5f",
+          "#3fd7af",
+          "#5fafff",
+          "#c77dff"
+        ],
+        "rest": 8
+      }
+    },
+    "id": "aurora-edge",
+    "name": "Aurora Edge",
+    "rarity": "legendary",
+    "category": "bandStyle",
+    "slot": "topEdge"
+  },
+  {
+    "sprite": null,
+    "lore": "Drawn in a hurry on the back of a ticket.",
+    "effect": null,
+    "look": null,
+    "id": "chalk-sigil",
+    "name": "Chalk Sigil",
+    "rarity": "common",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.2,
+      "glyph": "✧",
+      "color": "#bcbcbc"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Still warm from the first green build.",
+    "effect": null,
+    "look": null,
+    "id": "ember-sigil",
+    "name": "Ember Sigil",
+    "rarity": "common",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.3,
+      "glyph": "✧",
+      "color": "#d7875f"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Unfurls a little with every clear ask.",
+    "effect": null,
+    "look": null,
+    "id": "fern-sigil",
+    "name": "Fern Sigil",
+    "rarity": "uncommon",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.4,
+      "glyph": "✦",
+      "color": "#5fd75f"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Comes back stronger, like a prompt reworded.",
+    "effect": null,
+    "look": null,
+    "id": "tide-sigil",
+    "name": "Tide Sigil",
+    "rarity": "uncommon",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.6,
+      "glyph": "✦",
+      "color": "#5fd7d7"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Lights the next step, and only the next.",
+    "effect": null,
+    "look": null,
+    "id": "lantern-sigil",
+    "name": "Lantern Sigil",
+    "rarity": "rare",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.7,
+      "glyph": "✶",
+      "color": "#4ea8ff"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Cold, precise, never vague.",
+    "effect": null,
+    "look": null,
+    "id": "frost-sigil",
+    "name": "Frost Sigil",
+    "rarity": "rare",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.9,
+      "glyph": "✶",
+      "color": "#b8dcff"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Hums when the done criteria are spelled out.",
+    "effect": null,
+    "look": null,
+    "id": "arcane-sigil",
+    "name": "Arcane Sigil",
+    "rarity": "epic",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 2,
+      "glyph": "✹",
+      "color": "#c77dff"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Crackles at a well-scoped ask.",
+    "effect": null,
+    "look": null,
+    "id": "storm-sigil",
+    "name": "Storm Sigil",
+    "rarity": "epic",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 2.2,
+      "glyph": "✹",
+      "color": "#9d4edd"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Rises over every plan made before the code.",
+    "effect": null,
+    "look": null,
+    "id": "dawn-sigil",
+    "name": "Dawn Sigil",
+    "rarity": "legendary",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 2.3,
+      "glyph": "❂",
+      "color": "#ffd23f"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Cut from a dragon that read every spec.",
+    "effect": null,
+    "look": null,
+    "id": "wyrm-sigil",
+    "name": "Wyrm Sigil",
+    "rarity": "legendary",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 2.5,
+      "glyph": "✺",
+      "color": "#ff9f1c"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Blotted on a sticky note, and still legible.",
+    "effect": null,
+    "look": null,
+    "id": "ink-sigil",
+    "name": "Ink Sigil",
+    "rarity": "common",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.25,
+      "glyph": "✧",
+      "color": "#8a9bd8"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Worn smooth by a thousand clear asks.",
+    "effect": null,
+    "look": null,
+    "id": "pebble-sigil",
+    "name": "Pebble Sigil",
+    "rarity": "common",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.25,
+      "glyph": "✧",
+      "color": "#a89878"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Grows quietly on the code that just works.",
+    "effect": null,
+    "look": null,
+    "id": "moss-sigil",
+    "name": "Moss Sigil",
+    "rarity": "uncommon",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.5,
+      "glyph": "✦",
+      "color": "#87af5f"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Flies best with a clear line to hold.",
+    "effect": null,
+    "look": null,
+    "id": "kite-sigil",
+    "name": "Kite Sigil",
+    "rarity": "uncommon",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.5,
+      "glyph": "✦",
+      "color": "#ff875f"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Points at what the prompt left unsaid.",
+    "effect": null,
+    "look": null,
+    "id": "compass-sigil",
+    "name": "Compass Sigil",
+    "rarity": "rare",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 1.8,
+      "glyph": "✶",
+      "color": "#5fafd7"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Swirls until the requirements settle.",
+    "effect": null,
+    "look": null,
+    "id": "nebula-sigil",
+    "name": "Nebula Sigil",
+    "rarity": "epic",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 2.1,
+      "glyph": "✹",
+      "color": "#af87ff"
+    }
+  },
+  {
+    "sprite": null,
+    "lore": "Shines straight down on finished work.",
+    "effect": null,
+    "look": null,
+    "id": "zenith-sigil",
+    "name": "Zenith Sigil",
+    "rarity": "legendary",
+    "category": "sigil",
+    "slot": "sigil",
+    "sigil": {
+      "multiplier": 2.4,
+      "glyph": "❂",
+      "color": "#fff1a8"
+    }
+  }
+]

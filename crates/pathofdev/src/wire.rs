@@ -133,6 +133,8 @@ pub struct ItemDef {
     pub id: Text,
     pub name: Text,
     pub rarity: Text,
+    /// The art it is drawn with, by id: a scene's in `assets/scenes.json`.
+    pub sprite: Option<Text>,
     /// Sigils only.
     pub sigil: Option<SigilPower>,
 }

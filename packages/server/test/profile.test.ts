@@ -300,6 +300,56 @@ describe("the pet's wear", () => {
   })
 })
 
+describe("the pet's scene", () => {
+  const ids = {
+    night: "01K6ZQ8W3J0000000000000S01",
+    hat: "01K6ZQ8W3J0000000000000H01",
+    lost: "01K6ZQ8W3J0000000000000L01",
+  }
+  /** Ada's pet with what `scene` names worn, Clear Night and a hat owned and defined, the lost entry owned only. */
+  const standing = (scene: string | undefined, head?: string) => {
+    const owned = (id: string, itemId: string) => ({
+      id,
+      itemId,
+      acquiredAt: start,
+      source: { kind: "drop" as const, ref: "0" },
+      dye: null,
+    })
+    const snapshot: Snapshot = {
+      ...base,
+      character: { ...base.character, equipped: scene === undefined ? {} : { scene } },
+      pet: { species: "fox", name: "Pixel", form: 1, mood: 80, equipped: head === undefined ? {} : { head } },
+      inventory: [owned(ids.night, "clear-night"), owned(ids.hat, "wizard-hat"), owned(ids.lost, "no-such-scene")],
+      items: catalog.filter((item) => item.id === "clear-night" || item.id === "wizard-hat"),
+    }
+    const profile = profileOf("ada", { snapshot, badgeProgress: [] }, privacyOf({ public: true }))
+    return { profile, page: profilePage(profile, "https://pathof.dev/u/ada") }
+  }
+
+  it("draws the pet standing in the scene it wears, the whole scene, and says where it stands", () => {
+    const { profile, page } = standing(ids.night)
+    expect(profile.pet?.scene).toEqual({ name: "Clear Night", sprite: "clear-night" })
+    expect(page).toContain('<div class="portrait scene"><svg class="sprite scene" viewBox="0 0 48 24"')
+    expect(page).toContain('aria-label="Pixel, the fox, in Clear Night"')
+    expect(page).toContain("Stands in Clear Night")
+  })
+
+  it("draws the pet in its wear on the scene too", () => {
+    const { page } = standing(ids.night, ids.hat)
+    expect(page).toContain('aria-label="Pixel, the fox, wearing Wizard Hat, in Clear Night"')
+    expect(page).toContain('viewBox="0 0 48 24"')
+  })
+
+  it("keeps the round portrait with no scene worn, or one the snapshot can't name", () => {
+    for (const scene of [undefined, ids.lost]) {
+      const { profile, page } = standing(scene)
+      expect(profile.pet?.scene).toBeNull()
+      expect(page).toContain('<div class="portrait"><svg class="sprite" viewBox="0 0 14 12"')
+      expect(page).not.toContain("Stands in")
+    }
+  })
+})
+
 describe("gaugeOf", () => {
   const Tenths = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
   const Short = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 0.099 }))

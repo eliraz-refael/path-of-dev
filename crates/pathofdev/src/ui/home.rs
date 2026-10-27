@@ -14,7 +14,9 @@
 //!  08:00  ◆ epic   Arcane Sigil dropped
 //! ```
 //!
-//! The pet is 2× (28×12 cells) when the pane has room, else 1× (14×6), with the facts drawn tighter beside it.
+//! The pet is 2× (28×12 cells) when the pane has room, else 1× (14×6), with the facts drawn tighter beside it. A pet
+//! in a scene stands in it at 1×, the scene 48×12 cells, or the part of it round the pet that leaves the facts room;
+//! a short pane keeps the scene's lower half, where the pet stands.
 
 use jiff::Timestamp;
 use ratatui::buffer::Buffer;
@@ -25,6 +27,7 @@ use ratatui::widgets::{Paragraph, Widget};
 
 use super::app::App;
 use super::feed::{self, Entry};
+use super::scene::Scenes;
 use super::theme::{ACCENT, DIM, EMPTY, GOOD, PINK, WARN};
 use super::{count, duration_words, fit, local_time};
 use crate::stream::Link;
@@ -33,6 +36,11 @@ use crate::wire::{Quest, Snapshot, SnapshotResponse};
 /// The pet is drawn at 2× from this wide and this tall a body.
 const BIG_WIDTH: u16 = 64;
 const BIG_HEIGHT: u16 = 18;
+/// What a scene leaves the facts beside it: the columns they keep, and the scene the least it draws, the pet's width.
+const FACTS_ROOM: u16 = 34;
+const SCENE_LEAST: u16 = 14;
+/// A body shorter than `BIG_HEIGHT` draws a scene from this row of cells down: the pet and the ground it stands on.
+const SHORT_SCENE_FROM: usize = 5;
 
 pub fn draw(app: &App, area: Rect, buf: &mut Buffer) {
     let Some(response) = &app.snapshot else {
@@ -45,10 +53,33 @@ pub fn draw(app: &App, area: Rect, buf: &mut Buffer) {
     let big = area.width >= BIG_WIDTH && area.height >= BIG_HEIGHT;
     let scale = if big { 2 } else { 1 };
     let snapshot = &response.snapshot;
-    let (pet_width, pet_height) = if snapshot.pet.is_some() {
-        app.sprite.size(scale)
-    } else {
-        (0, 0)
+    let scenes = Scenes::embedded();
+    let scene = snapshot.pet.as_ref().and_then(|_| scenes.worn(snapshot));
+    // The pet in the scene it wears, as much of it as leaves the facts their room, or on its own, as big as fits.
+    let pet_lines = match scene {
+        Some(art) => {
+            let room = area.width.saturating_sub(4 + FACTS_ROOM);
+            let width = room.clamp(SCENE_LEAST, scenes.cells().0);
+            let lines = scenes.lines(art, &app.sprite, app.now, width, app.theme);
+            let skip = if area.height >= BIG_HEIGHT {
+                0
+            } else {
+                SHORT_SCENE_FROM
+            };
+            lines.into_iter().skip(skip).collect()
+        }
+        None if snapshot.pet.is_some() => app.sprite.lines(scale, app.theme),
+        None => Vec::new(),
+    };
+    let (pet_width, pet_height) = match scene {
+        Some(_) => (
+            pet_lines
+                .first()
+                .map_or(0, |line| u16::try_from(line.width()).unwrap_or(u16::MAX)),
+            u16::try_from(pet_lines.len()).unwrap_or(u16::MAX),
+        ),
+        None if snapshot.pet.is_some() => app.sprite.size(scale),
+        None => (0, 0),
     };
     let left = area.x.saturating_add(1);
     if snapshot.pet.is_some() {
@@ -58,8 +89,9 @@ pub fn draw(app: &App, area: Rect, buf: &mut Buffer) {
             width: pet_width.min(area.width.saturating_sub(1)),
             height: pet_height,
         };
-        Paragraph::new(app.sprite.lines(scale, app.theme)).render(pet.intersection(area), buf);
+        Paragraph::new(pet_lines).render(pet.intersection(area), buf);
     }
+    let big = big || (scene.is_some() && pet_height >= 12);
     let gap = if snapshot.pet.is_some() {
         if big { 4 } else { 2 }
     } else {
