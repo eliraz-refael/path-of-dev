@@ -1,6 +1,6 @@
 import { maxLoopFps } from "./domain.ts"
 import type { Sprite } from "./sprites.ts"
-import { dressedSize, emptyCell, petAt, petSprite } from "./sprites.ts"
+import { dressedSize, emptyCell, letteredSprite, petAt, petSprite } from "./sprites.ts"
 
 // A scene: the backdrop the pet stands in, pixel art twice as wide as tall, every cell filled. The profile page, the
 // companion and the mod's pane draw it whole with the pet on it; the band draws none yet. A legendary one loops: each
@@ -61,25 +61,6 @@ export const sceneRowsAt = (art: SceneArt, tick: number | null): ReadonlyArray<s
   })
 }
 
-/** The letters a composed sprite names its colours with, in the order it meets them. */
-const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-/** Colours as letters again, each colour one letter. */
-const lettered = (canvas: ReadonlyArray<ReadonlyArray<string | null>>): Sprite => {
-  const named = new Map<string, string>()
-  const rows = canvas.map((line) =>
-    line.map((color) => {
-      if (color === null) return emptyCell
-      const known = named.get(color)
-      if (known !== undefined) return known
-      const letter = letters[named.size] ?? letters[letters.length - 1]!
-      named.set(color, letter)
-      return letter
-    }).join("")
-  )
-  return { rows, palette: Object.fromEntries([...named].map(([color, letter]) => [letter, color])) }
-}
-
 /**
  * The scene at `tick` with `pet` standing on it, as one sprite the scene's size: the plain pet (`petSprite`) at
  * `petInScene`, or a dressed one (`dressedSize`) at `dressedInScene`, its empty cells showing the scene.
@@ -94,7 +75,7 @@ export const sceneWithPet = (art: SceneArt, pet: Sprite = petSprite, tick: numbe
       if (color !== undefined && line !== undefined && at.x + dx < line.length) line[at.x + dx] = color
     })
   )
-  return lettered(canvas)
+  return letteredSprite(canvas)
 }
 
 // What the checks read: where the pet's cells are on a scene, the cells that touch it, and those within two of it.

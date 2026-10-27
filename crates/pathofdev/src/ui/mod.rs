@@ -441,12 +441,12 @@ pub fn run(
     Ok(())
 }
 
-/// How long the screen may go undrawn: a second, or a frame of the scene Home shows, should it loop.
+/// How long the screen may go undrawn: a second, or a frame of the scene Home shows the pet in, should it loop.
 fn redraw_ms(app: &App) -> u64 {
     let looping = app
         .snapshot
         .as_ref()
-        .filter(|_| app.tab == app::Tab::Home)
+        .filter(|response| app.tab == app::Tab::Home && response.snapshot.pet.is_some())
         .and_then(|response| scene::Scenes::embedded().worn(&response.snapshot))
         .and_then(scene::SceneArt::frame_ms);
     looping.unwrap_or(1000).min(1000)

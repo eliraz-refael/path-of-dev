@@ -58,14 +58,13 @@ pub fn draw(app: &App, area: Rect, buf: &mut Buffer) {
     // The pet in the scene it wears, as much of it as leaves the facts their room, or on its own, as big as fits.
     let pet_lines = match scene {
         Some(art) => {
-            let room = area.width.saturating_sub(4 + FACTS_ROOM);
+            // A tall pane draws the whole height of the scene, so the facts sit 4 from it rather than 2.
+            let tall = area.height >= BIG_HEIGHT;
+            let gap = if tall { 4 } else { 2 };
+            let room = area.width.saturating_sub(2 + gap + FACTS_ROOM);
             let width = room.clamp(SCENE_LEAST, scenes.cells().0);
             let lines = scenes.lines(art, &app.sprite, app.now, width, app.theme);
-            let skip = if area.height >= BIG_HEIGHT {
-                0
-            } else {
-                SHORT_SCENE_FROM
-            };
+            let skip = if tall { 0 } else { SHORT_SCENE_FROM };
             lines.into_iter().skip(skip).collect()
         }
         None if snapshot.pet.is_some() => app.sprite.lines(scale, app.theme),

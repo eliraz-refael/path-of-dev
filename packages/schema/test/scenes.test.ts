@@ -96,6 +96,24 @@ describe("a scene with the pet on it", () => {
     const drawn = sceneWithPet(plain, dressed)
     expect(colourAt(drawn, petInScene.x + 2, petInScene.y)).toBe(petSprite.palette["o"])
   })
+
+  it("keeps every colour its own past 62 of them, the scene's and the pet's", () => {
+    const names = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN"
+    const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`
+    const busy: SceneArt = {
+      rows: fill("a").map((row, y) => (y === 0 ? [...row].map((_, x) => names[x % 32]).join("") : row)),
+      palette: Object.fromEntries([...names.slice(0, 32)].map((letter, i) => [letter, hex(0x100000 + i)])),
+    }
+    const pet = {
+      rows: Array.from({ length: 12 }, (_, y) => Array.from({ length: 14 }, (_, x) => names[(y * 14 + x) % 40]).join("")),
+      palette: Object.fromEntries([...names].map((letter, i) => [letter, hex(0x200000 + i)])),
+    }
+    const drawn = sceneWithPet(busy, pet)
+    expect(new Set(Object.values(drawn.palette)).size).toBe(72)
+    expect(Object.keys(drawn.palette)).toHaveLength(72)
+    expect(colourAt(drawn, 31, 0)).toBe(hex(0x100000 + 31))
+    expect(colourAt(drawn, petInScene.x + 13, petInScene.y + 11)).toBe(hex(0x200000 + ((11 * 14 + 13) % 40)))
+  })
 })
 
 describe("colour", () => {
