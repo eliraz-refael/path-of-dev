@@ -272,7 +272,7 @@ import {
 import type { ShopAction, ShopEntry } from './shop'
 import { careViewOf, eggCardLayout, petCardLayout, shopLayout, shopViewOf } from './shop'
 import type { SceneChoice } from './scenes'
-import { pictureRows, sceneChoices, sceneTick, thumbRows, wornScene } from './scenes'
+import { pictureRows, sceneChoices, sceneRates, sceneTick, thumbRows, wornScene } from './scenes'
 import type { SigilChoice } from './sigils'
 import { multiplierText, sigilChoices, wornSigil } from './sigils'
 import { statsLayout, titleRow } from './stats'
@@ -3908,6 +3908,8 @@ export const register: Register = (on, options) => {
     // The scenes: the worn one whole, the pet standing in it, then each owned one small, with what puts it on.
     const scenes = sceneChoices(owned)
     const sceneCount = scenes.filter((choice) => choice.art !== null).length
+    // A worn scene the mod can't draw lists too, with None beside it, so it can be taken off with none drawable owned.
+    const isListed = sceneCount > 0 || scenes.some((choice) => choice.key === 'lost')
     const backdrop = wornScene(owned)
     const picture =
       backdrop === null
@@ -3973,8 +3975,8 @@ export const register: Register = (on, options) => {
             {picture.map((row, i) => draw(Text, row, `scene:worn:${i}`))}
           </Box>
         )}
-        {sceneCount === 0 ? null : scenes.map(sceneRow)}
-        {sceneCount === 0 ? <Text> </Text> : null}
+        {isListed ? scenes.map(sceneRow) : null}
+        {isListed ? null : <Text> </Text>}
       </Box>
     )
 

@@ -145,6 +145,9 @@ describe('the scene choices', () => {
     const items = [owned('a-later-scene', 'z')]
     const wardrobe = { items, equipped: { scene: 'z' } }
     expect(artOf(owned('a-later-scene', 'z'))).toBeNull()
+    // Without a sprite, as Terminal Green has none under catalogue 7, the mod draws it no more than the profile does.
+    const { sprite: _, ...unsprited } = owned('terminal-green', 'g')
+    expect(artOf(unsprited)).toBeNull()
     expect(wornScene(wardrobe)).toBeNull()
     expect(sceneChoices(wardrobe).map((one) => [one.key, one.isWorn])).toEqual([
       ['none', false],

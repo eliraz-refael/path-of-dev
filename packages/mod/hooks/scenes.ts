@@ -11,9 +11,12 @@ import { petInScene, petPixels, sceneArt, sceneSize } from './scene-art'
 /** The half block: its glyph's color is a cell's upper pixel, its background the lower. */
 const halfBlock = '▀'
 
-/** The art of an owned scene, by its sprite (or its id); null for anything else, or one the mod has no art for. */
-export const artOf = (item: Pick<OwnedItem, 'itemId' | 'category' | 'sprite'>): SceneArt | null =>
-  item.category === 'scene' ? (sceneArt[item.sprite ?? item.itemId] ?? null) : null
+/**
+ * The art of an owned scene, by its sprite; null for anything else, or one with no sprite (Terminal Green under
+ * catalogue 7) or none the mod has art for, as the profile page and the companion read it.
+ */
+export const artOf = (item: Pick<OwnedItem, 'category' | 'sprite'>): SceneArt | null =>
+  item.category === 'scene' && item.sprite !== undefined ? (sceneArt[item.sprite] ?? null) : null
 
 /** The scene worn, with its art; null with none worn, or one the mod can't draw. */
 export const wornScene = (wardrobe: Wardrobe | null): { item: OwnedItem; art: SceneArt } | null => {
@@ -183,8 +186,20 @@ export const sceneChoices = (wardrobe: Wardrobe | null): Array<SceneChoice> => {
   return [none, ...lost, ...owned]
 }
 
+/** The still scenes' thumbs at the scale of 3, drawn once: the pane draws every owned one on each frame of a loop. */
+const stillThumbs = new WeakMap<SceneArt, ReadonlyArray<Row>>()
+
 /** A scene small, `scale` of its cells to a pixel, in half blocks: 16 cells by 4 rows at the scale of 3. */
-export const thumbRows = (art: SceneArt, tick: number | null, scale = 3): Array<Row> => {
+export const thumbRows = (art: SceneArt, tick: number | null, scale = 3): ReadonlyArray<Row> => {
+  const isStill = scale === 3 && (tick === null || !sceneLoops(art))
+  const kept = isStill ? stillThumbs.get(art) : undefined
+  if (kept !== undefined) return kept
+  const rows = drawThumb(art, tick, scale)
+  if (isStill) stillThumbs.set(art, rows)
+  return rows
+}
+
+const drawThumb = (art: SceneArt, tick: number | null, scale: number): Array<Row> => {
   const pixels = pixelsOf(art, tick, null)
   const at = (x: number, y: number) => pixels[y * scale + Math.floor(scale / 2)]?.[x * scale + Math.floor(scale / 2)]
   const width = Math.floor(sceneSize.width / scale)
