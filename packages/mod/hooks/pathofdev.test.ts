@@ -2235,6 +2235,41 @@ describe('the /pathofdev pane', () => {
   })
 })
 
+describe("the pane's pet wear", () => {
+  const ember = { species: 'fox', name: 'Ember', form: 0, mood: 82, equipped: {} }
+  const wearTexts = async ($: Parameters<TestBody>[0]) => {
+    const ui = await $.ui.mount({ plugin: 'pathofdev', surface: 'terminal', component: 'Pane', requestId: 'pathofdev', props: paneProps() })
+    const texts = (await ui.findAll({ type: 'Text' })).map((one) => one.text).join('\n')
+    return { ui, texts }
+  }
+
+  test('lists the wear owned apart from the other items, and keeps it until the pet hatches', async ($, on) => {
+    await streaming($, on, ownedOf())
+    await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
+    const { ui, texts } = await wearTexts($)
+    expect(texts).toMatch(/^Pet wear {2}1 owned · for your pet to wear once it hatches$/m)
+    expect(texts).toMatch(/^○ Plain Cap common · head$/m)
+    expect(await ui.findAll({ type: 'Button', key: 'equip:head:plain-cap' })).toEqual([])
+    await ui.unmount()
+  })
+
+  test('Wear puts a piece on the hatched pet, and Take off takes it off', async ($, on) => {
+    const { sent } = await streaming($, on, ownedOf(), false, { kept: { pet: ember } })
+    await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
+    const { ui, texts } = await wearTexts($)
+    expect(texts).toMatch(/^Pet wear {2}1 owned · one a slot, drawn on your pet on your public profile$/m)
+    await ui.press({ key: 'equip:head:plain-cap' })
+    const commands = () => sent.filter((one) => one.path === '/v1/commands').map((one) => one.body)
+    expect(commands().at(-1)).toMatchObject({ type: 'item.equip', data: { entryId: '01K6ZQ8W3J0000000000009004', slot: 'head' } })
+    await ui.unmount()
+    const worn = await wearTexts($)
+    expect(worn.texts).toMatch(/^● Plain Cap common · head$/m)
+    await worn.ui.press({ key: 'unequip:head' })
+    expect(commands().at(-1)).toMatchObject({ type: 'item.unequip', data: { slot: 'head' } })
+    await worn.ui.unmount()
+  })
+})
+
 describe('review fixes: the pane', () => {
   test('an equipped style the snapshot no longer names still shows, and can be taken off', async ($, on) => {
     const owned = ownedOf({ xpBar: '01K6ZQ8W3J0000000000009009' })

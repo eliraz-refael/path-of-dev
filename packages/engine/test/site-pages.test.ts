@@ -2,7 +2,7 @@ import { defaultShown, profileSections } from "@pathofdev/schema"
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
-import { starterQuestPack, starterRules as rules, xpForLevel } from "../src/index.ts"
+import { starterCatalog, starterQuestPack, starterRules as rules, xpForLevel } from "../src/index.ts"
 
 // The site's pages are static HTML in site/, served as they are by the static app at pathof.dev (nginx: a path is the
 // file, or its folder's index.html; /u/* goes to the public server instead). No build step makes them, so these tests
@@ -14,6 +14,7 @@ import { starterQuestPack, starterRules as rules, xpForLevel } from "../src/inde
 //   data-rule="mod:minWords"         the mod's setting's default, from its manifest
 //   data-level="10"                  the XP that level takes        data-weight="rare"   a rarity's base odds, in %
 //   data-title="Adept"               the level the title starts at   data-count="species" how many the rules have
+//                                                                    (or "items", the catalogue)
 //
 // The pages' CSP allows no inline style, the style sheet and fonts, and on the home page its one script by hash; the
 // style sheet's link carries a hash of it, so Cloudflare never serves a page an old copy. After an edit to site.css or
@@ -285,7 +286,14 @@ describe("the numbers the site states", () => {
       case "title":
         return expect(shown).toBe(String(rules.titles.find((title) => title.title === key)?.fromLevel))
       case "count": {
-        const counted = key === "species" ? rules.pet.species : key === "achievements" ? rules.achievements : null
+        const counted =
+          key === "species"
+            ? rules.pet.species
+            : key === "achievements"
+              ? rules.achievements
+              : key === "items"
+                ? starterCatalog
+                : null
         expect(counted, key).not.toBeNull()
         return expect(shown).toBe(String(counted!.length))
       }

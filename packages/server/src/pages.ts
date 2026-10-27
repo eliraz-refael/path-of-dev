@@ -265,7 +265,8 @@ ${mini.length === 0 ? "" : html`<dl class="mini">${mini.map(([term, value]) => h
 const petPortrait = (pet: NonNullable<PublicProfile["pet"]>): Html => {
   const { sprite, dressed } = portraitOf(pet.wearing)
   const wearing = pet.wearing.length === 0 ? "" : `, wearing ${listed(pet.wearing.map((piece) => piece.name))}`
-  return spriteSvg(sprite, `${pet.name}, the ${pet.species.toLowerCase()}${wearing}`, dressed ? "sprite dressed" : "sprite")
+  const label = `${pet.name}, the ${pet.species.toLowerCase()}${wearing}`
+  return spriteSvg(sprite, label, dressed ? "sprite dressed" : "sprite")
 }
 
 /** Names as a sentence lists them: "a", "a and b", "a, b and c". */

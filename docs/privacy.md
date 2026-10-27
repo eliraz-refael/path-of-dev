@@ -102,14 +102,15 @@ name, level, title, prestige and XP, plus each section you haven't hidden. Every
 | Section | What it shows |
 | --- | --- |
 | `badges` | Every badge the game has, and which you have earned and when. While `stats` is shown too, how far you are toward each one you haven't, such as 64 of 100 commits (a streak badge's also needs `streak` shown, and the hatch badge's `pet`) |
-| `pet` | Your pet's name, species, form and mood (hidden, your level's glyph takes its place) |
+| `pet` | Your pet's name, species, form and mood, drawn in what it wears (hidden, your level's glyph takes its place) |
 | `streak` | Your streak, your best, and your rest days left this week |
 | `stats` | Prompts graded, your average and best grade, each quality's average, your average context peak |
 | `history` | What you imported from before Path of Dev: your prompts, sessions, projects, days, longest streak, tool calls, test runs and commits, and the first and last day. It shows once you `show history`, and only after an import |
 
-It never shows your name on GitHub, your stats' command names, your regretted prompts, your items or your gold. A
-private page, one that was deleted and a login nobody plays under all answer the same "No profile here" page, so the
-page doesn't tell them apart. Pages are never cached: making yours private or hiding a section shows on the next view.
+It never shows your name on GitHub, your stats' command names, your regretted prompts, your items (but what your pet
+wears, with `pet`) or your gold. A private page, one that was deleted and a login nobody plays under all answer the
+same "No profile here" page, so the page doesn't tell them apart. Pages are never cached: making yours private or
+hiding a section shows on the next view.
 
 ## Export
 

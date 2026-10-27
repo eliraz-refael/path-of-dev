@@ -243,10 +243,20 @@ describe("profilePage", () => {
 })
 
 describe("the pet's wear", () => {
-  const ids = { hat: "01K6ZQ8W3J0000000000000H01", cape: "01K6ZQ8W3J0000000000000C01", lost: "01K6ZQ8W3J0000000000000L01" }
+  const ids = {
+    hat: "01K6ZQ8W3J0000000000000H01",
+    cape: "01K6ZQ8W3J0000000000000C01",
+    lost: "01K6ZQ8W3J0000000000000L01",
+  }
   /** Ada's pet wearing what `equipped` says, the hat and the cloak owned and defined, the lost entry owned only. */
   const wearing = (equipped: NonNullable<Snapshot["pet"]>["equipped"]) => {
-    const owned = (id: string, itemId: string) => ({ id, itemId, acquiredAt: start, source: { kind: "drop" as const, ref: "0" }, dye: null })
+    const owned = (id: string, itemId: string) => ({
+      id,
+      itemId,
+      acquiredAt: start,
+      source: { kind: "drop" as const, ref: "0" },
+      dye: null,
+    })
     const snapshot: Snapshot = {
       ...base,
       pet: { species: "fox", name: "Pixel", form: 1, mood: 80, equipped },
