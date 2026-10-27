@@ -196,12 +196,13 @@ ${nav.map(([href, label]) => `        <li><a class="nav-link" href="${href}"${hr
 
 describe("the site's structure", () => {
   // The pages share one style sheet but not their ids: a rule on #pet, meant for the home page's canvas, once shrank
-  // the Pet section of /play/ and /commands/ to the canvas's 70 by 60 pixels. So the sheet styles by class alone.
-  it("styles by class, never by an id a page may also use", () => {
+  // the Pet section of /play/ and /commands/ to the canvas's 70 by 60 pixels. So the sheet never selects by id,
+  // whether as #id or as [id].
+  it("never styles by an id, which a page may also use", () => {
     const css = read("site.css").replace(/\/\*[\s\S]*?\*\//g, "")
     const selectors = all(css, /([^{}]+)\{/g).map(([, selector]) => selector!.trim())
     expect(selectors.length).toBeGreaterThan(100)
-    expect(selectors.filter((selector) => /#[A-Za-z_-]/.test(selector))).toEqual([])
+    expect(selectors.filter((selector) => /#[A-Za-z_-]|\[\s*id\b/.test(selector))).toEqual([])
   })
 
   it.each(pages)("$path has one h1, headings that never skip a level, and ids it uses once", ({ file }) => {
