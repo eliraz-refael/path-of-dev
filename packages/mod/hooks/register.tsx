@@ -1684,8 +1684,8 @@ const commandFailed = async ($: EngineInterface, error: unknown) => {
 }
 
 /**
- * Puts an owned band style or sigil in its slot, or with no entry empties it (the band's own look back); the band
- * redraws at once.
+ * Puts an owned band style, sigil or piece of pet wear in its slot, or with no entry empties it. A band slot redraws
+ * the band at once (its own look back when emptied); pet wear shows on the public profile.
  */
 const wear = ($: EngineInterface, slot: Slot, entryId: string | null) =>
   act($, (id) =>
@@ -3853,30 +3853,33 @@ export const register: Register = (on, options) => {
     // The pet's wear, one piece a slot: what the public profile draws the pet in. It goes on once the pet hatches.
     const wearOwned = wearChoices(owned)
     const wearRow = (choice: WearChoice) => {
-      const notes = [choice.rarity, choice.slot, ...(choice.count > 1 ? [`×${choice.count}`] : [])].join(' · ')
+      const notes = [choice.note ?? choice.rarity, choice.slot, ...(choice.count > 1 ? [`×${choice.count}`] : [])]
+        .filter((note) => note !== null)
+        .join(' · ')
+      const color = choice.rarity === null ? undefined : rarityColors[choice.rarity]
       return (
         <Box key={`wear:${choice.key}`} flexDirection="column" marginLeft={2} marginBottom={1}>
           <Box flexWrap="wrap" columnGap={2}>
             <Text>
               <Text color={choice.isWorn ? 'success' : 'inactive'}>{choice.isWorn ? '●' : '○'}</Text>{' '}
-              <Text bold color={rarityColors[choice.rarity]}>
+              <Text bold {...(color === undefined ? {} : { color })}>
                 {choice.name}
               </Text>
               <Text dimColor> {notes}</Text>
             </Text>
             {pet === null ? null : choice.isWorn ? (
-              <Text color="success">worn</Text>
+              <Text color="success">equipped</Text>
             ) : (
               <Button
                 key={`equip:${choice.slot}:${choice.key}`}
-                label="Wear"
+                label="Equip"
                 onPress={() => void wear($, choice.slot, choice.entryId)}
               />
             )}
             {pet !== null && choice.isWorn ? (
               <Button
                 key={`unequip:${choice.slot}`}
-                label="Take off"
+                label="Unequip"
                 dimColor
                 onPress={() => void wear($, choice.slot, null)}
               />

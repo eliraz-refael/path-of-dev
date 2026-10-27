@@ -117,7 +117,8 @@ export const dressedPet = (worn: ReadonlyArray<{ readonly slot: PetSlot; readonl
       if (color === null) return emptyCell
       const known = named.get(color)
       if (known !== undefined) return known
-      const letter = letters[named.size] ?? letters[letters.length - 1]!
+      // Past the 62 letters, a colour takes a letter of its own from Latin-1 on: one UTF-16 unit, never ".".
+      const letter = letters[named.size] ?? String.fromCharCode(0xc0 + named.size - letters.length)
       named.set(color, letter)
       return letter
     }).join("")

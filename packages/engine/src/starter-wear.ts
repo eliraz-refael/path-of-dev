@@ -17,8 +17,8 @@ import { dressedSize, haloCells } from "@pathofdev/schema"
 //
 // Aura and back wear is drawn behind the pet, so it shows only round it; neck, head and hand wear over it.
 
-/** The art of each wearable, by its sprite id. */
-export const starterWearArt: Record<string, WearArt> = {}
+/** A piece of wear: its definition, and the art its `sprite` names. */
+type Piece = { readonly item: ItemDef; readonly art: WearArt }
 
 const wear = (
   id: string,
@@ -28,10 +28,7 @@ const wear = (
   lore: string,
   art: WearArt,
   category: "wearable" | "artefact" = "wearable",
-): ItemDef => {
-  starterWearArt[id] = art
-  return { id, name, rarity, category, slot, sprite: id, lore, effect: null, look: null }
-}
+): Piece => ({ item: { id, name, rarity, category, slot, sprite: id, lore, effect: null, look: null }, art })
 
 const patch = (x: number, y: number, palette: WearArt["palette"], rows: ReadonlyArray<string>): WearArt => ({
   x,
@@ -103,7 +100,7 @@ const pendant = (c: string, d: string, p: string, g: string) =>
 
 // The pet's wear, a rarity at a time.
 
-const head: ReadonlyArray<ItemDef> = [
+const head: ReadonlyArray<Piece> = [
   wear(
     "plain-cap",
     "Plain Cap",
@@ -271,7 +268,7 @@ const head: ReadonlyArray<ItemDef> = [
   ),
 ]
 
-const neck: ReadonlyArray<ItemDef> = [
+const neck: ReadonlyArray<Piece> = [
   wear(
     "paper-scarf",
     "Paper Scarf",
@@ -358,7 +355,7 @@ const neck: ReadonlyArray<ItemDef> = [
   ),
 ]
 
-const back: ReadonlyArray<ItemDef> = [
+const back: ReadonlyArray<Piece> = [
   wear(
     "canvas-tote",
     "Canvas Tote",
@@ -448,7 +445,7 @@ const back: ReadonlyArray<ItemDef> = [
   ),
 ]
 
-const hand: ReadonlyArray<ItemDef> = [
+const hand: ReadonlyArray<Piece> = [
   wear(
     "coffee-mug",
     "Coffee Mug",
@@ -584,7 +581,7 @@ const hand: ReadonlyArray<ItemDef> = [
   ),
 ]
 
-const aura: ReadonlyArray<ItemDef> = [
+const aura: ReadonlyArray<Piece> = [
   wear(
     "static-spark",
     "Static Spark",
@@ -628,5 +625,12 @@ const aura: ReadonlyArray<ItemDef> = [
   ),
 ]
 
+const pieces: ReadonlyArray<Piece> = [...head, ...neck, ...back, ...hand, ...aura]
+
 /** Every piece of the pet's wear, by slot. */
-export const starterWear: ReadonlyArray<ItemDef> = [...head, ...neck, ...back, ...hand, ...aura]
+export const starterWear: ReadonlyArray<ItemDef> = pieces.map((piece) => piece.item)
+
+/** The art of each wearable, by its sprite id. */
+export const starterWearArt: Readonly<Record<string, WearArt>> = Object.fromEntries(
+  pieces.map((piece) => [piece.item.id, piece.art]),
+)

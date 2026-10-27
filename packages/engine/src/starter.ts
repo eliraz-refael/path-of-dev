@@ -880,5 +880,8 @@ export const catalog6: ReadonlyArray<ItemDef> = catalog6Order.flatMap((id) => {
   return def === undefined ? [] : [{ ...def, ...asInCatalog6[id] }]
 })
 
-/** Rules 14: the starter rules before catalogue 7, the same in every number. */
+/**
+ * Rules 14: the starter rules before catalogue 7, the same in every number. The tests hold it to the rules as they
+ * shipped (test/fixtures/rules-14.json), so a later change to a number must spell rules 14 out here first.
+ */
 export const rules14: RulesConfig = { ...starterRules, version: 14, catalogVersion: 6 }

@@ -52,7 +52,8 @@ export const goldenPlayer = (): PlayerState => {
 /**
  * What the write path gives `step` for the log row `logSeq`, received at `now`: rules 14 and catalogue 6, the last
  * the log's rolls could be drawn from again, since catalogue 7 deals from a bigger pool. Rules 14 is the starter rules
- * in every number (starter.test.ts holds it to that), so the log still guards the pricing the starter rules run on.
+ * in every number (catalog.test.ts holds it to that, and to fixtures/rules-14.json), so the log still guards the
+ * pricing the starter rules run on. A later bump that changes a number must write rules 14 out in full first.
  */
 export const goldenContext = (logSeq: number, now: string, mode: Context["mode"] = { kind: "live" }): Context => ({
   now,

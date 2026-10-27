@@ -282,6 +282,16 @@ describe("the pet's wear", () => {
     expect(page).toContain("Wears Wizard Hat and Night Cloak")
   })
 
+  it("names in the picture's label only the wear it draws, and on the card all of it", () => {
+    const { profile } = wearing({ head: ids.hat })
+    if (profile.pet === undefined || profile.pet === null) throw new Error("Ada's pet is hatched")
+    const odd = { slot: "neck", name: "Odd Scarf", sprite: "no-such-art" } as const
+    const pet = { ...profile.pet, wearing: [...profile.pet.wearing, odd] }
+    const page = profilePage({ ...profile, pet }, "https://pathof.dev/u/ada")
+    expect(page).toContain('aria-label="Pixel, the fox, wearing Wizard Hat"')
+    expect(page).toContain("Wears Wizard Hat and Odd Scarf")
+  })
+
   it("draws a pet that wears nothing as it always was", () => {
     const { profile, page } = wearing({})
     expect(profile.pet?.wearing).toEqual([])

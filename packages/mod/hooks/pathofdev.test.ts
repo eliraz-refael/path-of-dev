@@ -2253,7 +2253,7 @@ describe("the pane's pet wear", () => {
     await ui.unmount()
   })
 
-  test('Wear puts a piece on the hatched pet, and Take off takes it off', async ($, on) => {
+  test('Equip puts a piece on the hatched pet, and Unequip takes it off', async ($, on) => {
     const { sent } = await streaming($, on, ownedOf(), false, { kept: { pet: ember } })
     await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
     const { ui, texts } = await wearTexts($)
@@ -2267,6 +2267,16 @@ describe("the pane's pet wear", () => {
     await worn.ui.press({ key: 'unequip:head' })
     expect(commands().at(-1)).toMatchObject({ type: 'item.unequip', data: { slot: 'head' } })
     await worn.ui.unmount()
+  })
+
+  test('wear the snapshot no longer names still shows on the pet, and can be taken off', async ($, on) => {
+    const { sent } = await streaming($, on, ownedOf({ neck: '01K6ZQ8W3J0000000000009099' }), false, { kept: { pet: ember } })
+    await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
+    const { ui, texts } = await wearTexts($)
+    expect(texts).toMatch(/^● Unknown wear no longer in the catalogue · neck$/m)
+    await ui.press({ key: 'unequip:neck' })
+    expect(sent.filter((one) => one.path === '/v1/commands').at(-1)?.body).toMatchObject({ type: 'item.unequip', data: { slot: 'neck' } })
+    await ui.unmount()
   })
 })
 

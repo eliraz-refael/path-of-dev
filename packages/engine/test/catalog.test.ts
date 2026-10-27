@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import type { ItemDef, PetSlot, Rarity } from "@pathofdev/schema"
+import type { ItemDef, Rarity } from "@pathofdev/schema"
 import {
   bandParts,
   dressedPet,
@@ -17,6 +17,7 @@ import {
   catalog6,
   isSigil,
   isXpFood,
+  petSlots,
   rollLoot,
   rules14,
   starterCatalog,
@@ -29,7 +30,6 @@ import {
 // same odds as catalogue 6, which rules 14 dealt from and which stays as it shipped.
 
 const rarities = RaritySchema.literals
-const petSlots: ReadonlyArray<PetSlot> = ["head", "neck", "back", "hand", "aura"]
 const ofRarity = (catalog: ReadonlyArray<ItemDef>, rarity: Rarity) => catalog.filter((item) => item.rarity === rarity)
 
 /** Whether a glyph takes two cells, by the mod's rule (hooks/cells.ts), which a band style's parts must not. */
@@ -126,6 +126,17 @@ describe("the pet's wear", () => {
   const plain = dressedPet([])
   const isPet = (x: number, y: number) => (plain.rows[y]?.[x] ?? emptyCell) !== emptyCell
 
+  it("gives each of 80 colours a letter of its own, past the 62 letters, above the pet where it draws none", () => {
+    const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`
+    const cellAt = (x: number, y: number) => String.fromCharCode(0x100 + y * 20 + x)
+    const rows = Array.from({ length: 4 }, (_, y) => Array.from({ length: 20 }, (_, x) => cellAt(x, y)))
+    const palette = Object.fromEntries(rows.flat().map((cell, i) => [cell, hex(0x100000 + i)]))
+    const dressed = dressedPet([{ slot: "aura", art: { x: 0, y: 0, rows: rows.map((row) => row.join("")), palette } }])
+    rows.forEach((row, y) =>
+      row.forEach((cell, x) => expect(dressed.palette[dressed.rows[y]![x]!], `${x},${y}`).toBe(palette[cell]))
+    )
+  })
+
   it("names its art by its sprite, and every piece of art is one the catalogue wears", () => {
     const worn = starterCatalog.filter((item) => item.slot !== null && petSlots.some((slot) => slot === item.slot))
     expect(worn.map((item) => item.id).sort()).toEqual(starterWear.map((item) => item.id).sort())
@@ -171,14 +182,20 @@ describe("the pet's wear", () => {
 })
 
 describe("rules 15", () => {
+  const fixture = (name: string): unknown =>
+    JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"))
+
+  it("leaves rules 14 as it shipped, field for field", () => {
+    expect(rules14).toEqual(fixture("rules-14.json"))
+  })
+
   it("is rules 14 in every number, with catalogue 7 for catalogue 6", () => {
     expect({ ...starterRules, version: 14, catalogVersion: 6 }).toEqual(rules14)
     expect([starterRules.version, starterRules.catalogVersion]).toEqual([15, 7])
   })
 
   it("leaves catalogue 6 as rules 14 shipped it, field for field and in its order", () => {
-    const shipped: unknown = JSON.parse(readFileSync(new URL("./fixtures/catalog-6.json", import.meta.url), "utf8"))
-    expect(catalog6).toEqual(shipped)
+    expect(catalog6).toEqual(fixture("catalog-6.json"))
   })
 
   const Roll = Schema.Struct({

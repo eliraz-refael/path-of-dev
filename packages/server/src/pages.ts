@@ -233,10 +233,14 @@ export const qualityNames: Readonly<Record<QualityDimension, string>> = {
   context: "context",
 }
 
+/** The art a piece of wear is drawn in, if this server has any for it. */
+const artOf = (piece: PublicWear): WearArt | undefined =>
+  piece.sprite === null ? undefined : starterWearArt[piece.sprite]
+
 /** The pet as the portrait draws it: in what it wears, when any of it has art, else as it comes. */
 const portraitOf = (wearing: ReadonlyArray<PublicWear>): { readonly sprite: Sprite; readonly dressed: boolean } => {
   const worn = wearing.flatMap((piece): Array<{ slot: PublicWear["slot"]; art: WearArt }> => {
-    const art = piece.sprite === null ? undefined : starterWearArt[piece.sprite]
+    const art = artOf(piece)
     return art === undefined ? [] : [{ slot: piece.slot, art }]
   })
   return worn.length === 0 ? { sprite: petSprite, dressed: false } : { sprite: dressedPet(worn), dressed: true }
@@ -264,7 +268,9 @@ ${mini.length === 0 ? "" : html`<dl class="mini">${mini.map(([term, value]) => h
 /** The pet's portrait, labelled with what it wears. */
 const petPortrait = (pet: NonNullable<PublicProfile["pet"]>): Html => {
   const { sprite, dressed } = portraitOf(pet.wearing)
-  const wearing = pet.wearing.length === 0 ? "" : `, wearing ${listed(pet.wearing.map((piece) => piece.name))}`
+  // The label says what the picture shows: wear with no art to draw is left out of it, though the card names it.
+  const drawn = pet.wearing.filter((piece) => artOf(piece) !== undefined)
+  const wearing = drawn.length === 0 ? "" : `, wearing ${listed(drawn.map((piece) => piece.name))}`
   const label = `${pet.name}, the ${pet.species.toLowerCase()}${wearing}`
   return spriteSvg(sprite, label, dressed ? "sprite dressed" : "sprite")
 }
