@@ -218,7 +218,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT60066F3G2KZXKBKV1FH",
-          "itemId": "tin-purse",
+          "itemId": "rooftop-garden",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "drop",
@@ -227,25 +227,15 @@
           "dye": null
         },
         "item": {
-          "id": "tin-purse",
-          "name": "Tin Purse",
+          "id": "rooftop-garden",
+          "name": "Rooftop Garden",
           "rarity": "common",
-          "category": "bandStyle",
-          "slot": "goldDisplay",
-          "sprite": null,
-          "lore": "Rattles more than it holds.",
+          "category": "scene",
+          "slot": "scene",
+          "sprite": "rooftop-garden",
+          "lore": "Tomatoes, a deck chair and a view of the build lights.",
           "effect": null,
-          "look": {
-            "glyphs": {
-              "icon": "○"
-            },
-            "colors": {
-              "icon": "#a8a8a8",
-              "amount": "#c6c6c6"
-            },
-            "frames": null,
-            "fps": null
-          }
+          "look": null
         },
         "gold": 10,
         "pity": {
@@ -451,7 +441,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT600RCCS7D0V7FHGJSKS",
-          "itemId": "mooncake",
+          "itemId": "golden-peach",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "drop",
@@ -460,13 +450,13 @@
           "dye": null
         },
         "item": {
-          "id": "mooncake",
-          "name": "Mooncake",
+          "id": "golden-peach",
+          "name": "Golden Peach",
           "rarity": "rare",
           "category": "food",
           "slot": null,
           "sprite": null,
-          "lore": "Stamped with a pattern only night owls can read.",
+          "lore": "Ripens only on a branch that passed review.",
           "effect": {
             "xpBoostPct": 10,
             "minutes": 180
@@ -522,7 +512,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT600WZFMJ6AMDAVK9948",
-          "itemId": "dotted-line",
+          "itemId": "sandy-beach",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "drop",
@@ -531,26 +521,15 @@
           "dye": null
         },
         "item": {
-          "id": "dotted-line",
-          "name": "Dotted Line",
+          "id": "sandy-beach",
+          "name": "Sandy Beach",
           "rarity": "common",
-          "category": "bandStyle",
-          "slot": "xpBar",
-          "sprite": null,
-          "lore": "Sign here, then keep going.",
+          "category": "scene",
+          "slot": "scene",
+          "sprite": "sandy-beach",
+          "lore": "The waves deploy on a schedule, and never break prod.",
           "effect": null,
-          "look": {
-            "glyphs": {
-              "full": "•",
-              "empty": "·"
-            },
-            "colors": {
-              "full": "#d0d0d0",
-              "empty": "#585858"
-            },
-            "frames": null,
-            "fps": null
-          }
+          "look": null
         },
         "gold": 10,
         "pity": {
@@ -642,7 +621,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT600QNVE2GZ7MMJVQ983",
-          "itemId": "brass-button",
+          "itemId": "blueprint",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "dev",
@@ -651,25 +630,15 @@
           "dye": null
         },
         "item": {
-          "id": "brass-button",
-          "name": "Brass Button",
+          "id": "blueprint",
+          "name": "Blueprint",
           "rarity": "common",
-          "category": "bandStyle",
-          "slot": "goldDisplay",
-          "sprite": null,
-          "lore": "Off an old coat, and worth more than it looks.",
+          "category": "scene",
+          "slot": "scene",
+          "sprite": "blueprint",
+          "lore": "Measure twice, commit once.",
           "effect": null,
-          "look": {
-            "glyphs": {
-              "icon": "◉"
-            },
-            "colors": {
-              "icon": "#c9a227",
-              "amount": "#e4c86a"
-            },
-            "frames": null,
-            "fps": null
-          }
+          "look": null
         },
         "gold": 10,
         "pity": {
@@ -794,6 +763,6 @@
     }
   ],
   "cursor": 38,
-  "rulesVersion": 15,
+  "rulesVersion": 16,
   "minClientVersion": "0.0.0"
 }

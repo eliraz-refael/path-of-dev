@@ -37,6 +37,9 @@ importers:
 
   packages/mod:
     devDependencies:
+      '@pathofdev/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@pathofdev/schema':
         specifier: workspace:*
         version: link:../schema

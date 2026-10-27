@@ -13,6 +13,7 @@
 pub mod app;
 pub mod feed;
 pub mod home;
+pub mod scene;
 pub mod sprite;
 pub mod theme;
 
@@ -407,7 +408,7 @@ pub fn text_of(buf: &Buffer) -> String {
 }
 
 /// The screen's loop: keys and resizes from the terminal, updates from the stream, a draw when anything changed and
-/// each second for the timers, until `q`.
+/// each second for the timers, or each frame of a scene that loops while Home shows it, until `q`.
 pub fn run(
     terminal: &mut DefaultTerminal,
     app: &mut App,
@@ -416,13 +417,13 @@ pub fn run(
     let mut dirty = true;
     let mut drawn = Instant::now();
     while !app.quit {
-        if dirty || drawn.elapsed() >= Duration::from_secs(1) {
+        if dirty || drawn.elapsed() >= Duration::from_millis(redraw_ms(app)) {
             app.now = Timestamp::now();
             terminal.draw(|frame| render(app, frame.area(), frame.buffer_mut()))?;
             drawn = Instant::now();
             dirty = false;
         }
-        if event::poll(Duration::from_millis(250))? {
+        if event::poll(Duration::from_millis(redraw_ms(app).min(250)))? {
             match event::read()? {
                 Event::Key(key) => app.key(key),
                 Event::Resize(..) => {}
@@ -438,6 +439,17 @@ pub fn run(
         }
     }
     Ok(())
+}
+
+/// How long the screen may go undrawn: a second, or a frame of the scene Home shows the pet in, should it loop.
+fn redraw_ms(app: &App) -> u64 {
+    let looping = app
+        .snapshot
+        .as_ref()
+        .filter(|response| app.tab == app::Tab::Home && response.snapshot.pet.is_some())
+        .and_then(|response| scene::Scenes::embedded().worn(&response.snapshot))
+        .and_then(scene::SceneArt::frame_ms);
+    looping.unwrap_or(1000).min(1000)
 }
 
 #[cfg(test)]

@@ -88,7 +88,15 @@ export type OwnedItem = {
   sigil?: SigilView
   /** Food's XP boost when the pet eats it; absent on every other item, and on what an older copy kept. */
   food?: FoodView
+  /** The art an item is drawn with, by its id (a scene's in hooks/scene-art.ts); absent when it has none. */
+  sprite?: string
 }
+
+/** Pixel art: rows of letters, each a colour of the palette; `.` is an empty cell. */
+export type Sprite = { rows: ReadonlyArray<string>; palette: Readonly<Record<string, string>> }
+
+/** A scene's art: every cell filled, and for a loop its frames, `.` where a frame keeps the scene's cell. */
+export type SceneArt = Sprite & { frames?: ReadonlyArray<ReadonlyArray<string>>; fps?: number }
 
 /** What food does when the pet eats it: so much more XP for so many minutes, or nothing but the meal. */
 export type FoodView = { pct: number; minutes: number } | null

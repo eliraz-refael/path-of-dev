@@ -111,6 +111,11 @@ export const dressedPet = (worn: ReadonlyArray<{ readonly slot: PetSlot; readonl
   layer(wearBehind)
   paint(canvas, petAt.x, petAt.y, petSprite.rows, petSprite.palette)
   layer(wearOver)
+  return letteredSprite(canvas)
+}
+
+/** A canvas of colours (null for an empty cell) as a sprite again, each colour one letter in the order it is met. */
+export const letteredSprite = (canvas: ReadonlyArray<ReadonlyArray<string | null>>): Sprite => {
   const named = new Map<string, string>()
   const rows = canvas.map((line) =>
     line.map((color) => {

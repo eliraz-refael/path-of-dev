@@ -53,7 +53,7 @@
     "inventory": [
       {
         "id": "01M4FTT600A7VMSZ7BFYKE1XYG",
-        "itemId": "trail-mix",
+        "itemId": "paren-badge",
         "acquiredAt": "2026-10-09T08:00:00.000Z",
         "source": {
           "kind": "drop",
@@ -116,20 +116,6 @@
         "sprite": null,
         "lore": "Unrolls slowly, like a good explanation.",
         "effect": null,
-        "look": null
-      },
-      {
-        "id": "trail-mix",
-        "name": "Trail Mix",
-        "rarity": "common",
-        "category": "food",
-        "slot": null,
-        "sprite": null,
-        "lore": "Nuts, seeds and the odd chocolate chip.",
-        "effect": {
-          "xpBoostPct": 10,
-          "minutes": 60
-        },
         "look": null
       },
       {
@@ -207,6 +193,30 @@
             "empty": "#4e4e4e",
             "left": "#808080",
             "right": "#808080"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "paren-badge",
+        "name": "Paren Badge",
+        "rarity": "common",
+        "category": "bandStyle",
+        "slot": "levelDisplay",
+        "sprite": null,
+        "lore": "Optional, but you wore it anyway.",
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "left": "(",
+            "right": ")"
+          },
+          "colors": {
+            "level": "#d7af87",
+            "left": "#af875f",
+            "right": "#af875f",
+            "title": "#d7c3a8"
           },
           "frames": null,
           "fps": null
@@ -501,7 +511,7 @@
     "cursor": 11
   },
   "rules": {
-    "version": 15,
+    "version": 16,
     "schemaVersion": 11,
     "appliesFrom": null,
     "levelCurve": {
@@ -830,7 +840,7 @@
         }
       }
     },
-    "catalogVersion": 7,
+    "catalogVersion": 8,
     "missions": {
       "daily": {
         "count": 3,

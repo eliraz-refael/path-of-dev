@@ -2,6 +2,7 @@ import type { PetSlot } from '@pathofdev/schema'
 import type { BandLook, BandSlot, BandView, PaneTab, Tier, Wardrobe } from '../types'
 import { tierRank } from './celebrate'
 import { cellsOf } from './cells'
+import { artOf } from './scenes'
 import { bandSlots, equippedIn, loops } from './looks'
 
 // The `/pathofdev` pane: a hub of tabs, each a view of the game. This file says what the tabs are and what the
@@ -259,8 +260,8 @@ export const otherItems = (wardrobe: Wardrobe | null): Array<OtherItem> => {
     // Band styles and, from a server that deals in them, sigils have sections of their own, as food has the pet's card.
     if (item.look !== null || (item.sigil !== undefined && wardrobe?.knowsSigils === true)) continue
     if (item.food !== undefined && wardrobe?.knowsCare === true) continue
-    // The pet's wear has a section of its own too.
-    if (petSlots.some((slot) => slot === item.slot)) continue
+    // The pet's wear has a section of its own too, and so has every scene the mod can draw.
+    if (petSlots.some((slot) => slot === item.slot) || artOf(item) !== null) continue
     const seen = counted.get(item.itemId)
     const count = (seen?.count ?? 0) + 1
     const { itemId, name, rarity } = item

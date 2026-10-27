@@ -2280,6 +2280,50 @@ describe("the pane's pet wear", () => {
   })
 })
 
+describe("the pane's scenes", () => {
+  const clearNight = {
+    id: 'clear-night', name: 'Clear Night', rarity: 'common', category: 'scene', slot: 'scene', sprite: 'clear-night',
+    lore: 'Not a cloud in it, and not one open ticket.', effect: null, look: null,
+  }
+  const scened = (equipped: Record<string, string> = {}): Owned => ({
+    inventory: [{ id: '01K6ZQ8W3J0000000000009021', itemId: 'clear-night' }],
+    items: [clearNight],
+    equipped,
+  })
+  const sceneTexts = async ($: Parameters<TestBody>[0]) => {
+    const ui = await $.ui.mount({ plugin: 'pathofdev', surface: 'terminal', component: 'Pane', requestId: 'pathofdev', props: paneProps() })
+    const texts = (await ui.findAll({ type: 'Text' })).map((one) => one.text).join('\n')
+    return { ui, texts }
+  }
+
+  test('lists each scene owned with a small picture of it, apart from the other items, and Equip wears it', async ($, on) => {
+    const { sent } = await streaming($, on, scened())
+    await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
+    const { ui, texts } = await sceneTexts($)
+    expect(texts).toMatch(/^Scene {2}1 owned · what your pet stands in, here and on your public profile$/m)
+    expect(texts).toMatch(/^● None the terminal's own background$/m)
+    expect(texts).toMatch(/^○ Clear Night common$/m)
+    expect(texts).toMatch(/^▀{16}$/m)
+    expect(texts).not.toMatch(/Clear Night common · scene/)
+    await ui.press({ key: 'equip:scene:clear-night' })
+    const commands = () => sent.filter((one) => one.path === '/v1/commands').map((one) => one.body)
+    expect(commands().at(-1)).toMatchObject({ type: 'item.equip', data: { entryId: '01K6ZQ8W3J0000000000009021', slot: 'scene' } })
+    await ui.unmount()
+  })
+
+  test('draws the worn scene whole, 48 cells by 12 rows, and None takes it off', async ($, on) => {
+    const { sent } = await streaming($, on, scened({ scene: '01K6ZQ8W3J0000000000009021' }))
+    await $.command.run({ command: 'pathofdev', args: '', origin: composer, presentation })
+    const { ui, texts } = await sceneTexts($)
+    expect(texts.match(/^▀{48}$/gm)?.length ?? 0).toBeGreaterThanOrEqual(12)
+    expect(texts).toMatch(/^● Clear Night common$/m)
+    await ui.press({ key: 'equip:scene:none' })
+    const commands = () => sent.filter((one) => one.path === '/v1/commands').map((one) => one.body)
+    expect(commands().at(-1)).toMatchObject({ type: 'item.unequip', data: { slot: 'scene' } })
+    await ui.unmount()
+  })
+})
+
 describe('review fixes: the pane', () => {
   test('an equipped style the snapshot no longer names still shows, and can be taken off', async ($, on) => {
     const owned = ownedOf({ xpBar: '01K6ZQ8W3J0000000000009009' })

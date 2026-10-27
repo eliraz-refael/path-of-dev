@@ -271,6 +271,8 @@ import {
 } from './profile'
 import type { ShopAction, ShopEntry } from './shop'
 import { careViewOf, eggCardLayout, petCardLayout, shopLayout, shopViewOf } from './shop'
+import type { SceneChoice } from './scenes'
+import { pictureRows, sceneChoices, sceneRates, sceneTick, thumbRows, wornScene } from './scenes'
 import type { SigilChoice } from './sigils'
 import { multiplierText, sigilChoices, wornSigil } from './sigils'
 import { statsLayout, titleRow } from './stats'
@@ -829,7 +831,9 @@ const syncLoop = async ($: EngineInterface) => {
   const looks = [...Object.values(wornLooks(owned)), ...(isPaneOpen ? ownedLooks(owned) : []), ...offered]
   // A band shut in `auto`, or one that never opens, draws no loop: the pane's previews still do while it is open.
   const isDrawn = bandShown() || isPaneOpen
-  const rates = motion === 'full' && !isTurnRunning && playing === null && isDrawn ? ratesOf(looks) : []
+  const drawn = [...ratesOf(looks), ...sceneRates(owned, isPaneOpen)]
+  const isMoving = motion === 'full' && !isTurnRunning && playing === null && isDrawn
+  const rates = isMoving ? [...new Set(drawn)].sort((a, b) => a - b) : []
   if (rates.length === loopTimers.size && rates.every((rate) => loopTimers.has(rate))) return
   // The clocks are swapped before any await, so two syncs that overlap never leave two clocks at one rate; the atom
   // is written from the clocks in force when the write lands, so the last sync wins there too.
@@ -3901,6 +3905,81 @@ export const register: Register = (on, options) => {
         : pet === null
           ? `${wearOwned.length} owned · for your pet to wear once it hatches`
           : `${wearOwned.length} owned · one a slot, drawn on your pet on your public profile`
+    // The scenes: the worn one whole, the pet standing in it, then each owned one small, with what puts it on.
+    const scenes = sceneChoices(owned)
+    const sceneCount = scenes.filter((choice) => choice.art !== null).length
+    // A worn scene the mod can't draw lists too, with None beside it, so it can be taken off with none drawable owned.
+    const isListed = sceneCount > 0 || scenes.some((choice) => choice.key === 'lost')
+    const backdrop = wornScene(owned)
+    const picture =
+      backdrop === null
+        ? []
+        : pictureRows(backdrop.art, sceneTick(backdrop.art, moving), width - 2, current.pet === null ? null : undefined)
+    const sceneRow = (choice: SceneChoice) => {
+      const color = choice.rarity === null ? undefined : rarityColors[choice.rarity]
+      const notes = [
+        ...(choice.note !== null ? [choice.note] : choice.rarity === null ? [] : [choice.rarity]),
+        ...(choice.isLooping ? ['loops'] : []),
+        ...(choice.count > 1 ? [`×${choice.count}`] : []),
+      ].join(' · ')
+      const thumb = choice.art === null ? [] : thumbRows(choice.art, sceneTick(choice.art, moving))
+      return (
+        <Box key={`scene:${choice.key}`} flexDirection="column" marginLeft={2} marginBottom={1}>
+          <Box flexWrap="wrap" columnGap={2}>
+            <Text>
+              <Text color={choice.isWorn ? 'success' : 'inactive'}>{choice.isWorn ? '●' : '○'}</Text>{' '}
+              <Text bold {...(color === undefined ? {} : { color })}>
+                {choice.name}
+              </Text>
+              <Text dimColor> {notes}</Text>
+            </Text>
+            {choice.isWorn ? (
+              <Text color="success">equipped</Text>
+            ) : (
+              <Button
+                key={`equip:scene:${choice.key}`}
+                label="Equip"
+                onPress={() => void wear($, 'scene', choice.entryId)}
+              />
+            )}
+          </Box>
+          {thumb.length === 0 && choice.lore === null ? null : (
+            <Box marginLeft={2} flexDirection="column">
+              {thumb.map((row, i) => draw(Text, row, `scene:${choice.key}:${i}`))}
+              {choice.lore === null ? null : (
+                <Text dimColor italic>
+                  {choice.lore}
+                </Text>
+              )}
+            </Box>
+          )}
+        </Box>
+      )
+    }
+    const sceneIntro =
+      sceneCount === 0
+        ? 'none yet: backdrops for your pet drop like any loot'
+        : `${sceneCount} owned · what your pet stands in, here and on your public profile`
+    const sceneSection = (
+      <Box key="scenes" flexDirection="column">
+        <Text>
+          <Text bold>Scene</Text>
+          <Text dimColor>
+            {'  '}
+            {sceneIntro}
+          </Text>
+        </Text>
+        <Text> </Text>
+        {picture.length === 0 ? null : (
+          <Box key="scene:worn" flexDirection="column" marginLeft={2} marginBottom={1}>
+            {picture.map((row, i) => draw(Text, row, `scene:worn:${i}`))}
+          </Box>
+        )}
+        {isListed ? scenes.map(sceneRow) : null}
+        {isListed ? null : <Text> </Text>}
+      </Box>
+    )
+
     const wearSection = (
       <Box key="wear" flexDirection="column">
         <Text>
@@ -3941,6 +4020,7 @@ export const register: Register = (on, options) => {
           </Box>
         ))}
         {wearSection}
+        {sceneSection}
         <Text bold>Other items</Text>
         {others.length === 0 ? (
           <Text dimColor>  Nothing yet: loot drops from finished turns, graded prompts and level-ups.</Text>

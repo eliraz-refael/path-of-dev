@@ -8,6 +8,8 @@ import {
   ItemDef as ItemDefSchema,
   Pity,
   Rarity as RaritySchema,
+  sceneIssue,
+  sceneLoops,
   wearBehind,
 } from "@pathofdev/schema"
 import { readFileSync } from "node:fs"
@@ -15,19 +17,24 @@ import { Schema } from "effect"
 import { describe, expect } from "vitest"
 import {
   catalog6,
+  catalog7,
   isSigil,
   isXpFood,
   petSlots,
   rollLoot,
   rules14,
+  rules15,
   starterCatalog,
   starterRules,
+  starterSceneArt,
+  starterScenes,
   starterWear,
   starterWearArt,
+  terminalGreen,
 } from "../src/index.ts"
 
-// Catalogue 7, the bigger pool rules 15 deals from: every item well formed and drawn, a pyramid of rarities, and the
-// same odds as catalogue 6, which rules 14 dealt from and which stays as it shipped.
+// Catalogue 8, the pool rules 16 deals from: every item well formed and drawn, a pyramid of rarities, and the same odds
+// as catalogues 6 and 7, which rules 14 and 15 dealt from and which stay as they shipped.
 
 const rarities = RaritySchema.literals
 const ofRarity = (catalog: ReadonlyArray<ItemDef>, rarity: Rarity) => catalog.filter((item) => item.rarity === rarity)
@@ -46,9 +53,9 @@ const isWide = (glyph: string): boolean => {
   )
 }
 
-describe("catalogue 7", () => {
-  it("is 113 items, each well formed, with an id and a name of its own and a line of lore", () => {
-    expect(starterCatalog).toHaveLength(113)
+describe("catalogue 8", () => {
+  it("is 194 items, each well formed, with an id and a name of its own and a line of lore", () => {
+    expect(starterCatalog).toHaveLength(194)
     for (const item of starterCatalog) expect(Schema.decodeUnknownSync(ItemDefSchema)(item)).toEqual(item)
     expect(new Set(starterCatalog.map((item) => item.id)).size).toBe(starterCatalog.length)
     expect(new Set(starterCatalog.map((item) => item.name.toLowerCase())).size).toBe(starterCatalog.length)
@@ -57,8 +64,8 @@ describe("catalogue 7", () => {
     }
   })
 
-  it("keeps every item of catalogue 6, by the same name, rarity, kind and slot, as players own them", () => {
-    for (const old of catalog6) {
+  it("keeps every item of catalogues 6 and 7, by the same name, rarity, kind and slot, as players own them", () => {
+    for (const old of [...catalog6, ...catalog7]) {
       const item = starterCatalog.find((one) => one.id === old.id)
       expect(item, old.id).toMatchObject({ name: old.name, rarity: old.rarity, category: old.category, slot: old.slot })
       expect({ effect: item?.effect, look: item?.look, sigil: item?.sigil }).toEqual({
@@ -71,7 +78,7 @@ describe("catalogue 7", () => {
 
   it("is a pyramid: each rarity has fewer items than the one below it", () => {
     const counts = rarities.map((rarity) => ofRarity(starterCatalog, rarity).length)
-    expect(counts).toEqual([39, 28, 21, 14, 11])
+    expect(counts).toEqual([67, 52, 39, 21, 15])
     for (let i = 1; i < counts.length; i++) expect(counts[i]!).toBeLessThan(counts[i - 1]!)
   })
 
@@ -87,13 +94,14 @@ describe("catalogue 7", () => {
     }
   })
 
-  it("keeps XP food the share of each rarity's other drops it was in catalogue 6", () => {
+  it("keeps XP food the share of each rarity's other drops it was in catalogues 6 and 7", () => {
     for (const rarity of rarities) {
       const share = (catalog: ReadonlyArray<ItemDef>) => {
         const others = ofRarity(catalog, rarity).filter((item) => !isSigil(item))
         return others.filter(isXpFood).length / others.length
       }
       expect(share(starterCatalog), rarity).toBeCloseTo(share(catalog6), 9)
+      expect(share(catalog7), rarity).toBeCloseTo(share(catalog6), 9)
     }
   })
 
@@ -181,21 +189,58 @@ describe("the pet's wear", () => {
   })
 })
 
-describe("rules 15", () => {
+describe("the scenes", () => {
+  const scenes = starterCatalog.filter((item) => item.category === "scene")
+
+  it("are Terminal Green and the 71 catalogue 8 adds, each worn in the scene slot, its art under its id", () => {
+    const ids = (items: ReadonlyArray<ItemDef>) => items.map((item) => item.id).sort()
+    expect(ids(scenes)).toEqual(ids([terminalGreen, ...starterScenes]))
+    expect(scenes).toHaveLength(72)
+    for (const item of scenes) {
+      expect([item.slot, item.sprite, item.look, item.effect], item.id).toEqual(["scene", item.id, null, null])
+    }
+    expect(Object.keys(starterSceneArt).sort()).toEqual(scenes.map((item) => item.id).sort())
+  })
+
+  it("each draws whole, calm round the pet and clear of it, in truecolor and in 256 colours", () => {
+    for (const [id, art] of Object.entries(starterSceneArt)) expect(sceneIssue(art), id).toBeUndefined()
+  })
+
+  it("are a pyramid of their own, and only legendaries loop", () => {
+    const counts = rarities.map((rarity) => ofRarity(scenes, rarity).length)
+    expect(counts).toEqual([24, 22, 15, 7, 4])
+    for (const item of scenes) {
+      const art = starterSceneArt[item.id]
+      expect(art !== undefined && sceneLoops(art), item.id).toBe(item.rarity === "legendary")
+    }
+  })
+
+  it("no two look the same", () => {
+    const looks = Object.values(starterSceneArt).map((art) =>
+      art.rows.map((row) => [...row].map((cell) => art.palette[cell] ?? "").join(",")).join("/")
+    )
+    expect(new Set(looks).size).toBe(looks.length)
+  })
+})
+
+describe("rules 16", () => {
   const fixture = (name: string): unknown =>
     JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"))
 
-  it("leaves rules 14 as it shipped, field for field", () => {
+  it("leaves rules 14 and 15 as they shipped, field for field", () => {
     expect(rules14).toEqual(fixture("rules-14.json"))
+    expect(rules15).toEqual(fixture("rules-15.json"))
   })
 
-  it("is rules 14 in every number, with catalogue 7 for catalogue 6", () => {
+  it("is rules 15 in every number, with catalogue 8 for catalogue 7, and rules 14 with catalogue 6", () => {
+    expect({ ...starterRules, version: 15, catalogVersion: 7 }).toEqual(rules15)
     expect({ ...starterRules, version: 14, catalogVersion: 6 }).toEqual(rules14)
-    expect([starterRules.version, starterRules.catalogVersion]).toEqual([15, 7])
+    expect([starterRules.version, starterRules.catalogVersion]).toEqual([16, 8])
   })
 
-  it("leaves catalogue 6 as rules 14 shipped it, field for field and in its order", () => {
+  it("leaves catalogues 6 and 7 as rules 14 and 15 shipped them, field for field and in their order", () => {
     expect(catalog6).toEqual(fixture("catalog-6.json"))
+    expect(catalog7).toEqual(fixture("catalog-7.json"))
   })
 
   const Roll = Schema.Struct({
@@ -207,26 +252,28 @@ describe("rules 15", () => {
   })
 
   it.prop(
-    "rolls the drop, rarity, gold and kind rules 14 did from the same draw: only which item differs",
+    "rolls the drop, rarity, gold and kind rules 14 and 15 did from the same draw: only which item differs",
     [Roll],
     ([roll]) => {
       const weights = (rules: typeof starterRules) =>
         roll.great ? { ...rules.loot.weights, rare: 202, epic: 80, legendary: 8 } : rules.loot.weights
       const { seed, number, chance, pity } = roll
-      const now = rollLoot(seed, number, chance, starterRules, starterCatalog, pity, weights(starterRules))
-      const then = rollLoot(seed, number, chance, rules14, catalog6, pity, weights(rules14))
-      const kind = (drop: typeof now) =>
+      const kind = (drop: ReturnType<typeof rollLoot>) =>
         drop === null ? null : { rarity: drop.rarity, gold: drop.gold, sigil: isSigil(drop.item) }
-      expect(kind(now)).toEqual(kind(then))
+      const now = rollLoot(seed, number, chance, starterRules, starterCatalog, pity, weights(starterRules))
+      const then7 = rollLoot(seed, number, chance, rules15, catalog7, pity, weights(rules15))
+      const then6 = rollLoot(seed, number, chance, rules14, catalog6, pity, weights(rules14))
+      expect(kind(now)).toEqual(kind(then7))
+      expect(kind(now)).toEqual(kind(then6))
     },
   )
 
-  it("can drop every item of catalogue 7", () => {
+  it("can drop every item of catalogue 8, the new scenes too", () => {
     const pity = { sinceRare: 0, sinceEpic: 0 }
     for (const rarity of rarities) {
       const want = new Set(ofRarity(starterCatalog, rarity).map((item) => item.id))
       const seen = new Set<string>()
-      for (let n = 0; n < 40_000 && seen.size < want.size; n++) {
+      for (let n = 0; n < 80_000 && seen.size < want.size; n++) {
         const drop = rollLoot("reach", n, 1, starterRules, starterCatalog, pity, starterRules.loot.weights, rarity)
         if (drop !== null) seen.add(drop.item.id)
       }

@@ -15,9 +15,10 @@ use pathofdev::ui::app::{App, Tab, Target};
 use pathofdev::ui::sprite::Sprite;
 use pathofdev::ui::theme::Theme;
 use pathofdev::ui::{render, text_of};
-use pathofdev::wire::{SnapshotResponse, StreamResponse};
+use pathofdev::wire::{InventoryEntry, ItemDef, SnapshotResponse, StreamResponse, Text};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::Color;
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -131,4 +132,75 @@ fn the_other_tabs_and_the_keys() {
 fn a_pane_too_small() {
     pin("small-39x16", &screen(&played(), 39, 16));
     pin("small-60x15", &screen(&played(), 60, 15));
+}
+
+/// The app after the fixtures, its player standing their pet in `scene`, which it owns.
+fn standing_in(scene: &str, truecolor: bool) -> App {
+    let mut app = played();
+    app.theme = Theme { truecolor };
+    let Some(response) = app.snapshot.as_mut() else {
+        panic!("no snapshot");
+    };
+    let snapshot = &mut response.snapshot;
+    let entry: InventoryEntry = serde_json::from_value(serde_json::json!({
+        "id": "01K6ZQ8W3J0000000000000S01",
+        "itemId": scene,
+    }))
+    .unwrap();
+    let def: ItemDef = serde_json::from_value(serde_json::json!({
+        "id": scene,
+        "name": scene,
+        "rarity": "common",
+        "sprite": scene,
+    }))
+    .unwrap();
+    snapshot.inventory.push(entry);
+    snapshot.items.push(def);
+    snapshot
+        .character
+        .equipped
+        .insert("scene".into(), Text::new("01K6ZQ8W3J0000000000000S01"));
+    app
+}
+
+#[test]
+fn home_with_the_pet_in_a_scene_at_three_sizes() {
+    let app = standing_in("clear-night", true);
+    for (width, height) in [(40, 16), (80, 24), (120, 40)] {
+        pin(
+            &format!("home-scene-{width}x{height}"),
+            &screen(&app, width, height),
+        );
+    }
+}
+
+#[test]
+fn a_scene_paints_every_cell_it_draws_in_the_terminal_s_colours() {
+    for truecolor in [true, false] {
+        let app = standing_in("northern-lights", truecolor);
+        let area = Rect::new(0, 0, 120, 40);
+        let mut buf = Buffer::empty(area);
+        render(&app, area, &mut buf);
+        let painted: Vec<_> = buf
+            .content()
+            .iter()
+            .filter(|cell| cell.symbol() == "▀")
+            .collect();
+        assert_eq!(painted.len(), 48 * 12);
+        for cell in painted {
+            for colour in [cell.fg, cell.bg] {
+                match colour {
+                    Color::Rgb(..) => assert!(truecolor),
+                    Color::Indexed(_) => assert!(!truecolor),
+                    other => panic!("{other:?}"),
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_scene_the_companion_has_no_art_for_leaves_the_pet_as_it_was() {
+    let app = standing_in("a-later-scene", true);
+    assert_eq!(screen(&app, 80, 24), screen(&played(), 80, 24));
 }

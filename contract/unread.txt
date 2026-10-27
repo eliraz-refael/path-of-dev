@@ -42,7 +42,6 @@ GET /v1/snapshot snapshot.items[].effect
 GET /v1/snapshot snapshot.items[].look
 GET /v1/snapshot snapshot.items[].lore
 GET /v1/snapshot snapshot.items[].slot
-GET /v1/snapshot snapshot.items[].sprite
 GET /v1/snapshot snapshot.pet.equipped
 GET /v1/snapshot snapshot.pet.species
 GET /v1/snapshot snapshot.pity
