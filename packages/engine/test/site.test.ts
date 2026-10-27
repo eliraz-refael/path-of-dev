@@ -126,7 +126,7 @@ describe("the landing page's XP table", () => {
     for (const [type, text] of Object.entries(rows) as Array<[keyof typeof rules.xp, string]>) {
       const source = rules.xp[type]
       const [, gh, shownCap, shownXp] = one(
-        new RegExp(`<td class="what">${text}( <span class="gh">GitHub</span>)?(?:<small>[^<]*</small>)?</td><td class="cap">([^<]+)</td><td class="xp">(\\d+)</td>`, "g"),
+        new RegExp(`<td class="what">${text}( <span class="gh">GitHub</span>)?(?:<small>.*?</small>)?</td><td class="cap">([^<]+)</td><td class="xp">(\\d+)</td>`, "g"),
       )
       expect({ type, github: gh !== undefined, cap: shownCap, xp: Number(shownXp) }).toEqual({
         type,

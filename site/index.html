@@ -17,12 +17,13 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#12101b">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
-<link rel="stylesheet" href="/site.css?v=60542c2c8a10">
+<link rel="stylesheet" href="/site.css?v=bde35abefbf3">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -78,7 +79,7 @@
     <section class="block" id="grading">
       <div class="sec-head">
         <h2>How a prompt is graded.</h2>
-        <p>A small model grades every prompt of six words or more against what that prompt actually needs: six measures of what it says, each from 0 to 10, and a little more for clear writing and a kind tone. A quick follow-up question isn't marked down for skipping a why it doesn't need.</p>
+        <p>A small model grades every prompt of <span data-rule="mod:minWords">6</span> words or more against what that prompt actually needs: six measures of what it says, each from 0 to 10, and a little more for clear writing and a kind tone. A quick follow-up question isn't marked down for skipping a why it doesn't need.</p>
       </div>
       <div class="grade-grid">
         <div class="card">
@@ -119,11 +120,11 @@
         <table class="ledger">
           <thead><tr><th>What you did</th><th>Daily limit</th><th class="xp-h">XP</th></tr></thead>
           <tbody>
-            <tr class="daily"><td class="what">A graded prompt<small>your grade × 1.5</small></td><td class="cap">tapers after 20</td><td class="xp">up to 15</td></tr>
-            <tr><td class="what">Pull request merged<small>120 on your own repo, a quarter for a one- or two-line change</small></td><td class="cap">none</td><td class="xp">250</td></tr>
+            <tr class="daily"><td class="what">A graded prompt<small>your grade × 1.5</small></td><td class="cap">tapers after <span data-rule="prompt/perDay/0/upTo">20</span></td><td class="xp">up to 15</td></tr>
+            <tr><td class="what">Pull request merged<small><span data-rule="xp/change.merged/ownRepoXp">120</span> on your own repo, a quarter for a change of under <span data-rule="xp/change.merged/tinyDiffLines">3</span> lines</small></td><td class="cap">none</td><td class="xp">250</td></tr>
             <tr><td class="what">New repo explored</td><td class="cap">3 a day</td><td class="xp">25</td></tr>
             <tr><td class="what">Red tests turned green</td><td class="cap">5 a day</td><td class="xp">20</td></tr>
-            <tr><td class="what">Streak day<small>10 for each day of your streak, up to 70</small></td><td class="cap">1 a day</td><td class="xp">10</td></tr>
+            <tr><td class="what">Streak day<small><span data-rule="streak/xpPerDay">10</span> for each day of your streak, up to <span data-rule="streak/maxXp">70</span></small></td><td class="cap">1 a day</td><td class="xp">10</td></tr>
             <tr><td class="what">Commit</td><td class="cap">20 a day</td><td class="xp">3</td></tr>
             <tr class="nil"><td class="what">Pull request opened<small>it pays out when it merges</small></td><td class="cap">none</td><td class="xp">0</td></tr>
             <tr class="soon"><td class="what">First contribution to a repo <span class="gh">GitHub</span><small>coming: once GitHub checks it</small></td><td class="cap">none</td><td class="xp">300</td></tr>
@@ -152,7 +153,7 @@
         <div class="tier c-epic"><span class="tier-name">Epic</span><span class="tier-pct">4<small>%</small></span><ul><li>Pixel Dragon</li><li>Arcane Current bar</li><li>Starlit Edge</li></ul><p class="lore">“It hums when the tests go green.”</p></div>
         <div class="tier c-legendary"><span class="tier-name">Legendary</span><span class="tier-pct">0.4<small>%</small></span><ul><li>Aurora Crown</li><li>Starforged Bar</li><li>Dragon's Hoard</li></ul><p class="lore">“Said to glow brighter with every merge.”</p></div>
       </div>
-      <p class="pity">Bad luck runs out: <b>after 25 drops without a rare, the next one is rare</b>, and <b>after 80 without an epic, the next one is epic</b>. Wear your loot on your pet or use it to restyle the band above your prompt.</p>
+      <p class="pity">Bad luck runs out: <b>after <span data-rule="loot/pity/rareAfter">25</span> drops without a rare, the next one is rare</b>, and <b>after <span data-rule="loot/pity/epicAfter">80</span> without an epic, the next one is epic</b>. Wear your loot on your pet or use it to restyle the band above your prompt.</p>
       <p class="sec-more"><a href="/play/#loot">Loot, gold and the shop</a></p>
     </section>
 
@@ -201,7 +202,7 @@
         <li><h3>Install the mod</h3><pre class="shell">/plugin install pathofdev --marketplace eliraz-refael/path-of-dev</pre><p>In Claude Code, then restart it.</p></li>
         <li><h3>Sign in</h3><pre class="shell">/pathofdev server online
 /pathofdev login</pre><p>Enter the code on github.com. GitHub tells the server only who you are.</p></li>
-        <li><h3>Write a prompt</h3><p>Ask Claude for something real, in six words or more. A moment later the band above the prompt shows the grade and the XP it earned.</p></li>
+        <li><h3>Write a prompt</h3><p>Ask Claude for something real, in <span data-rule="mod:minWords">6</span> words or more. A moment later the band above the prompt shows the grade and the XP it earned.</p></li>
       </ol>
       <div class="cta-row">
         <a class="btn" href="/start/">Get started</a>

@@ -1,6 +1,6 @@
 import { defaultShown, profileSections } from "@pathofdev/schema"
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import { starterQuestPack, starterRules as rules, xpForLevel } from "../src/index.ts"
 
@@ -35,18 +35,26 @@ const pages: ReadonlyArray<{ readonly path: string; readonly file: string }> = [
 
 const origin = "https://pathof.dev"
 const sha256 = (text: string | Buffer) => createHash("sha256").update(text)
-const cssVersion = (): string => sha256(read("site.css")).digest("hex").slice(0, 12)
+const cssVersion = sha256(read("site.css")).digest("hex").slice(0, 12)
 const scriptOf = (page: string): string | undefined => /<script>([\s\S]*?)<\/script>/.exec(page)?.[1]
 const scriptHash = (script: string): string => sha256(script).digest("base64")
+
+/** The CSP a page sets: the style sheet and fonts, and its one inline script by hash, if it has one. */
+const cspFor = (page: string): string => {
+  const script = scriptOf(page)
+  const base =
+    "default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; " +
+    "img-src 'self' data:; base-uri 'none'; form-action 'none'"
+  return script === undefined ? base : `${base}; script-src 'sha256-${scriptHash(script)}'`
+}
 
 // `pnpm site` stamps the hashes into the pages before the tests read them.
 if (process.env["PATHOFDEV_WRITE_SITE"] === "1") {
   for (const { file } of pages) {
     const page = read(file)
-    const script = scriptOf(page)
     const stamped = page
-      .replace(/\/site\.css\?v=[^"]*/g, `/site.css?v=${cssVersion()}`)
-      .replace(/script-src 'sha256-[^']*'/g, script === undefined ? "" : `script-src 'sha256-${scriptHash(script)}'`)
+      .replace(/\/site\.css\?v=[^"]*/g, `/site.css?v=${cssVersion}`)
+      .replace(/(<meta http-equiv="Content-Security-Policy" content=")[^"]*/, (_, head: string) => `${head}${cspFor(page)}`)
     if (stamped !== page) writeFileSync(new URL(file, siteDir), stamped)
   }
 }
@@ -80,22 +88,17 @@ const block = (page: string, pattern: RegExp): string => {
 }
 const ids = (page: string): ReadonlyArray<string> => all(page, /\sid="([^"]+)"/g).map(([, id]) => id!)
 
+/** Whether `file` is a file in site/: a folder is never served as `$uri`. */
+const isFile = (file: string): boolean => {
+  const url = new URL(file, siteDir)
+  return existsSync(url) && statSync(url).isFile()
+}
+
 /** The file nginx serves for a path on the site, as `try_files $uri $uri/index.html`, or null for a 404. */
 const served = (path: string): string | null => {
   const relative = decodeURIComponent(path).replace(/^\//, "")
   const folder = relative === "" || relative.endsWith("/") ? relative : `${relative}/`
-  for (const file of [relative, `${folder}index.html`]) {
-    if (file !== "" && !file.endsWith("/") && existsSync(new URL(file, siteDir))) return file
-  }
-  return null
-}
-
-const cspFor = (page: string): string => {
-  const script = scriptOf(page)
-  const base =
-    "default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; " +
-    "img-src 'self' data:; base-uri 'none'; form-action 'none'"
-  return script === undefined ? base : `${base}; script-src 'sha256-${scriptHash(script)}'`
+  return [relative, `${folder}index.html`].find(isFile) ?? null
 }
 
 describe("the site's pages", () => {
@@ -151,7 +154,7 @@ describe("the site's security", () => {
 
   it.each(pages)("$path links the style sheet by its current hash", ({ file }) => {
     const sheets = all(html[file]!, /<link rel="stylesheet" href="([^"]+)">/g).map(([, href]) => href)
-    expect(sheets).toEqual([expect.stringMatching(/^https:\/\/fonts\.googleapis\.com\/css2\?/), `/site.css?v=${cssVersion()}`])
+    expect(sheets).toEqual([expect.stringMatching(/^https:\/\/fonts\.googleapis\.com\/css2\?/), `/site.css?v=${cssVersion}`])
   })
 })
 

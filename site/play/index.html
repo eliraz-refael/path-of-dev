@@ -17,12 +17,13 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#12101b">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
-<link rel="stylesheet" href="/site.css?v=60542c2c8a10">
+<link rel="stylesheet" href="/site.css?v=bde35abefbf3">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -129,11 +130,11 @@
           <h2 id="fair-h">Fair play</h2>
           <p>Path of Dev rewards real work, so the rules make farming not worth the trouble:</p>
           <ul>
-            <li><b>Daily limits</b> on every kind of XP above, and a prompt rate that drops after the 20th prompt of the day.</li>
-            <li><b>Size and ownership count</b>: an opened pull request pays nothing, a merge on your own repo pays about half, and a one- or two-line merge a quarter.</li>
+            <li><b>Daily limits</b> on every kind of XP above, and a prompt rate that drops after the <span data-rule="prompt/perDay/0/upTo">20</span>th prompt of the day.</li>
+            <li><b>Size and ownership count</b>: an opened pull request pays nothing, a merge on your own repo pays about half, and a merge of under <span data-rule="xp/change.merged/tinyDiffLines">3</span> lines a quarter.</li>
             <li><b>Each thing counts once</b>: the same commit, change or test fix sent twice is recognised as a duplicate. An amend, a reset or a rebase counts as no commit.</li>
             <li><b>Green means green</b>: tests pay only when a real test runner went from failing to passing, and only when its result can be read (a run piped through <code>tail</code> or ended with <code>|| true</code> doesn't count).</li>
-            <li><b>Grades can't be gamed by length or flattery</b>: a steer tops out at 8, a hostile prompt at 3.5, and the grader reads your previous prompt, so repeating yourself doesn't move the work forward.</li>
+            <li><b>Grades can't be gamed by length or flattery</b>: a steer tops out at <span data-rule="prompt/v2/caps/steer/grade">8</span>, a hostile prompt at <span data-rule="prompt/v2/caps/hostile/grade">3.5</span>, and the grader reads your previous prompt, so repeating yourself doesn't move the work forward.</li>
             <li><b>Gold can't buy XP</b>: the shop sells looks and treats, never sigils or XP snacks.</li>
             <li><b>Limits per player</b> on the online server: a flood of events is turned away and the mod tries again later.</li>
           </ul>

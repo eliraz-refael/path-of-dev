@@ -17,12 +17,13 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#12101b">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
-<link rel="stylesheet" href="/site.css?v=60542c2c8a10">
+<link rel="stylesheet" href="/site.css?v=bde35abefbf3">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -101,7 +102,7 @@
           <h3 id="months">I've used Claude Code for months. Does that count?</h3>
           <p>It can show, but it doesn't pay. <code>/pathofdev import history</code> counts your work from before Path of Dev from Claude Code's own transcripts on your machine (prompts, sessions, projects, days, your longest streak, test runs and commits) and sends only the counts. It gives no XP or badges, so a long history doesn't put you ahead, and it shows on your profile only if you choose. See <a href="/privacy/#history">the history import</a>.</p>
           <h3 id="farm">Can I cheat, or farm XP?</h3>
-          <p>Not for long. Every kind of XP has a daily limit, the prompt rate drops after the 20th prompt of the day, the same commit or test fix counts once, an opened pull request pays nothing, tiny merges and merges on your own repos pay less, and gold can't buy XP. <a href="/play/#fair">Fair play</a> has the full list. It's still a game run on trust; if you find a hole, <a href="https://github.com/eliraz-refael/path-of-dev/issues">report it</a>.</p>
+          <p>Not for long. Every kind of XP has a daily limit, the prompt rate drops after the <span data-rule="prompt/perDay/0/upTo">20</span>th prompt of the day, the same commit or test fix counts once, an opened pull request pays nothing, tiny merges and merges on your own repos pay less, and gold can't buy XP. <a href="/play/#fair">Fair play</a> has the full list. It's still a game run on trust; if you find a hole, <a href="https://github.com/eliraz-refael/path-of-dev/issues">report it</a>.</p>
           <h3 id="ungraded">Why wasn't my prompt graded?</h3>
           <p>Prompts under <span data-rule="mod:minWords">6</span> words, slash commands and prompts you didn't type yourself aren't graded. If Haiku doesn't answer in time, that prompt goes ungraded too. <code>/pathofdev last</code> shows the last one that was.</p>
           <h3 id="merge">Why didn't my merge pay?</h3>

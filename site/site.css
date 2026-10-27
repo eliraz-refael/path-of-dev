@@ -78,7 +78,8 @@ body {
   color: var(--ink);
   font: 400 var(--step-0)/1.6 var(--body);
   margin: 0;
-  padding-inline: max(20px, env(safe-area-inset-left, 0px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
   padding-block: 0;
 }
 .wrap { max-width: 1120px; margin-inline: auto; }
@@ -343,7 +344,7 @@ section.block { padding-block: 72px; border-top: 1px solid var(--line); }
   .foot .about { grid-column: 1 / -1; }
 }
 @media (max-width: 480px) {
-  body { padding-inline: max(16px, env(safe-area-inset-left, 0px)); }
+  body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .nav { padding-block: 16px; }
   .nav .pill { display: none; }
   .term pre { font-size: 0.72rem; }
