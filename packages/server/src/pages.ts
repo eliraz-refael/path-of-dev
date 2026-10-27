@@ -8,7 +8,7 @@ import type { PublicBadge, PublicBadges, PublicHistory, PublicProfile } from "./
 
 // The pages `/u/<login>` answers, from a PublicProfile (profile.ts), which holds only what the player shows:
 //
-//   ┌ nav: Path of Dev ────────────────────────────── What is this? ┐
+//   ┌ nav: Path of Dev ──────────────── What is this? · Get started ┐
 //   │ ┌ side ──────────┐  ┌ main ───────────────────────────────────┐ │
 //   │ │ portrait       │  │ Badges          (badges)                │ │
 //   │ │  pet, or glyph │  │ Pet (pet)  │ Streak (streak)            │ │
@@ -56,6 +56,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .page { max-width: 1040px; margin-inline: auto; padding-block: 0 32px; }
 .nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px 22px; }
 .brand { font: 700 1.05rem/1 var(--display); text-decoration: none; letter-spacing: -0.01em; }
+.links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 18px; }
 .link { color: var(--muted); font-size: 0.9rem; text-decoration: none; }
 .link:hover { color: var(--ink); }
 .grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
@@ -176,6 +177,8 @@ export const pageHeaders: Readonly<Record<string, string>> = {
 export const pageContentType = "text/html; charset=utf-8"
 
 const home = "https://pathof.dev/"
+/** The site's guide to installing the mod and playing, for a visitor a page made curious. */
+const start = "https://pathof.dev/start/"
 
 const document = (title: string, head: Html, body: Html): Html => html`<!doctype html>
 <html lang="en">
@@ -190,7 +193,7 @@ ${head}
 </head>
 <body>
 <div class="page">
-<header class="nav"><a class="brand" href="${home}">Path of Dev</a><a class="link" href="${home}">What is this?</a></header>
+<header class="nav"><a class="brand" href="${home}">Path of Dev</a><nav class="links" aria-label="Site"><a class="link" href="${home}">What is this?</a><a class="link" href="${start}">Get started</a></nav></header>
 ${body}
 <footer class="foot">An RPG for your Claude Code sessions: every prompt gets graded, and good ones level you up. This page shows what the player chose to share. <a href="${home}">pathof.dev</a></footer>
 </div>

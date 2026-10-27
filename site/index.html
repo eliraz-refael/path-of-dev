@@ -2,263 +2,60 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'; script-src 'sha256-tOYZtsMvjInHXWpFaRcFPvlBD246PemuzvXIgQH6HYk='">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Path of Dev</title>
-<meta name="description" content="Path of Dev is an RPG for your Claude Code sessions: every prompt you write gets graded, and good ones earn XP, loot and a pixel pet that grows with you.">
+<title>Path of Dev: an RPG for your Claude Code sessions</title>
+<meta name="description" content="Path of Dev is an RPG for your Claude Code sessions: every prompt you write gets graded, and good ones earn XP, loot and a pixel pet that grows with you. Open beta, free and open source.">
+<link rel="canonical" href="https://pathof.dev/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Path of Dev">
 <meta property="og:url" content="https://pathof.dev/">
-<meta property="og:title" content="Path of Dev">
-<meta property="og:description" content="Path of Dev is an RPG for your Claude Code sessions: every prompt you write gets graded, and good ones earn XP, loot and a pixel pet that grows with you.">
-<meta name="theme-color" content="#12101b">
+<meta property="og:title" content="Path of Dev: an RPG for your Claude Code sessions">
+<meta property="og:description" content="Every prompt you write gets graded, and good ones level you up: XP, loot, missions and a pixel pet, in a band above the prompt. Open beta, free and open source.">
+<meta property="og:image" content="https://pathof.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
-<style>
-  /* Layout: a night-time terminal world. The hero pairs the claim with a live session (a prompt, its grade, the band);
-     below, the game's real tables (rubric, XP ledger, loot odds, quests, the title path) set like an RPG manual.
-     One look, committed: dark only. */
-  :root {
-    color-scheme: dark;
-    --ground: #12101b;
-    --panel: #1b1828;
-    --panel-2: #221e33;
-    --line: #2f2a44;
-    --ink: #eeeaf7;
-    --muted: #a39cbd;
-    --faint: #6f6889;
-    --term: #0c0b13;
-    /* loot rarity ladder, taken from the game's own catalogue colours */
-    --common: #b4b0c2;
-    --uncommon: #5fd75f;
-    --rare: #4ea8ff;
-    --epic: #c77dff;
-    --legendary: #ffb627;
-    --legendary-hi: #ffd23f;
-    --display: "Pixelify Sans", "Courier New", monospace;
-    --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    --step--1: 0.875rem;
-    --step-0: 1.0625rem;
-    --step-2: 1.75rem;
-    --step-3: clamp(2.1rem, 1.4rem + 3vw, 3.6rem);
-  }
-
-  * { box-sizing: border-box; }
-  img { max-width: 100%; }
-  body {
-    background: var(--ground);
-    color: var(--ink);
-    font: 400 var(--step-0)/1.6 var(--body);
-    margin: 0;
-    padding-inline: 20px;
-    padding-block: 0;
-  }
-  .wrap { max-width: 1120px; margin-inline: auto; }
-  a { color: inherit; }
-  a:focus-visible { outline: 2px solid var(--legendary); outline-offset: 3px; border-radius: 4px; }
-  h1, h2, h3 { text-wrap: balance; margin: 0; }
-  p { margin: 0; }
-
-  /* nav */
-  .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; }
-  .brand { display: flex; align-items: center; gap: 10px; font: 700 1.25rem/1 var(--display); text-decoration: none; letter-spacing: 0.01em; }
-  .brand-mark { color: var(--legendary); }
-  .nav-right { display: flex; align-items: center; gap: 14px; }
-  .pill {
-    font: 500 0.78rem/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--legendary-hi); border: 1px solid color-mix(in srgb, var(--legendary) 45%, transparent);
-    padding: 7px 10px; border-radius: 999px; white-space: nowrap;
-  }
-  .nav-link { font-size: var(--step--1); color: var(--muted); text-decoration: none; }
-  .nav-link:hover { color: var(--ink); }
-
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 56px; align-items: center; padding-block: 48px 72px; }
-  .eyebrow { font: 500 0.8rem/1.2 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .hero h1 { font: 700 var(--step-3)/1.06 var(--display); letter-spacing: -0.01em; margin-top: 18px; }
-  .hero h1 .lit { color: var(--legendary); }
-  .lede { margin-top: 22px; color: var(--muted); max-width: 34em; font-size: 1.1rem; }
-  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 32px; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
-    font: 700 1rem/1 var(--body); padding: 14px 20px; border-radius: 8px;
-    background: var(--legendary); color: #1d1405; box-shadow: 0 3px 0 #b97a0b;
-    transition: transform .12s ease, box-shadow .12s ease;
-  }
-  .btn:hover { transform: translateY(1px); box-shadow: 0 2px 0 #b97a0b; }
-  .btn svg { width: 18px; height: 18px; }
-  .cta-note { font-size: var(--step--1); color: var(--faint); }
-  .cta-note a, footer p a { color: var(--muted); }
-  .cta-note a:hover, footer p a:hover { color: var(--ink); }
-
-  /* terminal */
-  .term { background: var(--term); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px -30px rgba(0,0,0,.8); min-width: 0; }
-  .term-bar { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: #13111c; }
-  .dot { width: 11px; height: 11px; border-radius: 50%; background: #3a3550; }
-  .term-title { margin-left: 8px; font: 400 0.78rem/1 var(--mono); color: var(--faint); }
-  .term-body { padding: 18px 18px 16px; overflow-x: auto; }
-  .term pre { margin: 0; font: 400 0.86rem/1.65 var(--mono); color: #cfc9e2; white-space: pre; }
-  #log { min-height: calc(0.86rem * 1.65 * 9); }
-  .t-dim { color: var(--faint); }
-  .t-you { color: #e8e3f5; }
-  .t-ok { color: var(--uncommon); }
-  .t-xp { color: var(--legendary-hi); font-weight: 700; }
-  .t-grade { color: var(--legendary); font-weight: 700; }
-  .t-unc { color: var(--uncommon); font-weight: 700; }
-  .t-gold { color: #d7875f; }
-  .t-edge { color: #808080; }
-  .t-title { color: #e4e4e4; font-weight: 700; }
-  .t-full { color: #87d787; }
-  .t-empty { color: #4e4e4e; }
-  .band { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; align-items: flex-end; gap: 18px; }
-  .band pre { flex: 1 1 auto; min-width: 0; }
-  #pet { width: 70px; height: 60px; image-rendering: pixelated; flex: none; transition: transform .2s steps(1); }
-  .line-in { display: inline-block; animation: lineIn .35s ease both; }
-  @keyframes lineIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-
-  /* sections */
-  section.block { padding-block: 72px; border-top: 1px solid var(--line); }
-  .sec-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 40px; align-items: end; margin-bottom: 36px; }
-  .sec-head h2 { font: 700 var(--step-2)/1.15 var(--display); }
-  .sec-head p { color: var(--muted); max-width: 36em; }
-  .tag { font: 500 0.74rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
-
-  /* rubric */
-  .grade-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px; min-width: 0; }
-  .sample { font: 400 0.95rem/1.6 var(--mono); color: var(--ink); padding: 14px 16px; background: var(--term); border-radius: 8px; border: 1px solid var(--line); }
-  .sample::before { content: "› "; color: var(--faint); }
-  .scores { display: grid; gap: 12px; margin-top: 20px; }
-  .score { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 1.6rem; gap: 12px; align-items: center; }
-  .score .name { font: 500 0.85rem/1.2 var(--mono); color: var(--ink); }
-  .score .desc { grid-column: 1 / -1; font-size: 0.85rem; color: var(--faint); margin-top: -6px; }
-  .meter { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
-  .meter i { height: 10px; border-radius: 2px; background: var(--line); }
-  .meter i.on { background: var(--rare); }
-  .score .n { font: 700 0.95rem/1 var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
-  .total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .total .g { font: 700 1.9rem/1 var(--mono); color: var(--legendary); font-variant-numeric: tabular-nums; }
-  .total .g small { font-size: 1rem; color: var(--faint); font-weight: 400; }
-  .total .x { font: 700 1.2rem/1 var(--mono); color: var(--legendary-hi); }
-  .note { margin-top: 10px; font-style: italic; color: var(--muted); font-size: 0.92rem; }
-  .rules { display: grid; gap: 16px; }
-  .rule h3 { font: 700 1.1rem/1.25 var(--display); margin-bottom: 6px; }
-  .rule p { color: var(--muted); font-size: 0.98rem; }
-  .taper { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-  .taper div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
-  .taper b { display: block; font: 700 1.1rem/1.1 var(--mono); color: var(--legendary-hi); font-variant-numeric: tabular-nums; }
-  .taper span { font-size: 0.8rem; color: var(--faint); }
-
-  /* XP ledger */
-  .ledger-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-  .ledger { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  .ledger th { text-align: left; font: 500 0.74rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); padding: 16px 20px; border-bottom: 1px solid var(--line); }
-  .ledger td { padding: 13px 20px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: baseline; }
-  .ledger tr:last-child td { border-bottom: 0; }
-  .ledger .xp { text-align: right; font: 700 1.05rem/1 var(--mono); color: var(--legendary-hi); white-space: nowrap; }
-  .ledger th.xp-h { text-align: right; }
-  .ledger .cap { color: var(--muted); font-size: var(--step--1); white-space: nowrap; }
-  .ledger .what small { display: block; color: var(--faint); font-size: 0.82rem; margin-top: 2px; }
-  .ledger tr.daily td { background: color-mix(in srgb, var(--legendary) 7%, transparent); }
-  .ledger tr.nil .xp { color: var(--faint); }
-  .gh { display: inline-block; margin-left: 8px; color: var(--uncommon); font: 500 0.7rem/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid color-mix(in srgb, var(--uncommon) 40%, transparent); border-radius: 4px; padding: 3px 5px; vertical-align: 2px; }
-  .ledger-note { margin-top: 16px; color: var(--faint); font-size: var(--step--1); }
-
-  /* loot */
-  .odds { display: flex; height: 18px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
-  .odds span { display: block; }
-  .tiers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
-  .tier { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .tier-name { font: 700 0.95rem/1 var(--display); color: var(--c); letter-spacing: .02em; }
-  .tier-pct { font: 700 1.6rem/1 var(--mono); font-variant-numeric: tabular-nums; }
-  .tier-pct small { font-size: .8rem; color: var(--faint); font-weight: 400; margin-left: 2px; }
-  .tier ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: var(--step--1); color: var(--muted); }
-  .lore { margin-top: auto; font-style: italic; font-size: 0.85rem; color: var(--c); }
-  .pity { margin-top: 20px; color: var(--muted); font-size: var(--step--1); }
-  .pity b { color: var(--ink); }
-
-  /* quests */
-  .quests { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .quest { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 18px; align-items: start; }
-  .quest h3 { font: 700 1.15rem/1.2 var(--display); }
-  .quest p { grid-column: 1; color: var(--muted); font-size: 0.98rem; }
-  .cadence { grid-column: 2; grid-row: 1; justify-self: end; color: var(--c); }
-  .reward { grid-column: 1 / -1; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px 16px; font: 500 0.85rem/1.4 var(--mono); color: var(--legendary-hi); }
-  .reward .g { color: #d7875f; }
-  .reward .l { color: var(--c2); }
-  .quest-note { margin-top: 18px; color: var(--faint); font-size: var(--step--1); }
-
-  /* path */
-  .path { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding-top: 8px; }
-  .path::before { content: ""; position: absolute; left: 8%; right: 8%; top: 31px; border-top: 2px dashed var(--line); }
-  .stop { position: relative; text-align: center; display: grid; justify-items: center; gap: 8px; min-width: 0; }
-  .node { width: 48px; height: 48px; display: grid; place-items: center; background: var(--panel-2); border: 2px solid var(--line); border-radius: 10px; font: 700 0.9rem/1 var(--mono); color: var(--muted); }
-  .stop.here .node { border-color: var(--legendary); color: var(--legendary-hi); box-shadow: 0 0 0 4px color-mix(in srgb, var(--legendary) 18%, transparent); }
-  .stop h3 { font: 700 1.05rem/1.2 var(--display); }
-  .stop .need { font: 400 0.8rem/1.3 var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
-  .evolve { font: 500 0.7rem/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--epic); }
-  .pet-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 44px; }
-  .fact { border-left: 2px solid var(--line); padding-left: 16px; }
-  .fact b { display: block; font: 700 1.6rem/1.1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
-  .fact span { color: var(--muted); font-size: var(--step--1); }
-
-  footer { border-top: 1px solid var(--line); padding-block: 36px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; color: var(--faint); font-size: var(--step--1); }
-  footer p { max-width: 48em; }
-
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: minmax(0, 1fr); gap: 40px; padding-block: 24px 56px; }
-    .sec-head, .grade-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-    .tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .tiers .tier:last-child { grid-column: 1 / -1; }
-    .quests { grid-template-columns: minmax(0, 1fr); }
-    .path { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 28px; }
-    .path::before { display: none; }
-    .pet-facts { grid-template-columns: minmax(0, 1fr); }
-  }
-  @media (max-width: 480px) {
-    body { padding-inline: 16px; }
-    .nav-link { display: none; }
-    .term pre { font-size: 0.72rem; }
-    #log { min-height: calc(0.72rem * 1.65 * 9); }
-    .ledger td, .ledger th { padding-inline: 14px; }
-    .score { grid-template-columns: 6.5rem minmax(0, 1fr) 1.6rem; }
-    #pet { width: 56px; height: 48px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .line-in { animation: none; }
-    .btn, #pet { transition: none; }
-  }
-</style>
+<link rel="stylesheet" href="/site.css?v=bde35abefbf3">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <div class="wrap">
   <header class="nav">
-    <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">⚔</span> Path of Dev</a>
-    <div class="nav-right">
-      <a class="nav-link" href="#grading">Grading</a>
-      <a class="nav-link" href="#loot">Loot</a>
-      <a class="nav-link" href="#quests">Quests</a>
-      <span class="pill">In development</span>
-    </div>
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚔</span> Path of Dev</a>
+    <nav aria-label="Site">
+      <ul class="nav-links">
+        <li><a class="nav-link" href="/start/">Get started</a></li>
+        <li><a class="nav-link" href="/play/">How it plays</a></li>
+        <li><a class="nav-link" href="/commands/">Commands</a></li>
+        <li><a class="nav-link" href="/privacy/">Privacy</a></li>
+        <li><a class="nav-link" href="/faq/">FAQ</a></li>
+        <li><span class="pill">Open beta</span></li>
+      </ul>
+    </nav>
   </header>
 
-  <main id="top">
+  <main id="main">
     <section class="hero">
       <div>
         <p class="eyebrow">An RPG for your Claude Code sessions</p>
         <h1>Every prompt you write gets graded. <span class="lit">Good ones level you up.</span></h1>
-        <p class="lede">Path of Dev grades each prompt you send against what it needs (a clear ask, the right pointers, a picture of done) and turns the grade into XP, loot and a pixel pet that grows with you. Shipping real work on GitHub pays the big bonuses.</p>
+        <p class="lede">Path of Dev grades each prompt you send against what it needs: a clear ask, the right pointers, a picture of done. The grade turns into XP, loot and a pixel pet that grows with you, and merged pull requests pay the big bonuses.</p>
         <div class="cta-row">
-          <a class="btn" href="https://github.com/eliraz-refael/path-of-dev" target="_blank" rel="noopener">
-            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-            Install it from GitHub
-          </a>
-          <span class="cta-note">Open beta: install the mod, then sign in with GitHub. <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md" target="_blank" rel="noopener">What the server keeps</a>. Open source, MIT.</span>
+          <a class="btn" href="/start/">Get started</a>
+          <a class="btn ghost" href="https://pathof.dev/u/elirazked">See a player</a>
         </div>
+        <p class="cta-note">Open beta: a Claude Code plugin, free and open source (MIT). Install it, sign in with GitHub, and keep working as you do. <a href="/privacy/">What the server keeps</a>.</p>
       </div>
 
-      <div class="term" aria-label="Example: a prompt typed in Claude Code, its grade, and the XP band">
+      <div class="term" role="figure" aria-label="Example: a prompt typed in Claude Code, its grade, and the XP band">
         <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">~/code/inkwell · claude</span></div>
         <div class="term-body">
           <pre id="log"><span class="t-dim">›</span> <span class="t-you">parseDue fails on DST days in src/dates.ts.</span>
@@ -282,7 +79,7 @@
     <section class="block" id="grading">
       <div class="sec-head">
         <h2>How a prompt is graded.</h2>
-        <p>A small model grades every prompt of six words or more against what that prompt actually needs: six measures of what it says, each from 0 to 10, and a little more for clear writing and a kind tone. A quick follow-up question isn't marked down for skipping a why it doesn't need.</p>
+        <p>A small model grades every prompt of <span data-rule="mod:minWords">6</span> words or more against what that prompt actually needs: six measures of what it says, each from 0 to 10, and a little more for clear writing and a kind tone. A quick follow-up question isn't marked down for skipping a why it doesn't need.</p>
       </div>
       <div class="grade-grid">
         <div class="card">
@@ -311,6 +108,7 @@
           </div>
         </div>
       </div>
+      <p class="sec-more"><a href="/play/#prompts">How grading works, in full</a></p>
     </section>
 
     <section class="block" id="xp">
@@ -322,21 +120,22 @@
         <table class="ledger">
           <thead><tr><th>What you did</th><th>Daily limit</th><th class="xp-h">XP</th></tr></thead>
           <tbody>
-            <tr class="daily"><td class="what">A graded prompt<small>your grade × 1.5</small></td><td class="cap">tapers after 20</td><td class="xp">up to 15</td></tr>
-            <tr><td class="what">First contribution to a repo <span class="gh">GitHub</span></td><td class="cap">none</td><td class="xp">300</td></tr>
-            <tr><td class="what">Pull request merged<small>120 on your own repo</small></td><td class="cap">none</td><td class="xp">250</td></tr>
-            <tr><td class="what">Bug fixed <span class="gh">GitHub</span></td><td class="cap">5 a day</td><td class="xp">150</td></tr>
-            <tr><td class="what">Review feedback acted on <span class="gh">GitHub</span></td><td class="cap">10 a day</td><td class="xp">80</td></tr>
-            <tr><td class="what">Issue closed <span class="gh">GitHub</span></td><td class="cap">5 a day</td><td class="xp">60</td></tr>
+            <tr class="daily"><td class="what">A graded prompt<small>your grade × 1.5</small></td><td class="cap">tapers after <span data-rule="prompt/perDay/0/upTo">20</span></td><td class="xp">up to 15</td></tr>
+            <tr><td class="what">Pull request merged<small><span data-rule="xp/change.merged/ownRepoXp">120</span> on your own repo, a quarter for a change of under <span data-rule="xp/change.merged/tinyDiffLines">3</span> lines</small></td><td class="cap">none</td><td class="xp">250</td></tr>
             <tr><td class="what">New repo explored</td><td class="cap">3 a day</td><td class="xp">25</td></tr>
             <tr><td class="what">Red tests turned green</td><td class="cap">5 a day</td><td class="xp">20</td></tr>
-            <tr><td class="what">Streak day</td><td class="cap">1 a day</td><td class="xp">10</td></tr>
+            <tr><td class="what">Streak day<small><span data-rule="streak/xpPerDay">10</span> for each day of your streak, up to <span data-rule="streak/maxXp">70</span></small></td><td class="cap">1 a day</td><td class="xp">10</td></tr>
             <tr><td class="what">Commit</td><td class="cap">20 a day</td><td class="xp">3</td></tr>
             <tr class="nil"><td class="what">Pull request opened<small>it pays out when it merges</small></td><td class="cap">none</td><td class="xp">0</td></tr>
+            <tr class="soon"><td class="what">First contribution to a repo <span class="gh">GitHub</span><small>coming: once GitHub checks it</small></td><td class="cap">none</td><td class="xp">300</td></tr>
+            <tr class="soon"><td class="what">Bug fixed <span class="gh">GitHub</span><small>coming: once GitHub checks it</small></td><td class="cap">5 a day</td><td class="xp">150</td></tr>
+            <tr class="soon"><td class="what">Review feedback acted on <span class="gh">GitHub</span><small>coming: once GitHub checks it</small></td><td class="cap">10 a day</td><td class="xp">80</td></tr>
+            <tr class="soon"><td class="what">Issue closed <span class="gh">GitHub</span><small>coming: once GitHub checks it</small></td><td class="cap">5 a day</td><td class="xp">60</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="ledger-note">Rows marked GitHub are checked against GitHub before they count. Only confirmed work counts toward the leaderboards.</p>
+      <p class="ledger-note">Rows marked GitHub pay once the server can check them against GitHub, which is still being built: until then they earn nothing.</p>
+      <p class="sec-more"><a href="/play/#xp">Every way to earn XP, and the limits</a></p>
     </section>
 
     <section class="block" id="loot">
@@ -345,30 +144,32 @@
         <p>Each turn can drop an item, 12% of the time, and each graded prompt rolls too: 17.5% of the time at a perfect 10, less as its grade falls. A grade of 9 or more doubles the odds of rare and better. Every level-up drops one too.</p>
       </div>
       <div class="odds" role="img" aria-label="Base drop odds: common 60.4%, uncommon 25.1%, rare 10.1%, epic 4%, legendary 0.4%">
-        <span style="flex:604;background:var(--common)"></span><span style="flex:251;background:var(--uncommon)"></span><span style="flex:101;background:var(--rare)"></span><span style="flex:40;background:var(--epic)"></span><span style="flex:4;background:var(--legendary)"></span>
+        <span class="common"></span><span class="uncommon"></span><span class="rare"></span><span class="epic"></span><span class="legendary"></span>
       </div>
       <div class="tiers">
-        <div class="tier" style="--c:var(--common)"><span class="tier-name">Common</span><span class="tier-pct">60.4<small>%</small></span><ul><li>Plain Cap</li><li>Paper Scarf</li><li>Trail Mix <span class="t-dim">(+10% XP, 1h)</span></li></ul></div>
-        <div class="tier" style="--c:var(--uncommon)"><span class="tier-name">Uncommon</span><span class="tier-pct">25.1<small>%</small></span><ul><li>Knit Scarf</li><li>Confetti Pop</li><li>Terminal Green</li></ul></div>
-        <div class="tier" style="--c:var(--rare)"><span class="tier-name">Rare</span><span class="tier-pct">10.1<small>%</small></span><ul><li>Wizard Hat</li><li>Fireworks</li><li>Tempered Steel bar</li></ul></div>
-        <div class="tier" style="--c:var(--epic)"><span class="tier-name">Epic</span><span class="tier-pct">4<small>%</small></span><ul><li>Pixel Dragon</li><li>Arcane Current bar</li><li>Starlit Edge</li></ul><p class="lore">“It hums when the tests go green.”</p></div>
-        <div class="tier" style="--c:var(--legendary)"><span class="tier-name">Legendary</span><span class="tier-pct">0.4<small>%</small></span><ul><li>Aurora Crown</li><li>Starforged Bar</li><li>Dragon's Hoard</li></ul><p class="lore">“Said to glow brighter with every merge.”</p></div>
+        <div class="tier c-common"><span class="tier-name">Common</span><span class="tier-pct">60.4<small>%</small></span><ul><li>Plain Cap</li><li>Paper Scarf</li><li>Trail Mix <span class="t-dim">(+10% XP, 1h)</span></li></ul></div>
+        <div class="tier c-uncommon"><span class="tier-name">Uncommon</span><span class="tier-pct">25.1<small>%</small></span><ul><li>Knit Scarf</li><li>Confetti Pop</li><li>Terminal Green</li></ul></div>
+        <div class="tier c-rare"><span class="tier-name">Rare</span><span class="tier-pct">10.1<small>%</small></span><ul><li>Wizard Hat</li><li>Fireworks</li><li>Tempered Steel bar</li></ul></div>
+        <div class="tier c-epic"><span class="tier-name">Epic</span><span class="tier-pct">4<small>%</small></span><ul><li>Pixel Dragon</li><li>Arcane Current bar</li><li>Starlit Edge</li></ul><p class="lore">“It hums when the tests go green.”</p></div>
+        <div class="tier c-legendary"><span class="tier-name">Legendary</span><span class="tier-pct">0.4<small>%</small></span><ul><li>Aurora Crown</li><li>Starforged Bar</li><li>Dragon's Hoard</li></ul><p class="lore">“Said to glow brighter with every merge.”</p></div>
       </div>
-      <p class="pity">Bad luck runs out: <b>a rare is guaranteed within 25 drops</b>, and <b>an epic within 80</b>. Wear your loot on your pet or use it to restyle the band above your prompt.</p>
+      <p class="pity">Bad luck runs out: <b>after <span data-rule="loot/pity/rareAfter">25</span> drops without a rare, the next one is rare</b>, and <b>after <span data-rule="loot/pity/epicAfter">80</span> without an epic, the next one is epic</b>. Wear your loot on your pet or use it to restyle the band above your prompt.</p>
+      <p class="sec-more"><a href="/play/#loot">Loot, gold and the shop</a></p>
     </section>
 
     <section class="block" id="quests">
       <div class="sec-head">
-        <h2>Quests point you at better habits.</h2>
+        <h2>Missions point you at better habits.</h2>
         <p>Three dailies every day. Each week, five weeklies are on offer and you run three of them.</p>
       </div>
       <div class="quests">
-        <article class="quest" style="--c:var(--uncommon)"><h3>Clear Thinker</h3><span class="cadence tag">Daily</span><p>Write 5 prompts that make clear what you want (8 or more) today.</p><div class="reward"><span>+50 XP</span><span class="g">● 30 gold</span></div></article>
-        <article class="quest" style="--c:var(--uncommon)"><h3>Finish Line</h3><span class="cadence tag">Daily</span><p>Write 3 prompts that say what done looks like (7 or more) today.</p><div class="reward"><span>+40 XP</span><span class="g">● 25 gold</span></div></article>
-        <article class="quest" style="--c:var(--rare);--c2:var(--epic)"><h3>Wordsmith's Week</h3><span class="cadence tag">Weekly</span><p>Get 25 prompts graded very well this week.</p><div class="reward"><span>+300 XP</span><span class="g">● 150 gold</span><span class="l">✦ epic loot</span></div></article>
-        <article class="quest" style="--c:var(--rare);--c2:var(--rare)"><h3>Ship It</h3><span class="cadence tag">Weekly</span><p>Get a pull request merged this week.</p><div class="reward"><span>+250 XP</span><span class="g">● 120 gold</span><span class="l">✦ rare wearable</span></div></article>
+        <article class="quest c-uncommon"><h3>Clear Thinker</h3><span class="cadence tag">Daily</span><p>Write 5 prompts that make clear what you want (8 or more) today.</p><div class="reward"><span>+50 XP</span><span class="g">● 30 gold</span></div></article>
+        <article class="quest c-uncommon"><h3>Finish Line</h3><span class="cadence tag">Daily</span><p>Write 3 prompts that say what done looks like (7 or more) today.</p><div class="reward"><span>+40 XP</span><span class="g">● 25 gold</span></div></article>
+        <article class="quest c-rare c2-epic"><h3>Wordsmith's Week</h3><span class="cadence tag">Weekly</span><p>Get 25 prompts graded very well this week.</p><div class="reward"><span>+300 XP</span><span class="g">● 150 gold</span><span class="l">✦ epic loot</span></div></article>
+        <article class="quest c-rare c2-rare"><h3>Ship It</h3><span class="cadence tag">Weekly</span><p>Get a pull request merged this week.</p><div class="reward"><span>+250 XP</span><span class="g">● 120 gold</span><span class="l">✦ rare wearable</span></div></article>
       </div>
       <p class="quest-note">Others ask you to turn a red test suite green, keep context under half for three sessions, or run a code review three times in a week.</p>
+      <p class="sec-more"><a href="/play/#missions">How missions work</a></p>
     </section>
 
     <section class="block" id="path">
@@ -389,15 +190,60 @@
         <div class="fact"><b>−10</b><span>mood for every day you stay away. It notices.</span></div>
         <div class="fact"><b>1</b><span>rest day a week that won't break your streak.</span></div>
       </div>
+      <p class="sec-more"><a href="/play/#levels">Levels, the pet, streaks and badges</a></p>
+    </section>
+
+    <section class="block" id="play">
+      <div class="sec-head">
+        <h2>Start playing in a minute.</h2>
+        <p>Path of Dev is a Claude Code plugin. It grades in the background and never holds a prompt back, so you keep working exactly as you do.</p>
+      </div>
+      <ol class="steps">
+        <li><h3>Install the mod</h3><pre class="shell">/plugin install pathofdev --marketplace eliraz-refael/path-of-dev</pre><p>In Claude Code, then restart it.</p></li>
+        <li><h3>Sign in</h3><pre class="shell">/pathofdev server online
+/pathofdev login</pre><p>Enter the code on github.com. GitHub tells the server only who you are.</p></li>
+        <li><h3>Write a prompt</h3><p>Ask Claude for something real, in <span data-rule="mod:minWords">6</span> words or more. A moment later the band above the prompt shows the grade and the XP it earned.</p></li>
+      </ol>
+      <div class="cta-row">
+        <a class="btn" href="/start/">Get started</a>
+        <a class="btn ghost" href="/faq/">Questions? Read the FAQ</a>
+      </div>
     </section>
   </main>
 
-  <footer>
-    <p>Path of Dev is in open beta. It's an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic. <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md" target="_blank" rel="noopener">Privacy: what the server keeps, and how to export or delete it</a>.</p>
-    <a class="nav-link" href="https://github.com/eliraz-refael/path-of-dev" target="_blank" rel="noopener">GitHub</a>
+  <footer class="foot">
+    <div class="about">
+      <p>Path of Dev is in open beta. It's an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic.</p>
+      <p>Free and open source, under the <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">MIT license</a>.</p>
+    </div>
+    <nav aria-label="Play">
+      <h2>Play</h2>
+      <ul>
+        <li><a href="/start/">Get started</a></li>
+        <li><a href="/play/">How it plays</a></li>
+        <li><a href="/commands/">Commands</a></li>
+        <li><a href="https://pathof.dev/u/elirazked">See a player</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Help">
+      <h2>Help</h2>
+      <ul>
+        <li><a href="/faq/">FAQ</a></li>
+        <li><a href="/privacy/">Profile &amp; privacy</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/issues">Report a bug</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Project">
+      <h2>Project</h2>
+      <ul>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev">Source on GitHub</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md">Privacy notice</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">License</a></li>
+      </ul>
+    </nav>
   </footer>
 </div>
-
 <script>
 (() => {
   // --- the rubric card: the grader's measures for the sample prompt, the six that make the grade and the two that nudge it

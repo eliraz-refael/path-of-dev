@@ -2,7 +2,8 @@ import { it } from "@effect/vitest"
 import { emptyCell, spriteRuns } from "@pathofdev/schema"
 import { Schema } from "effect"
 import { describe, expect } from "vitest"
-import { escapeHtml, html, isHtml, raw, spriteSvg } from "../src/index.ts"
+import { existsSync } from "node:fs"
+import { escapeHtml, html, isHtml, notFoundPage, raw, spriteSvg } from "../src/index.ts"
 
 // The HTML boundary, as properties over hostile text: escaped text never carries markup and reads back as it was; a
 // template keeps its own markup and nothing else, whatever goes in its slots; a sprite draws one rect per run.
@@ -66,5 +67,14 @@ describe("spriteSvg", () => {
     expect(svg).toContain(`viewBox="0 0 4 ${rows.length}"`)
     expect(svg).toContain(`aria-label="${escapeHtml(text(label))}"`)
     expect(rects.length === 0).toBe(rows.every((row) => [...row].every((cell) => cell === emptyCell)))
+  })
+})
+
+describe("a page's header", () => {
+  it("links the site's home and its guide to getting started, pages site/ has", () => {
+    const header = /<header class="nav">[\s\S]*?<\/header>/.exec(notFoundPage)?.[0] ?? ""
+    const links = [...header.matchAll(/href="https:\/\/pathof\.dev(\/[^"]*)"/g)].map(([, path]) => path!)
+    expect(links).toEqual(["/", "/", "/start/"])
+    for (const path of links) expect(existsSync(new URL(`../../../site${path}index.html`, import.meta.url)), path).toBe(true)
   })
 })

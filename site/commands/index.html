@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Commands · Path of Dev</title>
+<meta name="description" content="Every Path of Dev command in Claude Code: the /pathofdev pane and its tabs, /pet, sign-in, switching servers, your public profile, exporting or deleting your account, importing your history, the pet on the band, and every setting.">
+<link rel="canonical" href="https://pathof.dev/commands/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Path of Dev">
+<meta property="og:url" content="https://pathof.dev/commands/">
+<meta property="og:title" content="Commands · Path of Dev">
+<meta property="og:description" content="Every Path of Dev command in Claude Code: the /pathofdev pane and its tabs, /pet, sign-in, switching servers, your public profile, exporting or deleting your account, importing your history, the pet on the band, and every setting.">
+<meta property="og:image" content="https://pathof.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
+<link rel="stylesheet" href="/site.css?v=bde35abefbf3">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="nav">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚔</span> Path of Dev</a>
+    <nav aria-label="Site">
+      <ul class="nav-links">
+        <li><a class="nav-link" href="/start/">Get started</a></li>
+        <li><a class="nav-link" href="/play/">How it plays</a></li>
+        <li><a class="nav-link" href="/commands/" aria-current="page">Commands</a></li>
+        <li><a class="nav-link" href="/privacy/">Privacy</a></li>
+        <li><a class="nav-link" href="/faq/">FAQ</a></li>
+        <li><span class="pill">Open beta</span></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="doc-head">
+      <p class="eyebrow">Reference</p>
+      <h1>Commands</h1>
+      <p class="lede">Everything you can type at Claude Code's prompt to play, and every setting. Words in angle brackets are yours to fill in. This list is checked against the mod's own commands on every change, so it names each one there is.</p>
+    </div>
+
+    <div class="doc">
+      <nav class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#pane">The pane</a></li>
+          <li><a href="#pet">The pet</a></li>
+          <li><a href="#servers">Servers and sign-in</a></li>
+          <li><a href="#profile">Your public profile</a></li>
+          <li><a href="#account">Your account</a></li>
+          <li><a href="#history">Your history</a></li>
+          <li><a href="#settings">Settings</a></li>
+          <li><a href="#admins">For the server's admins</a></li>
+          <li><a href="#dev">The dev sandbox</a></li>
+        </ol>
+      </nav>
+
+      <div class="prose">
+        <section id="pane" aria-labelledby="pane-h">
+          <h2 id="pane-h">The pane</h2>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev" data-example="">
+              <dt><code>/pathofdev</code></dt>
+              <dd><p>Opens the pane, the game's hub. Anything after <code>/pathofdev</code> that isn't a command below opens it too.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev welcome" data-example="welcome">
+              <dt><code>/pathofdev welcome</code></dt>
+              <dd><p>Opens the first-run guide from its first step: name your character, choose and name your pet's egg, and see how grading works.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev last" data-example="last">
+              <dt><code>/pathofdev last</code></dt>
+              <dd><p>How your last graded prompt was scored: its grade and XP, its kind, each measure, and Haiku's note. The same card the band's scores button opens, in any band mode.</p></dd>
+            </div>
+            <div class="cmd" data-command="/questline" data-example="">
+              <dt><code>/questline</code></dt>
+              <dd><p>The game's old name, Questline: it does exactly what <code>/pathofdev</code> does, with the same arguments, and goes away later.</p></dd>
+            </div>
+          </dl>
+          <h3>The tabs</h3>
+          <ul>
+            <li data-tab="inventory"><b>Inventory</b>: your pet card (pat, feed, hatch; keep it still or hide it), your sigil and band styles to equip, with a live preview, and everything else you own.</li>
+            <li data-tab="shop"><b>Shop</b>: today's shelf, treats, rerolling and salvaging duplicates, and crafting from shards.</li>
+            <li data-tab="stats"><b>Stats</b>: your last prompt's card, your progress, streak, prompting profile, context habits and top commands, what you imported from before Path of Dev, and where your public page is.</li>
+            <li data-tab="missions"><b>Missions</b>: today's dailies and this week's weeklies, to pick up or abandon.</li>
+            <li data-tab="welcome"><b>Welcome</b>: the first-run guide.</li>
+          </ul>
+          <p>Every control is a button: click it, or give the pane the keys and use <kbd>Tab</kbd> and <kbd>Enter</kbd>. <kbd>Esc</kbd> hands the keys back to the prompt.</p>
+        </section>
+
+        <section id="pet" aria-labelledby="pet-h">
+          <h2 id="pet-h">The pet</h2>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pet" data-example="">
+              <dt><code>/pet</code></dt>
+              <dd><p>Pats your pet: its mood goes up a little, at most <span data-rule="pet/care/pettedPerHour">3</span> pats an hour. Before it hatches, it says when you can hatch it.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev pet" data-example="pet">
+              <dt><code>/pathofdev pet</code></dt>
+              <dd><p>Says where your pet stands on the band, and how to change it.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev pet still" data-example="pet still">
+              <dt><code>/pathofdev pet still</code></dt>
+              <dd><p>Keeps it in one place on the band. It still reacts to your work.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev pet move" data-example="pet move">
+              <dt><code>/pathofdev pet move</code></dt>
+              <dd><p>Lets it wander the band again (while Celebrations is <code>full</code>).</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev pet hide" data-example="pet hide">
+              <dt><code>/pathofdev pet hide</code></dt>
+              <dd><p>Takes it off the band. Its mood and its XP bonus stay.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev pet show" data-example="pet show">
+              <dt><code>/pathofdev pet show</code></dt>
+              <dd><p>Brings it back, still or wandering as it was.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev pet tip" data-example="pet tip">
+              <dt><code>/pathofdev pet tip</code></dt>
+              <dd><p>Its tip about your last graded prompt, in its bubble and as text, whatever the Pet coach setting says.</p></dd>
+            </div>
+          </dl>
+          <p>The choice is the band's, so it holds on every server you play on.</p>
+        </section>
+
+        <section id="servers" aria-labelledby="servers-h">
+          <h2 id="servers-h">Servers and sign-in</h2>
+          <p>Each server keeps its own save, and the mod keeps a queue of what you did for each, sent once it answers.</p>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev server" data-example="server">
+              <dt><code>/pathofdev server</code></dt>
+              <dd><p>Says which server you play on, and, while it isn't answering, why and what to do.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev server online" data-example="server online">
+              <dt><code>/pathofdev server online</code></dt>
+              <dd><p>Plays on the online server, <code>api.pathof.dev</code>. Then sign in with <code>/pathofdev login</code>.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev server play" data-aliases="/pathofdev server default" data-example="server play">
+              <dt><code>/pathofdev server play</code></dt>
+              <dd><p>Plays on your own local save in <code>~/.pathofdev</code>, which needs the local server running (see <a href="/start/#local">playing locally</a>). <code>/pathofdev server default</code> is the same.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev server dev" data-example="server dev">
+              <dt><code>/pathofdev server dev</code></dt>
+              <dd><p>Plays on the dev sandbox in <code>~/.pathofdev-dev</code>, a throwaway save for trying out band styles, XP and celebrations (see <a href="#dev">the dev sandbox</a>).</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev off" data-example="dev off">
+              <dt><code>/pathofdev dev off</code></dt>
+              <dd><p>Leaves the dev sandbox for your own save: the same as <code>/pathofdev server play</code>.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev login" data-example="login">
+              <dt><code>/pathofdev login</code><span class="where">online</span></dt>
+              <dd><p>Signs you in to the online server with GitHub: it gives you a code to enter on github.com and says when you're in. GitHub tells the server only who you are.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev logout" data-example="logout">
+              <dt><code>/pathofdev logout</code><span class="where">online</span></dt>
+              <dd><p>Signs you out: the server revokes the mod's game token and the mod forgets it. What you do next waits in the queue until you sign in again.</p></dd>
+            </div>
+          </dl>
+          <p>Switching writes the plugin's <b>Server</b> setting, so <code>/config</code> and the command always agree.</p>
+        </section>
+
+        <section id="profile" aria-labelledby="profile-h">
+          <h2 id="profile-h">Your public profile</h2>
+          <p>On the online server, your page is at <code>pathof.dev/u/&lt;your-github-login&gt;</code>. It is private until you make it public. <a href="/privacy/#profile">Profile &amp; privacy</a> says what each section shows.</p>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev profile" data-example="profile">
+              <dt><code>/pathofdev profile</code><span class="where">online</span></dt>
+              <dd><p>Says whether your page is public, what it shows, what you've hidden, its address, and the sections there are.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev profile public" data-example="profile public">
+              <dt><code>/pathofdev profile public</code><span class="where">online</span></dt>
+              <dd><p>Anyone with the address can see your page.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev profile private" data-example="profile private">
+              <dt><code>/pathofdev profile private</code><span class="where">online</span></dt>
+              <dd><p>Nobody can: the page answers “No profile here”, as for a login nobody plays under.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev profile hide &lt;section&gt;" data-example="profile hide stats">
+              <dt><code>/pathofdev profile hide &lt;section&gt;</code><span class="where">online</span></dt>
+              <dd><p>Leaves a section off your page: <span data-sections><code>badges</code>, <code>pet</code>, <code>streak</code>, <code>stats</code> or <code>history</code></span>.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev profile show &lt;section&gt;" data-example="profile show history">
+              <dt><code>/pathofdev profile show &lt;section&gt;</code><span class="where">online</span></dt>
+              <dd><p>Puts a section back. Every section but <code>history</code> starts shown.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="account" aria-labelledby="account-h">
+          <h2 id="account-h">Your account</h2>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev account export" data-example="account export">
+              <dt><code>/pathofdev account export</code><span class="where">online</span></dt>
+              <dd><p>Writes everything the online server keeps of you to JSON files under <code>~/.pathofdev/exports/</code>, a folder per export, <code>complete.json</code> last.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev account delete &lt;your-github-login&gt;" data-aliases="/pathofdev account delete" data-example="account delete octocat">
+              <dt><code>/pathofdev account delete &lt;your-github-login&gt;</code><span class="where">online</span></dt>
+              <dd><p>Deletes your account on the online server for good: your character, pet, items and history. Typing your login is how the server knows you mean it; a wrong one deletes nothing, and <code>/pathofdev account delete</code> alone only says what it would do.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="history" aria-labelledby="history-h">
+          <h2 id="history-h">Your history</h2>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev import history" data-example="import history">
+              <dt><code>/pathofdev import history</code></dt>
+              <dd><p>Counts your Claude Code work from before you started Path of Dev, from Claude Code's own transcripts on your machine: prompts, sessions, projects, days, your longest streak, tool calls, test runs and commits. Only the counts are sent, and they earn no XP. On the online server they can show on your profile as <code>history</code>, which starts hidden. Run it again to replace them.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="settings" aria-labelledby="settings-h">
+          <h2 id="settings-h">Settings</h2>
+          <p>The plugin's settings are in Claude Code's <code>/config</code>, under Path of Dev.</p>
+          <dl class="cmds">
+            <div class="cmd" data-setting="band" data-options="auto full line" data-default="auto">
+              <dt><code>Band</code>: <code>auto</code> · <code>full</code> · <code>line</code></dt>
+              <dd><p><code>auto</code> (the default) opens the band when something happens (a graded prompt, loot, a level-up, a finished mission, a badge, a tip) and folds it a few seconds after; <code>full</code> keeps it open; <code>line</code> never draws it. In <code>auto</code> and <code>line</code> a status line under the prompt keeps your level, XP, missions and last grade.</p></dd>
+            </div>
+            <div class="cmd" data-setting="animations" data-options="full reduced off" data-default="full">
+              <dt><code>Celebrations</code>: <code>full</code> · <code>reduced</code> · <code>off</code></dt>
+              <dd><p>How drops, level-ups and finished missions play in the band: full animations (the band grows for the big ones, and epic and legendary drops chime), one still frame and no sound, or none.</p></dd>
+            </div>
+            <div class="cmd" data-setting="coach" data-options="good always off" data-default="good">
+              <dt><code>Pet coach</code>: <code>good</code> · <code>always</code> · <code>off</code></dt>
+              <dd><p>When your pet says a short tip about your last prompt: now and then after a well-graded one (the default), after weaker ones too, gently, or only when you ask with <code>/pathofdev pet tip</code>. At most one tip every three graded prompts. The tip stays on your machine.</p></dd>
+            </div>
+            <div class="cmd" data-setting="toasts" data-options="true false" data-default="true">
+              <dt><code>Reward toasts</code>: on · off</dt>
+              <dd><p>One toast for everything a prompt, a commit, a mission or a level-up earned. Off, the band still celebrates.</p></dd>
+            </div>
+            <div class="cmd" data-setting="minWords" data-default="6">
+              <dt><code>Words to grade a prompt</code></dt>
+              <dd><p>The fewest words a prompt needs to be graded, pasted text included: <span data-rule="mod:minWords">6</span> by default.</p></dd>
+            </div>
+            <div class="cmd" data-setting="server" data-options="default dev online" data-default="default">
+              <dt><code>Server</code>: <code>default</code> · <code>dev</code> · <code>online</code></dt>
+              <dd><p>Which server the mod plays on: your own local save, the dev sandbox, or the online server. <code>/pathofdev server</code> switches it from the prompt.</p></dd>
+            </div>
+            <div class="cmd" data-setting="serverUrl" data-default="https://api.pathof.dev">
+              <dt><code>Online server URL</code></dt>
+              <dd><p>The online server's address, <code>https://api.pathof.dev</code> unless you run your own.</p></dd>
+            </div>
+          </dl>
+          <p>The local server reads two environment variables: <code>PATHOFDEV_DEV=1</code> starts it as <a href="#dev">the dev sandbox</a>, and <code>PATHOFDEV_HOME</code>, when set, is the folder its save lives in, in place of <code>~/.pathofdev</code> (or <code>~/.pathofdev-dev</code>).</p>
+        </section>
+
+        <section id="admins" aria-labelledby="admins-h">
+          <h2 id="admins-h">For the server's admins</h2>
+          <p>Signup on the online server is open to anyone with a GitHub account. Its admins keep a beta list, which would let in only those named should signup ever close again. Anyone else is told only the admins can use these.</p>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev beta list" data-example="beta list">
+              <dt><code>/pathofdev beta list</code><span class="where">admins</span></dt>
+              <dd><p>The logins on the beta list, and who added them.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev beta add &lt;github-login&gt;" data-example="beta add octocat">
+              <dt><code>/pathofdev beta add &lt;github-login&gt;</code><span class="where">admins</span></dt>
+              <dd><p>Adds a login to the list.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev beta remove &lt;github-login&gt;" data-example="beta remove octocat">
+              <dt><code>/pathofdev beta remove &lt;github-login&gt;</code><span class="where">admins</span></dt>
+              <dd><p>Takes a login off it. Their account stays.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="dev" aria-labelledby="dev-h">
+          <h2 id="dev-h">The dev sandbox</h2>
+          <p>For trying the game out, or working on it: a local server started in dev mode keeps a throwaway save in <code>~/.pathofdev-dev</code> and takes these commands. Start it from a clone with <code>PATHOFDEV_DEV=1 pnpm --filter @pathofdev/server start</code>, then switch to it with <code>/pathofdev server dev</code>. The online server never takes them.</p>
+          <dl class="cmds">
+            <div class="cmd" data-command="/pathofdev dev styles" data-example="dev styles">
+              <dt><code>/pathofdev dev styles</code><span class="where">dev</span></dt>
+              <dd><p>Gives you every band style you don't have yet, to try them on.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev item &lt;id&gt;" data-example="dev item wizard-hat">
+              <dt><code>/pathofdev dev item &lt;id&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Gives you the item with that id.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev xp &lt;amount&gt;" data-example="dev xp 500">
+              <dt><code>/pathofdev dev xp &lt;amount&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Grants that much XP.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev gold &lt;amount&gt;" data-example="dev gold 1000">
+              <dt><code>/pathofdev dev gold &lt;amount&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Sets your gold.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev celebrate &lt;common|uncommon|rare|epic|legendary|levelup|xp&gt;" data-example="dev celebrate legendary">
+              <dt><code>/pathofdev dev celebrate &lt;common|uncommon|rare|epic|legendary|levelup|xp&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Plays that celebration in the band, without changing your save.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev complete &lt;mission-id&gt;" data-example="dev complete clear-thinker">
+              <dt><code>/pathofdev dev complete &lt;mission-id&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Finishes a running mission, or a weekly on offer.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev roll" data-example="dev roll">
+              <dt><code>/pathofdev dev roll</code><span class="where">dev</span></dt>
+              <dd><p>Rolls a fresh set of missions.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev session" data-example="dev session">
+              <dt><code>/pathofdev dev session</code><span class="where">dev</span></dt>
+              <dd><p>Opens a made-up second session for a while, with a prompt graded 10, for the missions that need two sessions at once.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev restock" data-example="dev restock">
+              <dt><code>/pathofdev dev restock</code><span class="where">dev</span></dt>
+              <dd><p>Restocks today's shelf, as if nothing had been bought.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev mood &lt;0-100&gt;" data-example="dev mood 40">
+              <dt><code>/pathofdev dev mood &lt;0-100&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Sets your pet's mood.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev dev shards &lt;amount&gt;" data-example="dev shards 10">
+              <dt><code>/pathofdev dev shards &lt;amount&gt;</code><span class="where">dev</span></dt>
+              <dd><p>Sets your shards of every rarity.</p></dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="about">
+      <p>Path of Dev is in open beta. It's an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic.</p>
+      <p>Free and open source, under the <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">MIT license</a>.</p>
+    </div>
+    <nav aria-label="Play">
+      <h2>Play</h2>
+      <ul>
+        <li><a href="/start/">Get started</a></li>
+        <li><a href="/play/">How it plays</a></li>
+        <li><a href="/commands/">Commands</a></li>
+        <li><a href="https://pathof.dev/u/elirazked">See a player</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Help">
+      <h2>Help</h2>
+      <ul>
+        <li><a href="/faq/">FAQ</a></li>
+        <li><a href="/privacy/">Profile &amp; privacy</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/issues">Report a bug</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Project">
+      <h2>Project</h2>
+      <ul>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev">Source on GitHub</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md">Privacy notice</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">License</a></li>
+      </ul>
+    </nav>
+  </footer>
+</div>
+</body>
+</html>

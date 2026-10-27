@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Get started · Path of Dev</title>
+<meta name="description" content="Install Path of Dev in Claude Code, sign in with GitHub and play your first prompt: what you need, the exact commands, what the band and the pane show, and how to update.">
+<link rel="canonical" href="https://pathof.dev/start/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Path of Dev">
+<meta property="og:url" content="https://pathof.dev/start/">
+<meta property="og:title" content="Get started · Path of Dev">
+<meta property="og:description" content="Install Path of Dev in Claude Code, sign in with GitHub and play your first prompt: what you need, the exact commands, what the band and the pane show, and how to update.">
+<meta property="og:image" content="https://pathof.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
+<link rel="stylesheet" href="/site.css?v=bde35abefbf3">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="nav">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚔</span> Path of Dev</a>
+    <nav aria-label="Site">
+      <ul class="nav-links">
+        <li><a class="nav-link" href="/start/" aria-current="page">Get started</a></li>
+        <li><a class="nav-link" href="/play/">How it plays</a></li>
+        <li><a class="nav-link" href="/commands/">Commands</a></li>
+        <li><a class="nav-link" href="/privacy/">Privacy</a></li>
+        <li><a class="nav-link" href="/faq/">FAQ</a></li>
+        <li><span class="pill">Open beta</span></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="doc-head">
+      <p class="eyebrow">Five minutes, start to finish</p>
+      <h1>Get started</h1>
+      <p class="lede">Path of Dev is a plugin for Claude Code. You install it once, sign in with GitHub, and keep working as you always do: the game plays in a band above your prompt.</p>
+    </div>
+
+    <div class="doc">
+      <nav class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#need">What you need</a></li>
+          <li><a href="#install">Install the mod</a></li>
+          <li><a href="#online">Play online</a></li>
+          <li><a href="#local">Or play locally</a></li>
+          <li><a href="#welcome">The welcome</a></li>
+          <li><a href="#first">Your first prompt</a></li>
+          <li><a href="#band">The band and the pane</a></li>
+          <li><a href="#update">Updating</a></li>
+          <li><a href="#remove">Uninstalling</a></li>
+        </ol>
+      </nav>
+
+      <div class="prose">
+        <section id="need" aria-labelledby="need-h">
+          <h2 id="need-h">What you need</h2>
+          <ul>
+            <li><b>Claude Code</b>, in a terminal, with a Claude account. Prompts are graded by Haiku on your own account.</li>
+            <li><b>macOS or Linux.</b> Windows is untested: the mod may run there, but nobody has tried it, and the local server needs Unix sockets.</li>
+            <li><b>A GitHub account</b>, to sign in to the online server.</li>
+            <li>Optional: <b>git</b>, for commits and repos to count, and the <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh</code>), signed in, for merges you make outside Claude Code to count.</li>
+          </ul>
+        </section>
+
+        <section id="install" aria-labelledby="install-h">
+          <h2 id="install-h">Install the mod</h2>
+          <p>In Claude Code, install the <code>pathofdev</code> plugin from its marketplace:</p>
+          <pre class="shell">/plugin install pathofdev --marketplace eliraz-refael/path-of-dev</pre>
+          <p>On an older Claude Code that doesn't take <code>--marketplace</code>, add the marketplace first, then install from it:</p>
+          <pre class="shell">/plugin marketplace add eliraz-refael/path-of-dev
+/plugin install pathofdev@path-of-dev</pre>
+          <p>Then <b>restart Claude Code</b>, so the mod loads.</p>
+        </section>
+
+        <section id="online" aria-labelledby="online-h">
+          <h2 id="online-h">Play online</h2>
+          <p>The online server at <code>api.pathof.dev</code> is in open beta: anyone with a GitHub account can play. It keeps your save for you, on every machine you sign in from, and gives you a public profile page if you want one. Point the mod at it and sign in:</p>
+          <pre class="shell">/pathofdev server online
+/pathofdev login</pre>
+          <p><code>/pathofdev login</code> answers with a short code and a github.com address. Open the address, enter the code, and approve: a toast says when you're in. GitHub tells the server only who you are, your user id and login, and the mod asks for no access to your repos. Until you're signed in, what you do waits in a queue and is sent once you are.</p>
+          <p><code>/pathofdev logout</code> signs you out again. <a href="/privacy/">Profile &amp; privacy</a> says what the server keeps, and how to export or delete it.</p>
+        </section>
+
+        <section id="local" aria-labelledby="local-h">
+          <h2 id="local-h">Or play locally</h2>
+          <p>The mod starts out pointed at a local save in <code>~/.pathofdev</code>, which needs no account and keeps everything on your disk. It needs the game server running from a clone of the repo, with Node 22.12 or later and pnpm:</p>
+          <pre class="shell">git clone https://github.com/eliraz-refael/path-of-dev
+cd path-of-dev
+pnpm install
+pnpm --filter @pathofdev/server start</pre>
+          <p>Leave it running: the mod finds it within a few seconds. If you switched online, <code>/pathofdev server play</code> switches back. Until a server answers, the status line under your prompt says Path of Dev is offline and how to start it. Each server keeps its own save, so a local game and an online one don't mix.</p>
+        </section>
+
+        <section id="welcome" aria-labelledby="welcome-h">
+          <h2 id="welcome-h">The welcome</h2>
+          <p>The first time the mod reaches a server, the <code>/pathofdev</code> pane opens on its welcome. In five short steps you name your character, choose your pet's egg (a fox, a slime, a robot or an owl) and name it, and see how prompts are graded. <kbd>Tab</kbd> moves between buttons, <kbd>Enter</kbd> presses one, and <kbd>Esc</kbd> hands the keys back to the prompt. Skip it if you like: <code>/pathofdev welcome</code> opens it again any time.</p>
+        </section>
+
+        <section id="first" aria-labelledby="first-h">
+          <h2 id="first-h">Your first prompt</h2>
+          <p>Ask Claude for something real, in <span data-rule="mod:minWords">6</span> words or more. Your prompt goes to Claude untouched; a moment later, in the background, Haiku grades it and the game server turns the grade into XP. The band above the prompt opens with the grade and the XP it earned, a toast sums up the reward, and the status line keeps your last grade.</p>
+          <p>Prompts with substance grade well: say what you want, point at the files or errors involved, say why, and say what done looks like. To see how a prompt was scored, press the band's <b>scores</b> button or run <code>/pathofdev last</code>.</p>
+          <p>At level 1, a handful of good prompts in, your egg is ready: hatch it from the band. From then on the work you already do pays too: tests going from red to green, commits, and the big one, a merged pull request. <a href="/play/">How it plays</a> has every rule.</p>
+        </section>
+
+        <section id="band" aria-labelledby="band-h">
+          <h2 id="band-h">The band and the pane</h2>
+          <h3>The band</h3>
+          <p>The band is drawn above Claude Code's prompt: your level and title, an XP bar, your gold, the mission closest to done and your pet. By default (<code>auto</code>) it stays folded away and opens only when something happens (a graded prompt, loot, a level-up, a finished mission, a badge, a tip from your pet), then folds again a few seconds later. While it's folded, a status line under the prompt keeps your level, XP, the missions running and your last prompt's grade.</p>
+          <p>Prefer it always open, or never? Set <b>Band</b> to <code>full</code> or <code>line</code> in the plugin's settings, in <code>/config</code>: <a href="/commands/#settings">every setting</a> is on the commands page.</p>
+          <h3>The pane</h3>
+          <p><code>/pathofdev</code> opens the pane, the game's hub, in tabs:</p>
+          <ul>
+            <li data-tab="inventory"><b>Inventory</b>: your pet (pat it, feed it, hatch it), your sigil and band styles to equip, and everything else you own.</li>
+            <li data-tab="shop"><b>Shop</b>: today's shelf of band styles, treats for your pet, rerolling and salvaging duplicates, and crafting from shards.</li>
+            <li data-tab="stats"><b>Stats</b>: how your last prompt was scored, your progress, streak and prompting profile (your strongest and weakest measures, with a tip), and where your public page is.</li>
+            <li data-tab="missions"><b>Missions</b>: today's dailies, and this week's weeklies to pick from or abandon.</li>
+            <li data-tab="welcome"><b>Welcome</b>: the first-run guide, again.</li>
+          </ul>
+          <p>Click a button, or press <kbd>Tab</kbd> and <kbd>Enter</kbd> once the pane has the keys. <kbd>Esc</kbd> hands them back to the prompt.</p>
+        </section>
+
+        <section id="update" aria-labelledby="update-h">
+          <h2 id="update-h">Updating</h2>
+          <p>Claude Code leaves auto-update off for a marketplace like this one, so the mod stays at the version you installed. On the online server the band says when a newer one is out, once (a toast says it with the band set to <code>line</code>), and the <code>/pathofdev</code> pane keeps a line about it. To update, run this in your shell, then restart Claude Code:</p>
+          <pre class="shell">claude plugin update pathofdev@path-of-dev</pre>
+          <p>Or, in a session, open <code>/plugin</code>, find <code>pathofdev</code> on the <b>Installed</b> tab, and choose <b>Update now</b>.</p>
+          <p>To get each release without asking, turn auto-update on for the marketplace: <code>/plugin</code>, the <b>Marketplaces</b> tab, <code>path-of-dev</code>, <b>Enable auto-update</b>.</p>
+          <p>A local server tells no version, so playing locally the mod never says there is an update: update the plugin the same way, and pull the clone the server runs from. <a href="/changelog/">The changelog</a> says what each version brought.</p>
+        </section>
+
+        <section id="remove" aria-labelledby="remove-h">
+          <h2 id="remove-h">Uninstalling</h2>
+          <p>Remove the plugin from <code>/plugin</code>'s <b>Installed</b> tab, or in your shell:</p>
+          <pre class="shell">claude plugin uninstall pathofdev@path-of-dev</pre>
+          <p>Uninstalling leaves your save where it is. Online, export it or delete your account first if you want it gone: see <a href="/privacy/#export">export and delete</a>. Locally, your save is the folder <code>~/.pathofdev</code>, yours to keep or remove.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="about">
+      <p>Path of Dev is in open beta. It's an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic.</p>
+      <p>Free and open source, under the <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">MIT license</a>.</p>
+    </div>
+    <nav aria-label="Play">
+      <h2>Play</h2>
+      <ul>
+        <li><a href="/start/">Get started</a></li>
+        <li><a href="/play/">How it plays</a></li>
+        <li><a href="/commands/">Commands</a></li>
+        <li><a href="https://pathof.dev/u/elirazked">See a player</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Help">
+      <h2>Help</h2>
+      <ul>
+        <li><a href="/faq/">FAQ</a></li>
+        <li><a href="/privacy/">Profile &amp; privacy</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/issues">Report a bug</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Project">
+      <h2>Project</h2>
+      <ul>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev">Source on GitHub</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md">Privacy notice</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">License</a></li>
+      </ul>
+    </nav>
+  </footer>
+</div>
+</body>
+</html>
