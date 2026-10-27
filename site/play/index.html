@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How it plays · Path of Dev</title>
+<meta name="description" content="How Path of Dev plays: how a prompt is graded and turned into XP, what else earns XP and its daily limits, levels and titles, gold and the shop, loot and its rarities, missions, the pet and its mood, streaks and badges.">
+<link rel="canonical" href="https://pathof.dev/play/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Path of Dev">
+<meta property="og:url" content="https://pathof.dev/play/">
+<meta property="og:title" content="How it plays · Path of Dev">
+<meta property="og:description" content="How Path of Dev plays: how a prompt is graded and turned into XP, what else earns XP and its daily limits, levels and titles, gold and the shop, loot and its rarities, missions, the pet and its mood, streaks and badges.">
+<meta property="og:image" content="https://pathof.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#12101b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
+<link rel="stylesheet" href="/site.css?v=60542c2c8a10">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="nav">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚔</span> Path of Dev</a>
+    <nav aria-label="Site">
+      <ul class="nav-links">
+        <li><a class="nav-link" href="/start/">Get started</a></li>
+        <li><a class="nav-link" href="/play/" aria-current="page">How it plays</a></li>
+        <li><a class="nav-link" href="/commands/">Commands</a></li>
+        <li><a class="nav-link" href="/privacy/">Privacy</a></li>
+        <li><a class="nav-link" href="/faq/">FAQ</a></li>
+        <li><span class="pill">Open beta</span></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="doc-head">
+      <p class="eyebrow">The rules</p>
+      <h1>How it plays</h1>
+      <p class="lede">You work in Claude Code as you always do. Path of Dev watches for the moments that matter (a prompt you wrote, tests turning green, a commit, a merge) and the game server turns them into XP, loot and progress. The numbers below are the online server's rules as they stand today.</p>
+    </div>
+
+    <div class="doc">
+      <nav class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#prompts">Prompt grading</a></li>
+          <li><a href="#xp">Everything else that pays</a></li>
+          <li><a href="#fair">Fair play</a></li>
+          <li><a href="#levels">Levels and titles</a></li>
+          <li><a href="#loot">Loot and rarities</a></li>
+          <li><a href="#gold">Gold and the shop</a></li>
+          <li><a href="#missions">Missions</a></li>
+          <li><a href="#pet">Your pet</a></li>
+          <li><a href="#streaks">Streaks</a></li>
+          <li><a href="#badges">Badges</a></li>
+        </ol>
+      </nav>
+
+      <div class="prose">
+        <section id="prompts" aria-labelledby="prompts-h">
+          <h2 id="prompts-h">Prompt grading</h2>
+          <p>Every prompt you type into Claude Code with at least <b data-rule="mod:minWords">6</b> words (pasted text counts) is graded by Haiku, a small Claude model, right after it is sent. Slash commands, short replies and prompts you didn't type yourself go ungraded. The grading runs in the background: your prompt goes to Claude untouched and is never held back.</p>
+          <p>Haiku first decides what kind of prompt it is (a <b>task</b>, a <b>question</b>, a <b>discussion</b> or a <b>steer</b> that redirects work in progress) and then scores it from 0 to 10 on six measures of what it says:</p>
+          <div class="ledger-wrap">
+            <table class="ledger">
+              <thead><tr><th>Measure</th><th>What it asks</th><th class="xp-h">Weight</th></tr></thead>
+              <tbody>
+                <tr><td>intent</td><td>Is it clear about what it wants back?</td><td class="xp" data-rule="prompt/v2/weights/intent">1.5</td></tr>
+                <tr><td>grounding</td><td>Does it point at the files, errors or code involved?</td><td class="xp" data-rule="prompt/v2/weights/grounding">1</td></tr>
+                <tr><td>why</td><td>Does it give the reasons and limits behind the ask?</td><td class="xp" data-rule="prompt/v2/weights/why">1</td></tr>
+                <tr><td>success shape</td><td>Does it say what done looks like?</td><td class="xp" data-rule="prompt/v2/weights/successShape">1</td></tr>
+                <tr><td>scope</td><td>Is it one well-sized ask, not a sprawling list?</td><td class="xp" data-rule="prompt/v2/weights/scope">1</td></tr>
+                <tr><td>forward</td><td>Does it move the work on: a decision, a fact, a method?</td><td class="xp" data-rule="prompt/v2/weights/forward">1.5</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Your grade is the weighted average of those measures. A prompt that doesn't need a why or a picture of done (a quick follow-up question, say) isn't marked down for leaving them out: they drop out of the average. Then the writing nudges it a little:</p>
+          <ul>
+            <li><b>Craft</b>: well-formed, well-composed writing adds up to <b data-rule="prompt/v2/craft/max">0.5</b>.</li>
+            <li><b>Spelling</b>: a prompt spelled clean adds up to <b data-rule="prompt/v2/spelling/max">0.4</b>, all of it from <b data-rule="prompt/v2/spelling/fullAtWords">60</b> words, so a short prompt gains little.</li>
+            <li><b>Tone</b>: kind words lift it slightly; a rough tone costs more, and a hostile prompt grades <b data-rule="prompt/v2/caps/hostile/grade">3.5</b> at most.</li>
+            <li>A <b>steer</b> grades <b data-rule="prompt/v2/caps/steer/grade">8</b> at most: a 9 or a 10 takes substance.</li>
+          </ul>
+          <h3>From grade to XP</h3>
+          <p>A prompt earns its grade times <b data-rule="prompt/v2/maxXp" data-as="tenth">1.5</b> in XP, rounded down, so a perfect 10 earns <b data-rule="prompt/v2/maxXp">15</b>. The rate drops as your day goes on, so quality pays and volume doesn't:</p>
+          <ul>
+            <li>Prompts 1 to <span data-rule="prompt/perDay/0/upTo">20</span> of the day earn <span data-rule="prompt/perDay/0/pct">100</span>%.</li>
+            <li>Prompts 21 to <span data-rule="prompt/perDay/1/upTo">40</span> earn <span data-rule="prompt/perDay/1/pct">50</span>%.</li>
+            <li>Every prompt after that earns <span data-rule="prompt/perDay/2/pct">10</span>%.</li>
+          </ul>
+          <p>A happy pet, an XP snack and some missions' rewards add a few percent on top, and a <b>sigil</b>, a rare kind of loot you can wear, multiplies prompt XP while it is on.</p>
+          <h3>What stays on your machine</h3>
+          <p>Haiku runs inside your own Claude Code, on your own Claude account. The game server receives only the scores, the prompt's kind and word count, and whether it was spelled clean: never the prompt, Claude's answer, Haiku's note on it or the words it flagged. <a href="/privacy/#sent">What the mod sends</a> has the full list.</p>
+          <p>To see how your last prompt was scored, press the band's scores button or run <code>/pathofdev last</code>.</p>
+        </section>
+
+        <section id="xp" aria-labelledby="xp-h">
+          <h2 id="xp-h">Everything else that pays</h2>
+          <p>Prompts are the everyday XP. Real outcomes pay more, and each kind has a daily limit, so busywork doesn't add up.</p>
+          <div class="ledger-wrap">
+            <table class="ledger">
+              <thead><tr><th>What you did</th><th>Daily limit</th><th class="xp-h">XP</th></tr></thead>
+              <tbody>
+                <tr><td class="what">Pull request merged<small><span data-rule="xp/change.merged/ownRepoXp">120</span> on a repo you own; a quarter of either for a change of under <span data-rule="xp/change.merged/tinyDiffLines">3</span> lines</small></td><td class="cap">none</td><td class="xp" data-rule="xp/change.merged/xp">250</td></tr>
+                <tr><td class="what">First session in a repo<small>“repo explored”, once per repo</small></td><td class="cap"><span data-rule="xp/repo.explored/dailyCap">3</span> a day</td><td class="xp" data-rule="xp/repo.explored/xp">25</td></tr>
+                <tr><td class="what">Red tests turned green<small>a failing run, then a passing one, in the same session</small></td><td class="cap"><span data-rule="xp/tests.green/dailyCap">5</span> a day</td><td class="xp" data-rule="xp/tests.green/xp">20</td></tr>
+                <tr><td class="what">Streak day<small><span data-rule="streak/xpPerDay">10</span> for each day of your streak, up to <span data-rule="streak/maxXp">70</span></small></td><td class="cap">once a day</td><td class="xp">10–70</td></tr>
+                <tr><td class="what">Commit</td><td class="cap"><span data-rule="xp/commit.made/dailyCap">20</span> a day</td><td class="xp" data-rule="xp/commit.made/xp">3</td></tr>
+                <tr class="nil"><td class="what">Pull request opened<small>it pays out when it merges</small></td><td class="cap">none</td><td class="xp" data-rule="xp/change.opened/xp">0</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Merges, in Claude Code or anywhere else</h3>
+          <p>A <code>gh pr merge</code> in a session pays at once. A pull request the mod saw you open in a Claude Code session also pays when it is merged somewhere else (on github.com, by a teammate, by a merge queue): at the start of each session and every half hour, the mod asks the <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh</code>) on your machine whether it has merged, for up to 30 days. It counts only changes written by a GitHub account <code>gh</code> is signed in to, and only ones it saw opened, so merges from before you installed the mod never pay. Without <code>gh</code>, or signed out of it, merges outside the session aren't checked.</p>
+          <h3>Coming: work GitHub confirms</h3>
+          <p>The rules already price a first contribution to a repo (<span data-rule="xp/first.contribution/xp">300</span>), a bug fixed (<span data-rule="xp/bug.fixed/xp">150</span>), review feedback acted on (<span data-rule="xp/review.acted_on/xp">80</span>) and an issue closed (<span data-rule="xp/issue.closed/xp">60</span>), but they pay only once the server can check them against GitHub. That check isn't built yet, so today they earn nothing.</p>
+        </section>
+
+        <section id="fair" aria-labelledby="fair-h">
+          <h2 id="fair-h">Fair play</h2>
+          <p>Path of Dev rewards real work, so the rules make farming not worth the trouble:</p>
+          <ul>
+            <li><b>Daily limits</b> on every kind of XP above, and a prompt rate that drops after the 20th prompt of the day.</li>
+            <li><b>Size and ownership count</b>: an opened pull request pays nothing, a merge on your own repo pays about half, and a one- or two-line merge a quarter.</li>
+            <li><b>Each thing counts once</b>: the same commit, change or test fix sent twice is recognised as a duplicate. An amend, a reset or a rebase counts as no commit.</li>
+            <li><b>Green means green</b>: tests pay only when a real test runner went from failing to passing, and only when its result can be read (a run piped through <code>tail</code> or ended with <code>|| true</code> doesn't count).</li>
+            <li><b>Grades can't be gamed by length or flattery</b>: a steer tops out at 8, a hostile prompt at 3.5, and the grader reads your previous prompt, so repeating yourself doesn't move the work forward.</li>
+            <li><b>Gold can't buy XP</b>: the shop sells looks and treats, never sigils or XP snacks.</li>
+            <li><b>Limits per player</b> on the online server: a flood of events is turned away and the mod tries again later.</li>
+          </ul>
+          <p>It's a game, and nobody checks every number by hand. If you find a way to farm it, <a href="https://github.com/eliraz-refael/path-of-dev/issues">open an issue</a>: closing it is part of the game too.</p>
+        </section>
+
+        <section id="levels" aria-labelledby="levels-h">
+          <h2 id="levels-h">Levels and titles</h2>
+          <p>XP adds up into levels. Each level takes a little more than the last: level 10 takes <span data-level="10">4,570</span> XP in all, level 50 <span data-level="50">66,113</span>. There's no top level. Your title changes as you go:</p>
+          <div class="ledger-wrap">
+            <table class="ledger">
+              <thead><tr><th>Title</th><th>From level</th><th class="xp-h">Total XP</th></tr></thead>
+              <tbody>
+                <tr><td>Apprentice</td><td data-title="Apprentice">1</td><td class="xp" data-level="1">100</td></tr>
+                <tr><td>Adept</td><td data-title="Adept">10</td><td class="xp" data-level="10">4,570</td></tr>
+                <tr><td>Artisan</td><td data-title="Artisan">25</td><td class="xp" data-level="25">20,920</td></tr>
+                <tr><td>Master</td><td data-title="Master">50</td><td class="xp" data-level="50">66,113</td></tr>
+                <tr><td>Grandmaster</td><td data-title="Grandmaster">75</td><td class="xp" data-level="75">129,599</td></tr>
+                <tr><td>Legend</td><td data-title="Legend">100</td><td class="xp" data-level="100">208,929</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Every new level drops a piece of loot and plays a celebration in the band. Your level's glyph changes too, from ⚔ to 🐉 by level 20.</p>
+        </section>
+
+        <section id="loot" aria-labelledby="loot-h">
+          <h2 id="loot-h">Loot and rarities</h2>
+          <p>Loot drops three ways:</p>
+          <ul>
+            <li>Each turn Claude finishes has a <span data-rule="loot/chancePerTurn" data-as="pct">12</span>% chance.</li>
+            <li>Each graded prompt rolls too: <span data-rule="prompt/v2/loot/chanceAtTen" data-as="pct">17.5</span>% at a perfect 10, less as the grade falls. A grade of <span data-rule="prompt/v2/loot/greatAt">9</span> or more doubles the odds of rare and better.</li>
+            <li>Every level-up drops one, and some missions reward one.</li>
+          </ul>
+          <div class="ledger-wrap">
+            <table class="ledger">
+              <thead><tr><th>Rarity</th><th>Base odds</th><th class="xp-h">Gold with it</th></tr></thead>
+              <tbody>
+                <tr><td>Common</td><td><span data-weight="common">60.4</span>%</td><td class="xp" data-rule="loot/gold/common">10</td></tr>
+                <tr><td>Uncommon</td><td><span data-weight="uncommon">25.1</span>%</td><td class="xp" data-rule="loot/gold/uncommon">25</td></tr>
+                <tr><td>Rare</td><td><span data-weight="rare">10.1</span>%</td><td class="xp" data-rule="loot/gold/rare">70</td></tr>
+                <tr><td>Epic</td><td><span data-weight="epic">4</span>%</td><td class="xp" data-rule="loot/gold/epic">175</td></tr>
+                <tr><td>Legendary</td><td><span data-weight="legendary">0.4</span>%</td><td class="xp" data-rule="loot/gold/legendary">400</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Bad luck runs out: after <span data-rule="loot/pity/rareAfter">25</span> drops without a rare, the next drop is rare, and after <span data-rule="loot/pity/epicAfter">80</span> without an epic, the next is epic.</p>
+          <h3>What drops</h3>
+          <ul>
+            <li><b>Wearables</b> for your pet: hats, scarves, a crown.</li>
+            <li><b>Band styles</b> that restyle the band above your prompt: its XP bar, level, top edge and gold. Epic and legendary ones animate.</li>
+            <li><b>Level-up effects</b> like Confetti Pop, Fireworks and the Pixel Dragon.</li>
+            <li><b>Food</b>: treats that cheer your pet up, and snacks that add 10% XP for an hour or more.</li>
+            <li><b>Sigils</b>: rare finds that multiply the XP your prompts earn while you wear one.</li>
+          </ul>
+          <p>Equip and use your loot from the Inventory tab of the <code>/pathofdev</code> pane.</p>
+        </section>
+
+        <section id="gold" aria-labelledby="gold-h">
+          <h2 id="gold-h">Gold and the shop</h2>
+          <p>Every drop comes with gold (more for rarer drops, as above), and so does every finished mission. Spend it in the pane's Shop tab:</p>
+          <ul>
+            <li>The shelf has <span data-rule="shop/offers">4</span> band styles a day, the same for every player, restocked at your local midnight: <span data-rule="shop/prices/common">120</span> gold for a common, <span data-rule="shop/prices/uncommon">250</span> for an uncommon.</li>
+            <li>Treats for your pet, every day: <span data-rule="shop/food/prices/common">15</span> and <span data-rule="shop/food/prices/uncommon">35</span> gold.</li>
+            <li><b>Reroll</b> a duplicate, plus some gold, into another item of the same rarity.</li>
+            <li><b>Salvage</b> a duplicate into a shard of its rarity, and <b>craft</b> <span data-rule="loot/shardsToCraft">10</span> shards into the item of that rarity you choose.</li>
+          </ul>
+          <p>Gold never buys XP: no sigils or XP snacks are sold, and none come from a reroll or a craft.</p>
+        </section>
+
+        <section id="missions" aria-labelledby="missions-h">
+          <h2 id="missions-h">Missions</h2>
+          <p>Missions point you at good habits. <span data-rule="missions/daily/count">3</span> dailies start on their own each day. Each week (Monday to Sunday) <span data-rule="missions/weekly/offered">5</span> weeklies are on offer, and you pick up to <span data-rule="missions/weekly/active">3</span> to run from the Missions tab. Abandon a weekly and it goes back on offer, its progress lost. A few of them:</p>
+          <ul>
+            <li data-quest="Clear Thinker"><b>Clear Thinker</b> (daily): write 5 prompts that make clear what you want.</li>
+            <li data-quest="Back to Green"><b>Back to Green</b> (daily): turn a red test suite green.</li>
+            <li data-quest="Ship It"><b>Ship It</b> (weekly): get a pull request merged.</li>
+            <li data-quest="Light Packer"><b>Light Packer</b> (weekly): keep three sessions under half their context.</li>
+            <li data-quest="Second Opinion"><b>Second Opinion</b> (weekly): run a code review three times.</li>
+            <li data-quest="Two Minds"><b>Two Minds</b> (weekly): write good prompts in two sessions at once.</li>
+          </ul>
+          <p>Each pays XP and gold, and some a boost or a drop. The band shows a running mission's progress, and celebrates when it's done.</p>
+        </section>
+
+        <section id="pet" aria-labelledby="pet-h">
+          <h2 id="pet-h">Your pet</h2>
+          <p>You start with an egg. In the welcome you choose one of <span data-count="species">4</span> species (a fox, a slime, a robot or an owl) and name it. Once you reach level 1, hatch it from the band or the Inventory tab. It lives on the band, wanders, and reacts to your good work; it's never drawn sad.</p>
+          <ul>
+            <li>Its <b>mood</b> runs from 0 to 100 and drifts down <span data-rule="pet/moodDecayPerDay">10</span> a day.</li>
+            <li>Above <span data-rule="pet/happyAbove">70</span> it's happy, and adds <span data-rule="pet/happyXpBonusPct">5</span>% to your XP.</li>
+            <li>A meal lifts it <span data-rule="pet/care/fed">30</span>: feed it from the Inventory tab. A pat with <code>/pet</code> lifts it <span data-rule="pet/care/petted">5</span>, up to <span data-rule="pet/care/pettedPerHour">3</span> pats an hour.</li>
+            <li>It evolves at levels <span data-rule="pet/evolveAt/0">10</span>, <span data-rule="pet/evolveAt/1">25</span> and <span data-rule="pet/evolveAt/2">50</span>.</li>
+          </ul>
+          <p>With the pet coach on, it now and then says a short tip about your last prompt in a bubble beside it. <code>/pathofdev pet</code> keeps it still, hides it or brings it back: see <a href="/commands/#pet">the commands</a>.</p>
+        </section>
+
+        <section id="streaks" aria-labelledby="streaks-h">
+          <h2 id="streaks-h">Streaks</h2>
+          <p>Any day you work with the mod on (a prompt, a commit, a test run) counts toward your streak, by your own time zone. Each streak day pays <span data-rule="streak/xpPerDay">10</span> XP for each day of the streak so far, up to <span data-rule="streak/maxXp">70</span>. You get <span data-rule="streak/restDaysPerWeek">1</span> rest day a week (weeks start on Monday): miss one day and the streak holds.</p>
+        </section>
+
+        <section id="badges" aria-labelledby="badges-h">
+          <h2 id="badges-h">Badges</h2>
+          <p>There are <span data-count="achievements">19</span> badges, from common to legendary, for milestones like your first merge, a prompt graded 10, a 30-day streak or a style in every slot of the band. They're yours for good once earned, and each plays a celebration in the band. On the online server, your <a href="/privacy/#profile">public profile</a> shows the ones you have and how close you are to the rest.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="about">
+      <p>Path of Dev is in open beta. It's an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic.</p>
+      <p>Free and open source, under the <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">MIT license</a>.</p>
+    </div>
+    <nav aria-label="Play">
+      <h2>Play</h2>
+      <ul>
+        <li><a href="/start/">Get started</a></li>
+        <li><a href="/play/">How it plays</a></li>
+        <li><a href="/commands/">Commands</a></li>
+        <li><a href="https://pathof.dev/u/elirazked">See a player</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Help">
+      <h2>Help</h2>
+      <ul>
+        <li><a href="/faq/">FAQ</a></li>
+        <li><a href="/privacy/">Profile &amp; privacy</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/issues">Report a bug</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Project">
+      <h2>Project</h2>
+      <ul>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev">Source on GitHub</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md">Privacy notice</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">License</a></li>
+      </ul>
+    </nav>
+  </footer>
+</div>
+</body>
+</html>

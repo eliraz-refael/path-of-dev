@@ -69,7 +69,10 @@ update the plugin the same way, and pull the clone the server runs from.
 | [`@pathofdev/server`](packages/server) | The game server: the HTTP API, the write path and storage around the rules engine |
 | [`@pathofdev/mod`](packages/mod) | The Claude Code mod: grades prompts, reports work to the server and draws the band |
 
-The landing page for [pathof.dev](https://pathof.dev) lives in [`site/`](site): one static HTML file, no build step.
+The site at [pathof.dev](https://pathof.dev) lives in [`site/`](site): the home page and the manual (get started, how it
+plays, commands, privacy, FAQ, changelog), static HTML with one style sheet and no build step. Tests check its numbers
+against the rules, its command reference against the mod's commands, and its links; after editing `site/site.css` or the
+home page's script, `pnpm site` stamps their hashes into the pages.
 
 Path of Dev was called Questline. The local server moves a save from `~/.questline` to `~/.pathofdev` (and
 `~/.questline-dev` to `~/.pathofdev-dev`) on its first start, and `/questline`, `QUESTLINE_DEV` and `QUESTLINE_HOME`

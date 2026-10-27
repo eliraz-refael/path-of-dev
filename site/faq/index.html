@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FAQ · Path of Dev</title>
+<meta name="description" content="Answers about Path of Dev: whether your code is sent anywhere, whether it slows Claude Code down or costs tokens, playing offline, importing your history, farming, updating, uninstalling, the companion app and reporting bugs.">
+<link rel="canonical" href="https://pathof.dev/faq/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Path of Dev">
+<meta property="og:url" content="https://pathof.dev/faq/">
+<meta property="og:title" content="FAQ · Path of Dev">
+<meta property="og:description" content="Answers about Path of Dev: whether your code is sent anywhere, whether it slows Claude Code down or costs tokens, playing offline, importing your history, farming, updating, uninstalling, the companion app and reporting bugs.">
+<meta property="og:image" content="https://pathof.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Path of Dev: a graded prompt in a terminal, the XP band and the pixel pet">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#12101b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap">
+<link rel="stylesheet" href="/site.css?v=60542c2c8a10">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="nav">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚔</span> Path of Dev</a>
+    <nav aria-label="Site">
+      <ul class="nav-links">
+        <li><a class="nav-link" href="/start/">Get started</a></li>
+        <li><a class="nav-link" href="/play/">How it plays</a></li>
+        <li><a class="nav-link" href="/commands/">Commands</a></li>
+        <li><a class="nav-link" href="/privacy/">Privacy</a></li>
+        <li><a class="nav-link" href="/faq/" aria-current="page">FAQ</a></li>
+        <li><span class="pill">Open beta</span></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="doc-head">
+      <p class="eyebrow">Questions</p>
+      <h1>FAQ</h1>
+      <p class="lede">What people ask before they install, and once they play. Not here? <a href="https://github.com/eliraz-refael/path-of-dev/issues">Ask on GitHub</a>.</p>
+    </div>
+
+    <div class="doc">
+      <nav class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#basics">The basics</a></li>
+          <li><a href="#data">Your code and data</a></li>
+          <li><a href="#cost">Speed and cost</a></li>
+          <li><a href="#playing">Playing</a></li>
+          <li><a href="#keeping">Updating and removing</a></li>
+          <li><a href="#project">The project</a></li>
+        </ol>
+      </nav>
+
+      <div class="prose faq">
+        <section id="basics" aria-labelledby="basics-h">
+          <h2 id="basics-h">The basics</h2>
+          <h3 id="what">What is Path of Dev?</h3>
+          <p>An RPG you play while you work in Claude Code. A plugin (the mod) grades each prompt you write and reports what you get done: tests going green, commits, merged pull requests. The game server turns that into XP, levels, loot, missions and a pixel pet, drawn in a band above your prompt. It's meant to make good habits a little more fun, not to get in your way.</p>
+          <h3 id="free">Is it free?</h3>
+          <p>Yes. It's open source under the MIT license, and the online server costs nothing to play on. Grading uses your own Claude account: see <a href="#tokens">does it cost tokens</a>.</p>
+          <h3 id="requirements">What do I need?</h3>
+          <p>Claude Code on macOS or Linux, and a GitHub account to play online. <a href="/start/#need">Get started</a> has the details.</p>
+          <h3 id="windows">Does it work on Windows?</h3>
+          <p>Untested. Nobody has played it on Windows yet: the mod may work there, the local server needs Unix sockets, and the history import reads big transcripts through <code>cat</code>. If you try it, <a href="https://github.com/eliraz-refael/path-of-dev/issues">tell us how it went</a>.</p>
+        </section>
+
+        <section id="data" aria-labelledby="data-h">
+          <h2 id="data-h">Your code and data</h2>
+          <h3 id="code">Is my code sent anywhere?</h3>
+          <p>Not to the game. Your code, your prompts and Claude's answers never reach the game server. Grading is one call to Haiku made by your own Claude Code, so a prompt goes to Anthropic just as every prompt you send Claude does, and only the scores go on to the game server. Repo names don't go either: online, the mod sends opaque keys in their place. <a href="/privacy/">Profile &amp; privacy</a> lists exactly what is sent.</p>
+          <h3 id="see">Who can see my progress?</h3>
+          <p>Nobody, until you run <code>/pathofdev profile public</code>. Then your page at <code>pathof.dev/u/&lt;your-github-login&gt;</code> shows your level and the sections you choose. <code>/pathofdev profile private</code> takes it down again at once.</p>
+          <h3 id="github">What can it do with my GitHub account?</h3>
+          <p>Nothing. Signing in asks GitHub for no permissions at all: GitHub only tells the server who you are. Merges are checked by the GitHub CLI on your own machine, if you have it, and only their size and whether the repo is yours are sent.</p>
+          <h3 id="leave">How do I take my data out, or delete it?</h3>
+          <p><code>/pathofdev account export</code> writes everything the online server keeps of you to files; <code>/pathofdev account delete &lt;your-github-login&gt;</code> deletes it. See <a href="/privacy/#export">export and delete</a>.</p>
+        </section>
+
+        <section id="cost" aria-labelledby="cost-h">
+          <h2 id="cost-h">Speed and cost</h2>
+          <h3 id="slow">Does it slow Claude Code down?</h3>
+          <p>No. Your prompt goes to Claude first and untouched; grading runs after, in the background, and never holds a prompt back. What the mod sends goes out in batches in the background too. The one thing it does in line is quick: before a shell command that commits, it reads where the repo's HEAD is, so a commit can be told from an amend.</p>
+          <h3 id="tokens">Does it cost tokens?</h3>
+          <p>A little. Each graded prompt is one short call to Haiku, Claude's smallest model, on your own Claude account, so it counts toward your usage like anything else Claude Code does. The grading instructions are cached and the reply is short. Prompts under <span data-rule="mod:minWords">6</span> words aren't graded at all; to grade fewer, raise <b>Words to grade a prompt</b> in <a href="/commands/#settings">the settings</a>.</p>
+          <h3 id="offline">Can I play offline, or only on my own machine?</h3>
+          <p>Yes. Without a network the mod keeps what you do in a queue and sends it when the server answers again. To keep everything on your own disk, play on a local save: run the game server from a clone of the repo and point the mod at it with <code>/pathofdev server play</code>. See <a href="/start/#local">playing locally</a>.</p>
+        </section>
+
+        <section id="playing" aria-labelledby="playing-h">
+          <h2 id="playing-h">Playing</h2>
+          <h3 id="months">I've used Claude Code for months. Does that count?</h3>
+          <p>It can show, but it doesn't pay. <code>/pathofdev import history</code> counts your work from before Path of Dev from Claude Code's own transcripts on your machine (prompts, sessions, projects, days, your longest streak, test runs and commits) and sends only the counts. It gives no XP or badges, so a long history doesn't put you ahead, and it shows on your profile only if you choose. See <a href="/privacy/#history">the history import</a>.</p>
+          <h3 id="farm">Can I cheat, or farm XP?</h3>
+          <p>Not for long. Every kind of XP has a daily limit, the prompt rate drops after the 20th prompt of the day, the same commit or test fix counts once, an opened pull request pays nothing, tiny merges and merges on your own repos pay less, and gold can't buy XP. <a href="/play/#fair">Fair play</a> has the full list. It's still a game run on trust; if you find a hole, <a href="https://github.com/eliraz-refael/path-of-dev/issues">report it</a>.</p>
+          <h3 id="ungraded">Why wasn't my prompt graded?</h3>
+          <p>Prompts under <span data-rule="mod:minWords">6</span> words, slash commands and prompts you didn't type yourself aren't graded. If Haiku doesn't answer in time, that prompt goes ungraded too. <code>/pathofdev last</code> shows the last one that was.</p>
+          <h3 id="merge">Why didn't my merge pay?</h3>
+          <p>A merge pays when you run <code>gh pr merge</code> in a Claude Code session, or when a pull request the mod saw you open in a session is merged anywhere within 30 days. For the second, the <a href="https://cli.github.com/">GitHub CLI</a> must be installed and signed in to the account that wrote it. Merges from before you installed the mod don't count.</p>
+          <h3 id="coming">Why do some rows say “coming”?</h3>
+          <p>A first contribution, a bug fixed, review feedback acted on and an issue closed will pay once the server can confirm them with GitHub. That check is still being built, so today they earn nothing.</p>
+          <h3 id="leaderboard">Is there a leaderboard?</h3>
+          <p>Not yet. For now, your public profile is the place to show your progress.</p>
+          <h3 id="machines">Can I play on more than one machine?</h3>
+          <p>Yes, online: install the mod and run <code>/pathofdev login</code> on each, with the same GitHub account, and they share one save. A local save lives on the machine it's on.</p>
+          <h3 id="band">The band is distracting. Can I turn it down?</h3>
+          <p>Yes. Set <b>Band</b> to <code>line</code> to keep only a status line under the prompt, <b>Celebrations</b> to <code>reduced</code> or <code>off</code>, and <b>Reward toasts</b> off. <code>/pathofdev pet hide</code> takes the pet off the band. See <a href="/commands/#settings">the settings</a>.</p>
+        </section>
+
+        <section id="keeping" aria-labelledby="keeping-h">
+          <h2 id="keeping-h">Updating and removing</h2>
+          <h3 id="update">How do I update?</h3>
+          <p>Run <code>claude plugin update pathofdev@path-of-dev</code> in your shell and restart Claude Code, or use <b>Update now</b> in <code>/plugin</code>. Playing online, the band tells you when a new version is out. <a href="/start/#update">Updating</a> also shows how to turn on auto-update.</p>
+          <h3 id="uninstall">How do I uninstall it?</h3>
+          <p>Run <code>claude plugin uninstall pathofdev@path-of-dev</code>, or remove it in <code>/plugin</code>. Your online account stays until you delete it with <code>/pathofdev account delete &lt;your-github-login&gt;</code>; a local save stays in <code>~/.pathofdev</code> until you remove the folder.</p>
+        </section>
+
+        <section id="project" aria-labelledby="project-h">
+          <h2 id="project-h">The project</h2>
+          <h3 id="companion">What's the companion?</h3>
+          <p>A terminal app, <code>pathofdev watch</code>, that you'll run beside Claude Code to see your pet, your level and your missions at a glance, without opening the pane. It's being built in the open: an early version plays against a local save, and it isn't released yet. There's no date for it.</p>
+          <div class="callout soon"><p>Coming soon: the companion app, and work GitHub confirms paying XP.</p></div>
+          <h3 id="bugs">Where do I report a bug, or ask for something?</h3>
+          <p>On GitHub: <a href="https://github.com/eliraz-refael/path-of-dev/issues">open an issue</a>. Say what you ran, what you expected, and what the band or <code>/pathofdev server</code> said.</p>
+          <h3 id="anthropic">Is it made by Anthropic?</h3>
+          <p>No. Path of Dev is an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="about">
+      <p>Path of Dev is in open beta. It's an independent open-source project and isn't affiliated with Anthropic. Claude Code is a product of Anthropic.</p>
+      <p>Free and open source, under the <a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">MIT license</a>.</p>
+    </div>
+    <nav aria-label="Play">
+      <h2>Play</h2>
+      <ul>
+        <li><a href="/start/">Get started</a></li>
+        <li><a href="/play/">How it plays</a></li>
+        <li><a href="/commands/">Commands</a></li>
+        <li><a href="https://pathof.dev/u/elirazked">See a player</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Help">
+      <h2>Help</h2>
+      <ul>
+        <li><a href="/faq/">FAQ</a></li>
+        <li><a href="/privacy/">Profile &amp; privacy</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/issues">Report a bug</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Project">
+      <h2>Project</h2>
+      <ul>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev">Source on GitHub</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/docs/privacy.md">Privacy notice</a></li>
+        <li><a href="https://github.com/eliraz-refael/path-of-dev/blob/main/LICENSE">License</a></li>
+      </ul>
+    </nav>
+  </footer>
+</div>
+</body>
+</html>

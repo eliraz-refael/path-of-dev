@@ -210,7 +210,7 @@ describe("the landing page's rubric card", () => {
 })
 
 describe("the landing page's quests", () => {
-  const cards = matches(/<article class="quest"[^>]*><h3>([^<]+)<\/h3><span class="cadence tag">\w+<\/span><p>([^<]+)<\/p><div class="reward"><span>\+(\d+) XP<\/span><span class="g">● (\d+) gold<\/span>/g)
+  const cards = matches(/<article class="quest[^"]*"><h3>([^<]+)<\/h3><span class="cadence tag">\w+<\/span><p>([^<]+)<\/p><div class="reward"><span>\+(\d+) XP<\/span><span class="g">● (\d+) gold<\/span>/g)
 
   it("says each quest as the starter pack does, with its XP and gold", () => {
     expect(cards.length).toBeGreaterThan(0)
