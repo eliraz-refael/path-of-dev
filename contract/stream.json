@@ -218,7 +218,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT60066F3G2KZXKBKV1FH",
-          "itemId": "copper-purse",
+          "itemId": "tin-purse",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "drop",
@@ -227,21 +227,21 @@
           "dye": null
         },
         "item": {
-          "id": "copper-purse",
-          "name": "Copper Purse",
+          "id": "tin-purse",
+          "name": "Tin Purse",
           "rarity": "common",
           "category": "bandStyle",
           "slot": "goldDisplay",
           "sprite": null,
-          "lore": null,
+          "lore": "Rattles more than it holds.",
           "effect": null,
           "look": {
             "glyphs": {
-              "icon": "●"
+              "icon": "○"
             },
             "colors": {
-              "icon": "#d7875f",
-              "amount": "#d7af87"
+              "icon": "#a8a8a8",
+              "amount": "#c6c6c6"
             },
             "frames": null,
             "fps": null
@@ -451,7 +451,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT600RCCS7D0V7FHGJSKS",
-          "itemId": "tempered-steel",
+          "itemId": "mooncake",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "drop",
@@ -460,29 +460,18 @@
           "dye": null
         },
         "item": {
-          "id": "tempered-steel",
-          "name": "Tempered Steel",
+          "id": "mooncake",
+          "name": "Mooncake",
           "rarity": "rare",
-          "category": "bandStyle",
-          "slot": "xpBar",
+          "category": "food",
+          "slot": null,
           "sprite": null,
-          "lore": null,
-          "effect": null,
-          "look": {
-            "glyphs": {
-              "full": "━",
-              "head": "╸",
-              "empty": "╍"
-            },
-            "colors": {
-              "full": "#4ea8ff",
-              "head": "#b8dcff",
-              "empty": "#303a4e",
-              "label": "#87afff"
-            },
-            "frames": null,
-            "fps": null
-          }
+          "lore": "Stamped with a pattern only night owls can read.",
+          "effect": {
+            "xpBoostPct": 10,
+            "minutes": 180
+          },
+          "look": null
         },
         "gold": 70,
         "pity": {
@@ -533,7 +522,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT600WZFMJ6AMDAVK9948",
-          "itemId": "double-rule",
+          "itemId": "dotted-line",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "drop",
@@ -542,30 +531,22 @@
           "dye": null
         },
         "item": {
-          "id": "double-rule",
-          "name": "Double Rule",
+          "id": "dotted-line",
+          "name": "Dotted Line",
           "rarity": "common",
           "category": "bandStyle",
-          "slot": "topEdge",
+          "slot": "xpBar",
           "sprite": null,
-          "lore": null,
+          "lore": "Sign here, then keep going.",
           "effect": null,
           "look": {
             "glyphs": {
-              "dot": "═",
-              "knot": "◇",
-              "left": "╡",
-              "line": "═",
-              "right": "╞"
+              "full": "•",
+              "empty": "·"
             },
             "colors": {
-              "dot": "#808080",
-              "knot": "#a8a8a8",
-              "left": "#a8a8a8",
-              "line": "#808080",
-              "star": "#d0d0d0",
-              "right": "#a8a8a8",
-              "title": "#e4e4e4"
+              "full": "#d0d0d0",
+              "empty": "#585858"
             },
             "frames": null,
             "fps": null
@@ -661,7 +642,7 @@
       "data": {
         "entry": {
           "id": "01M4FTT600QNVE2GZ7MMJVQ983",
-          "itemId": "copper-purse",
+          "itemId": "brass-button",
           "acquiredAt": "2026-10-09T08:00:00.000Z",
           "source": {
             "kind": "dev",
@@ -670,21 +651,21 @@
           "dye": null
         },
         "item": {
-          "id": "copper-purse",
-          "name": "Copper Purse",
+          "id": "brass-button",
+          "name": "Brass Button",
           "rarity": "common",
           "category": "bandStyle",
           "slot": "goldDisplay",
           "sprite": null,
-          "lore": null,
+          "lore": "Off an old coat, and worth more than it looks.",
           "effect": null,
           "look": {
             "glyphs": {
-              "icon": "●"
+              "icon": "◉"
             },
             "colors": {
-              "icon": "#d7875f",
-              "amount": "#d7af87"
+              "icon": "#c9a227",
+              "amount": "#e4c86a"
             },
             "frames": null,
             "fps": null
@@ -813,6 +794,6 @@
     }
   ],
   "cursor": 38,
-  "rulesVersion": 14,
+  "rulesVersion": 15,
   "minClientVersion": "0.0.0"
 }

@@ -20,7 +20,8 @@ describe("the shop and pet care, end to end", () => {
         yield* api.runCommand({ payload: { id: nextId(), type: "dev.setGold", data: { gold: 1000 } } })
         const opened = yield* api.openSession({ payload: { sessionId: session } })
         const { shop, items } = opened.snapshot
-        expect(shop.map((offer) => offer.stock)).toEqual([1, 1, 1, 1, 3, 3])
+        // Four band styles, one of each, and catalogue 7's five treats, three of each.
+        expect(shop.map((offer) => offer.stock)).toEqual([1, 1, 1, 1, 3, 3, 3, 3, 3])
         for (const offer of shop) expect(items.some((item) => item.id === offer.itemId)).toBe(true)
         const food = shop.find((offer) => offer.itemId === "honey-biscuit")
         if (food === undefined) throw new Error("no food on offer")

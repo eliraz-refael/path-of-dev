@@ -55,7 +55,7 @@
     "inventory": [
       {
         "id": "01M4FTT60066F3G2KZXKBKV1FH",
-        "itemId": "copper-purse",
+        "itemId": "tin-purse",
         "acquiredAt": "2026-10-09T08:00:00.000Z",
         "source": {
           "kind": "drop",
@@ -75,7 +75,7 @@
       },
       {
         "id": "01M4FTT600RCCS7D0V7FHGJSKS",
-        "itemId": "tempered-steel",
+        "itemId": "mooncake",
         "acquiredAt": "2026-10-09T08:00:00.000Z",
         "source": {
           "kind": "drop",
@@ -85,7 +85,7 @@
       },
       {
         "id": "01M4FTT600WZFMJ6AMDAVK9948",
-        "itemId": "double-rule",
+        "itemId": "dotted-line",
         "acquiredAt": "2026-10-09T08:00:00.000Z",
         "source": {
           "kind": "drop",
@@ -95,7 +95,7 @@
       },
       {
         "id": "01M4FTT600QNVE2GZ7MMJVQ983",
-        "itemId": "copper-purse",
+        "itemId": "brass-button",
         "acquiredAt": "2026-10-09T08:00:00.000Z",
         "source": {
           "kind": "dev",
@@ -117,6 +117,28 @@
         "look": null
       },
       {
+        "id": "jam-drop",
+        "name": "Jam Drop",
+        "rarity": "common",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "A thumbprint of jam, pressed in with care.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "apple-slices",
+        "name": "Apple Slices",
+        "rarity": "common",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Crisp, cold, and cut into exactly eight.",
+        "effect": null,
+        "look": null
+      },
+      {
         "id": "sugar-plum",
         "name": "Sugar Plum",
         "rarity": "uncommon",
@@ -125,6 +147,31 @@
         "sprite": null,
         "lore": "Saved for a pet that sat through a long build.",
         "effect": null,
+        "look": null
+      },
+      {
+        "id": "cinnamon-roll",
+        "name": "Cinnamon Roll",
+        "rarity": "uncommon",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Unrolls slowly, like a good explanation.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "mooncake",
+        "name": "Mooncake",
+        "rarity": "rare",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Stamped with a pattern only night owls can read.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 180
+        },
         "look": null
       },
       {
@@ -158,27 +205,6 @@
         }
       },
       {
-        "id": "copper-purse",
-        "name": "Copper Purse",
-        "rarity": "common",
-        "category": "bandStyle",
-        "slot": "goldDisplay",
-        "sprite": null,
-        "lore": null,
-        "effect": null,
-        "look": {
-          "glyphs": {
-            "icon": "●"
-          },
-          "colors": {
-            "icon": "#d7875f",
-            "amount": "#d7af87"
-          },
-          "frames": null,
-          "fps": null
-        }
-      },
-      {
         "id": "squires-plate",
         "name": "Squire's Plate",
         "rarity": "uncommon",
@@ -203,53 +229,111 @@
         }
       },
       {
-        "id": "meadow-rule",
-        "name": "Meadow Rule",
-        "rarity": "uncommon",
+        "id": "dotted-line",
+        "name": "Dotted Line",
+        "rarity": "common",
         "category": "bandStyle",
-        "slot": "topEdge",
+        "slot": "xpBar",
         "sprite": null,
-        "lore": null,
+        "lore": "Sign here, then keep going.",
         "effect": null,
         "look": {
           "glyphs": {
-            "line": "╌",
-            "knot": "✧",
-            "dot": "╌"
+            "full": "•",
+            "empty": "·"
           },
           "colors": {
-            "line": "#5f875f",
-            "left": "#5f875f",
-            "right": "#5f875f",
-            "star": "#87d787",
-            "title": "#d7ffaf",
-            "knot": "#87d787",
-            "dot": "#5f875f"
+            "full": "#d0d0d0",
+            "empty": "#585858"
           },
           "frames": null,
           "fps": null
         }
       },
       {
-        "id": "tempered-steel",
-        "name": "Tempered Steel",
-        "rarity": "rare",
+        "id": "hash-bar",
+        "name": "Hash Bar",
+        "rarity": "common",
         "category": "bandStyle",
         "slot": "xpBar",
         "sprite": null,
-        "lore": null,
+        "lore": "Progress, the way an old installer drew it.",
         "effect": null,
         "look": {
           "glyphs": {
-            "full": "━",
-            "empty": "╍",
-            "head": "╸"
+            "full": "#",
+            "empty": "-",
+            "left": "[",
+            "right": "]"
           },
           "colors": {
-            "full": "#4ea8ff",
-            "empty": "#303a4e",
-            "head": "#b8dcff",
-            "label": "#87afff"
+            "full": "#87af87",
+            "empty": "#4e4e4e",
+            "left": "#808080",
+            "right": "#808080"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "brass-button",
+        "name": "Brass Button",
+        "rarity": "common",
+        "category": "bandStyle",
+        "slot": "goldDisplay",
+        "sprite": null,
+        "lore": "Off an old coat, and worth more than it looks.",
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "icon": "◉"
+          },
+          "colors": {
+            "icon": "#c9a227",
+            "amount": "#e4c86a"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "tin-purse",
+        "name": "Tin Purse",
+        "rarity": "common",
+        "category": "bandStyle",
+        "slot": "goldDisplay",
+        "sprite": null,
+        "lore": "Rattles more than it holds.",
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "icon": "○"
+          },
+          "colors": {
+            "icon": "#a8a8a8",
+            "amount": "#c6c6c6"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "jade-purse",
+        "name": "Jade Purse",
+        "rarity": "uncommon",
+        "category": "bandStyle",
+        "slot": "goldDisplay",
+        "sprite": null,
+        "lore": "Carved from a stone that sat by a quiet server.",
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "icon": "◆"
+          },
+          "colors": {
+            "icon": "#3faf7f",
+            "amount": "#87d7af"
           },
           "frames": null,
           "fps": null
@@ -422,13 +506,6 @@
     "claims": [],
     "shop": [
       {
-        "offerId": "2026-10-09/copper-purse",
-        "itemId": "copper-purse",
-        "price": 120,
-        "stock": 1,
-        "endsAt": "2026-10-10T00:00:00.000Z"
-      },
-      {
         "offerId": "2026-10-09/double-rule",
         "itemId": "double-rule",
         "price": 120,
@@ -436,8 +513,15 @@
         "endsAt": "2026-10-10T00:00:00.000Z"
       },
       {
-        "offerId": "2026-10-09/meadow-rule",
-        "itemId": "meadow-rule",
+        "offerId": "2026-10-09/hash-bar",
+        "itemId": "hash-bar",
+        "price": 120,
+        "stock": 1,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/jade-purse",
+        "itemId": "jade-purse",
         "price": 250,
         "stock": 1,
         "endsAt": "2026-10-10T00:00:00.000Z"
@@ -450,9 +534,30 @@
         "endsAt": "2026-10-10T00:00:00.000Z"
       },
       {
+        "offerId": "2026-10-09/apple-slices",
+        "itemId": "apple-slices",
+        "price": 15,
+        "stock": 3,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
         "offerId": "2026-10-09/honey-biscuit",
         "itemId": "honey-biscuit",
         "price": 15,
+        "stock": 3,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/jam-drop",
+        "itemId": "jam-drop",
+        "price": 15,
+        "stock": 3,
+        "endsAt": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "offerId": "2026-10-09/cinnamon-roll",
+        "itemId": "cinnamon-roll",
+        "price": 35,
         "stock": 3,
         "endsAt": "2026-10-10T00:00:00.000Z"
       },
@@ -530,7 +635,7 @@
     "dev": true
   },
   "rules": {
-    "version": 14,
+    "version": 15,
     "schemaVersion": 11,
     "appliesFrom": null,
     "levelCurve": {
@@ -859,7 +964,7 @@
         }
       }
     },
-    "catalogVersion": 6,
+    "catalogVersion": 7,
     "missions": {
       "daily": {
         "count": 3,
