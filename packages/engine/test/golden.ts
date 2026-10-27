@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import type { Context, InventoryEntry, PlayerState } from "@pathofdev/schema"
 import { CommandRefusal, Input, IsoDateTime, QuestPack, RollRecord } from "@pathofdev/schema"
 import { Schema } from "effect"
-import { initialState, starterCatalog, starterQuestPack, starterRules } from "../src/index.ts"
+import { catalog6, initialState, rules14, starterQuestPack } from "../src/index.ts"
 
 // The golden v1 log's player and the context each of its steps ran under. The log itself is in fixtures/v1-log.json,
 // written once by main's engine 14 (fixtures/write-v1-log.ts), so a later engine can be held to what that one did with
@@ -49,13 +49,18 @@ export const goldenPlayer = (): PlayerState => {
   }
 }
 
-/** What the write path gives `step` for the log row `logSeq`, received at `now`. */
+/**
+ * What the write path gives `step` for the log row `logSeq`, received at `now`: rules 14 and catalogue 6, the last
+ * the log's rolls could be drawn from again, since catalogue 7 deals from a bigger pool. Rules 14 is the starter rules
+ * in every number (catalog.test.ts holds it to that, and to fixtures/rules-14.json), so the log still guards the
+ * pricing the starter rules run on. A later bump that changes a number must write rules 14 out in full first.
+ */
 export const goldenContext = (logSeq: number, now: string, mode: Context["mode"] = { kind: "live" }): Context => ({
   now,
   logSeq,
   rollSeed: goldenSeed,
-  rules: starterRules,
-  catalog: starterCatalog,
+  rules: rules14,
+  catalog: catalog6,
   questPacks: [starterQuestPack],
   mode,
 })

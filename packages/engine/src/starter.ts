@@ -10,6 +10,7 @@ import type {
   RulesConfig,
   ScoringFact,
 } from "@pathofdev/schema"
+import { starterWear } from "./starter-wear.ts"
 
 // The starter config and catalogue a fresh local server begins with: the design doc's numbers. One deviation for
 // the proof of concept: merges are reported XP until the verifier lands, so the loop has its big moment.
@@ -101,7 +102,7 @@ export const starterAchievements: ReadonlyArray<AchievementDef> = [
 ]
 
 export const starterRules: RulesConfig = {
-  version: 14,
+  version: 15,
   schemaVersion: 11,
   appliesFrom: null,
   // Steeper than the 1.6 before sigils: a player wearing the sigil typical of their stage reaches each level about
@@ -233,7 +234,7 @@ export const starterRules: RulesConfig = {
       loot: { chanceAtTen: 0.175, greatAt: 9 },
     },
   },
-  catalogVersion: 6,
+  catalogVersion: 7,
   // Three dailies run each local day; each local week offers five weeklies, of which three can run at once.
   missions: {
     daily: { count: 3, tier: "uncommon" },
@@ -463,6 +464,275 @@ const bandStyles: ReadonlyArray<ItemDef> = [
   ),
 ]
 
+/** A rainbow, one colour a frame, for a look whose accents cycle through it. */
+const rainbow = ["#ff5f5f", "#ffaf5f", "#ffd75f", "#87d75f", "#5fafff", "#af87ff"]
+
+// The band styles of catalogue 7, the same rule by rarity: common to rare still, epic and legendary loop.
+const moreBandStyles: ReadonlyArray<ItemDef> = [
+  style(
+    "dotted-line",
+    "Dotted Line",
+    "common",
+    "xpBar",
+    { glyphs: { full: "•", empty: "·" }, colors: { full: "#d0d0d0", empty: "#585858" } },
+    "Sign here, then keep going.",
+  ),
+  style(
+    "hash-bar",
+    "Hash Bar",
+    "common",
+    "xpBar",
+    {
+      glyphs: { full: "#", empty: "-", left: "[", right: "]" },
+      colors: { full: "#87af87", empty: "#4e4e4e", left: "#808080", right: "#808080" },
+    },
+    "Progress, the way an old installer drew it.",
+  ),
+  style(
+    "brick-bar",
+    "Brick Bar",
+    "common",
+    "xpBar",
+    { glyphs: { full: "▓", empty: "░" }, colors: { full: "#d7875f", empty: "#4e3a30", label: "#d7af87" } },
+    "Laid one commit at a time.",
+  ),
+  style(
+    "bracket-badge",
+    "Bracket Badge",
+    "common",
+    "levelDisplay",
+    {
+      glyphs: { left: "[", right: "]" },
+      colors: { level: "#d0d0d0", left: "#808080", right: "#808080", title: "#a8a8a8" },
+    },
+    "Square brackets, for a level that means business.",
+  ),
+  style(
+    "paren-badge",
+    "Paren Badge",
+    "common",
+    "levelDisplay",
+    {
+      glyphs: { left: "(", right: ")" },
+      colors: { level: "#d7af87", left: "#af875f", right: "#af875f", title: "#d7c3a8" },
+    },
+    "Optional, but you wore it anyway.",
+  ),
+  style(
+    "angle-badge",
+    "Angle Badge",
+    "common",
+    "levelDisplay",
+    {
+      glyphs: { left: "<", right: ">" },
+      colors: { level: "#87afd7", left: "#5f87af", right: "#5f87af", title: "#afc8e4" },
+    },
+    "Opened like a tag, and properly closed.",
+  ),
+  style(
+    "dashed-rule",
+    "Dashed Rule",
+    "common",
+    "topEdge",
+    {
+      glyphs: { line: "┄", left: "┤", right: "├", knot: "·", dot: "┄" },
+      colors: {
+        line: "#6c6c6c",
+        left: "#8a8a8a",
+        right: "#8a8a8a",
+        star: "#bcbcbc",
+        title: "#d0d0d0",
+        knot: "#8a8a8a",
+        dot: "#6c6c6c",
+      },
+    },
+    "Cut along the dotted line, carefully.",
+  ),
+  style(
+    "rope-rule",
+    "Rope Rule",
+    "common",
+    "topEdge",
+    {
+      glyphs: { line: "~", left: "{", right: "}", knot: "∘", dot: "~" },
+      colors: {
+        line: "#af875f",
+        left: "#d7af87",
+        right: "#d7af87",
+        star: "#d7af87",
+        title: "#e4d0b8",
+        knot: "#d7af87",
+        dot: "#af875f",
+      },
+    },
+    "Knotted every so often, to hold the band up.",
+  ),
+  style(
+    "brass-button",
+    "Brass Button",
+    "common",
+    "goldDisplay",
+    { glyphs: { icon: "◉" }, colors: { icon: "#c9a227", amount: "#e4c86a" } },
+    "Off an old coat, and worth more than it looks.",
+  ),
+  style(
+    "tin-purse",
+    "Tin Purse",
+    "common",
+    "goldDisplay",
+    { glyphs: { icon: "○" }, colors: { icon: "#a8a8a8", amount: "#c6c6c6" } },
+    "Rattles more than it holds.",
+  ),
+  style(
+    "circuit-trace",
+    "Circuit Trace",
+    "uncommon",
+    "xpBar",
+    { glyphs: { full: "━", empty: "┄" }, colors: { full: "#5fd787", empty: "#2f4f3f", label: "#87d7af" } },
+    "Etched one connection at a time.",
+  ),
+  style(
+    "scroll-tag",
+    "Scroll Tag",
+    "uncommon",
+    "levelDisplay",
+    {
+      glyphs: { left: "⟨", right: "⟩" },
+      colors: { glyph: "#e4d8b8", level: "#d7af5f", left: "#af875f", right: "#af875f", title: "#e4d8b8" },
+    },
+    "Unrolled anew for every level.",
+  ),
+  style(
+    "brook-rule",
+    "Brook Rule",
+    "uncommon",
+    "topEdge",
+    {
+      glyphs: { line: "≈", left: "╡", right: "╞", knot: "◦", dot: "≈" },
+      colors: {
+        line: "#5f87af",
+        left: "#5f87af",
+        right: "#5f87af",
+        star: "#87d7ff",
+        title: "#d7f4ff",
+        knot: "#87d7ff",
+        dot: "#5f87af",
+      },
+    },
+    "Babbles along, like a log at debug level.",
+  ),
+  style(
+    "silver-purse",
+    "Silver Purse",
+    "uncommon",
+    "goldDisplay",
+    { glyphs: { icon: "◇" }, colors: { icon: "#d0d0d0", amount: "#e4e4e4" } },
+    "Polished each time a bug is fixed.",
+  ),
+  style(
+    "jade-purse",
+    "Jade Purse",
+    "uncommon",
+    "goldDisplay",
+    { glyphs: { icon: "◆" }, colors: { icon: "#3faf7f", amount: "#87d7af" } },
+    "Carved from a stone that sat by a quiet server.",
+  ),
+  style(
+    "frost-rule",
+    "Frost Rule",
+    "rare",
+    "topEdge",
+    {
+      glyphs: { line: "─", left: "┤", right: "├", star: "✻", knot: "✻", dot: "·" },
+      colors: {
+        line: "#5f87af",
+        left: "#87afd7",
+        right: "#87afd7",
+        star: "#d7f4ff",
+        title: "#ffffff",
+        knot: "#afd7ff",
+        dot: "#5f87af",
+      },
+    },
+    "Clear and cold, like a well-written error.",
+  ),
+  style(
+    "kiln-bar",
+    "Kiln Bar",
+    "rare",
+    "xpBar",
+    {
+      glyphs: { full: "▮", empty: "▯", head: "▸" },
+      colors: { full: "#ff875f", empty: "#4e2a1f", head: "#ffd7af", label: "#ffaf87" },
+    },
+    "Fired hot, cooled slowly, and never cracked.",
+  ),
+  style(
+    "prism-plate",
+    "Prism Plate",
+    "epic",
+    "levelDisplay",
+    {
+      glyphs: { left: "⟪", right: "⟫" },
+      colors: { glyph: "#ffffff", level: "#ffffff", title: "#e0aaff", left: "#ff5f5f", right: "#5fafff" },
+      // The brackets and the glyph run through the rainbow, out of step.
+      frames: rainbow.map((_, i) => ({
+        colors: { left: pick(rainbow, i), right: pick(rainbow, i + 3), glyph: pick(rainbow, i + 1) },
+      })),
+      fps: 3,
+    },
+    "Splits one level into every colour.",
+  ),
+  style(
+    "comet-purse",
+    "Comet Purse",
+    "epic",
+    "goldDisplay",
+    {
+      glyphs: { icon: "◈", spark: "✦" },
+      colors: { icon: "#c77dff", amount: "#e0aaff", spark: "#ffffff" },
+      // A spark streaks past the count and fades, the coin glowing as it goes.
+      frames: Array.from({ length: 6 }, (_, i) => ({
+        glyphs: { spark: pick(["✦", "✧", "⋆", "·", " ", "·"], i) },
+        colors: {
+          icon: pick(["#c77dff", "#e0aaff", white, "#e0aaff", "#c77dff", "#9d4edd"], i),
+          spark: pick([white, "#e0aaff", "#c77dff", "#9d4edd", "#9d4edd", "#c77dff"], i),
+        },
+      })),
+      fps: 4,
+    },
+    "Every coin leaves a little tail.",
+  ),
+  style(
+    "aurora-edge",
+    "Aurora Edge",
+    "legendary",
+    "topEdge",
+    {
+      glyphs: { star: "✦", knot: "✧" },
+      colors: {
+        line: "#1f4f4f",
+        left: "#3fd7af",
+        right: "#c77dff",
+        star: "#3fd7af",
+        title: "#d7fff4",
+        knot: "#5fafff",
+        dot: "#1f4f4f",
+      },
+      // Green, teal and violet light sweeps the edge, a few stars winking as it passes.
+      frames: twinkle(
+        [0.12, 0.38, 0.62, 0.88],
+        ["·", "✧", "✦", "✧", " ", " "],
+        ["#3fd7af", "#5fafff", "#c77dff", "#5fafff"],
+        (i) => ({ colors: { star: pick(["#3fd7af", "#5fafff", "#c77dff"], Math.floor(i / 2)) } }),
+      ),
+      fps: 5,
+      sheen: { colors: ["#1f6f5f", "#3fd7af", "#5fafff", "#c77dff"], rest: 8 },
+    },
+    "The northern lights, folded over the band.",
+  ),
+]
+
 /** A sigil: its multiplier on prompt XP, inside its rarity's range, and the mark the pane draws it with. */
 const sigil = (
   id: string,
@@ -474,7 +744,8 @@ const sigil = (
   lore: string,
 ): ItemDef => item({ id, name, rarity, category: "sigil", slot: "sigil", lore, sigil: { multiplier, glyph, color } })
 
-// The sigils, two a rarity, one low in its range and one high: a mark that grows from an outlined star to a sun.
+// The sigils of catalogue 6, two a rarity, one low in its range and one high: a mark that grows from an outlined star
+// to a sun.
 const sigils: ReadonlyArray<ItemDef> = [
   sigil("chalk-sigil", "Chalk Sigil", "common", 1.2, "✧", "#bcbcbc", "Drawn in a hurry on the back of a ticket."),
   sigil("ember-sigil", "Ember Sigil", "common", 1.3, "✧", "#d7875f", "Still warm from the first green build."),
@@ -488,68 +759,129 @@ const sigils: ReadonlyArray<ItemDef> = [
   sigil("wyrm-sigil", "Wyrm Sigil", "legendary", 2.5, "✺", "#ff9f1c", "Cut from a dragon that read every spec."),
 ]
 
-export const starterCatalog: ReadonlyArray<ItemDef> = [
-  item({ id: "plain-cap", name: "Plain Cap", rarity: "common", category: "wearable", slot: "head" }),
-  item({ id: "paper-scarf", name: "Paper Scarf", rarity: "common", category: "wearable", slot: "neck" }),
-  // Treats lift the pet's mood and nothing else: the shop sells them. XP food also starts an XP boost, so it comes only
-  // from play, as drops and mission rewards.
-  item({
-    id: "honey-biscuit",
-    name: "Honey Biscuit",
-    rarity: "common",
-    category: "food",
-    slot: null,
-    lore: "Baked in the shape of a tiny paw.",
-  }),
-  item({
-    id: "sugar-plum",
-    name: "Sugar Plum",
-    rarity: "uncommon",
-    category: "food",
-    slot: null,
-    lore: "Saved for a pet that sat through a long build.",
-  }),
-  item({
-    id: "trail-mix",
-    name: "Trail Mix",
-    rarity: "common",
-    category: "food",
-    slot: null,
-    lore: "Nuts, seeds and the odd chocolate chip.",
-    effect: { xpBoostPct: 10, minutes: 60 },
-  }),
-  item({
-    id: "berry-tart",
-    name: "Berry Tart",
-    rarity: "uncommon",
-    category: "food",
-    slot: null,
-    lore: "Still warm, and gone in two bites.",
-    effect: { xpBoostPct: 10, minutes: 120 },
-  }),
-  item({
-    id: "starfruit",
-    name: "Starfruit",
-    rarity: "rare",
-    category: "food",
-    slot: null,
-    lore: "Fell from a branch that grows only over green builds.",
-    effect: { xpBoostPct: 10, minutes: 180 },
-  }),
-  item({ id: "knit-scarf", name: "Knit Scarf", rarity: "uncommon", category: "wearable", slot: "neck" }),
-  item({ id: "confetti-pop", name: "Confetti Pop", rarity: "uncommon", category: "levelUpEffect", slot: "levelUpEffect" }),
-  item({ id: "terminal-green", name: "Terminal Green", rarity: "uncommon", category: "scene", slot: "scene" }),
-  item({ id: "wizard-hat", name: "Wizard Hat", rarity: "rare", category: "wearable", slot: "head" }),
-  item({ id: "fireworks", name: "Fireworks", rarity: "rare", category: "levelUpEffect", slot: "levelUpEffect" }),
-  item({ id: "pixel-dragon", name: "Pixel Dragon", rarity: "epic", category: "levelUpEffect", slot: "levelUpEffect" }),
-  item({
-    id: "aurora-crown",
-    name: "Aurora Crown",
-    rarity: "legendary",
-    category: "artefact",
-    slot: "aura",
-    lore: "Said to glow brighter with every merge.",
-  }),
-  ...bandStyles,
-  ...sigils,
+// Catalogue 7's sigils, each in the middle of its rarity's range or a pair either side of it, so every rarity's sigils
+// still average what its two did: a bigger pool never makes a typical sigil stronger.
+const moreSigils: ReadonlyArray<ItemDef> = [
+  sigil("ink-sigil", "Ink Sigil", "common", 1.25, "✧", "#8a9bd8", "Blotted on a sticky note, and still legible."),
+  sigil("pebble-sigil", "Pebble Sigil", "common", 1.25, "✧", "#a89878", "Worn smooth by a thousand clear asks."),
+  sigil("moss-sigil", "Moss Sigil", "uncommon", 1.5, "✦", "#87af5f", "Grows quietly on the code that just works."),
+  sigil("kite-sigil", "Kite Sigil", "uncommon", 1.5, "✦", "#ff875f", "Flies best with a clear line to hold."),
+  sigil("compass-sigil", "Compass Sigil", "rare", 1.8, "✶", "#5fafd7", "Points at what the prompt left unsaid."),
+  sigil("nebula-sigil", "Nebula Sigil", "epic", 2.1, "✹", "#af87ff", "Swirls until the requirements settle."),
+  sigil("zenith-sigil", "Zenith Sigil", "legendary", 2.4, "❂", "#fff1a8", "Shines straight down on finished work."),
 ]
+
+/** Food: a treat lifts the pet's mood and nothing else, and XP food also starts an XP boost. */
+const food = (
+  id: string,
+  name: string,
+  rarity: Rarity,
+  lore: string,
+  effect: ItemDef["effect"] = null,
+): ItemDef => item({ id, name, rarity, category: "food", slot: null, lore, effect })
+
+/** XP food's boost at each rarity it drops at: 10% for an hour, two at uncommon, three at rare. */
+const boost = { common: { xpBoostPct: 10, minutes: 60 }, uncommon: { xpBoostPct: 10, minutes: 120 } } as const
+const rareBoost = { xpBoostPct: 10, minutes: 180 }
+
+// Treats lift the pet's mood and nothing else: the shop sells them. XP food also starts an XP boost, so it comes only
+// from play, as drops and mission rewards. Catalogue 7 keeps XP food the share of its rarity's drops it was (a
+// seventh of common, an eighth of uncommon, a sixth of rare), so a bigger pool boosts XP no more and no less often.
+const foods: ReadonlyArray<ItemDef> = [
+  food("honey-biscuit", "Honey Biscuit", "common", "Baked in the shape of a tiny paw."),
+  food("jam-drop", "Jam Drop", "common", "A thumbprint of jam, pressed in with care."),
+  food("apple-slices", "Apple Slices", "common", "Crisp, cold, and cut into exactly eight."),
+  food("sugar-plum", "Sugar Plum", "uncommon", "Saved for a pet that sat through a long build."),
+  food("cinnamon-roll", "Cinnamon Roll", "uncommon", "Unrolls slowly, like a good explanation."),
+  food("trail-mix", "Trail Mix", "common", "Nuts, seeds and the odd chocolate chip.", boost.common),
+  food("cold-brew", "Cold Brew", "common", "Steeped overnight, like a long-running test.", boost.common),
+  food("rice-ball", "Rice Ball", "common", "Packed for a long session, gone before the first build.", boost.common),
+  food("granola-bar", "Granola Bar", "common", "Mostly oats, partly optimism.", boost.common),
+  food("fortune-cookie", "Fortune Cookie", "common", "It says: your next commit will be a small one.", boost.common),
+  food("berry-tart", "Berry Tart", "uncommon", "Still warm, and gone in two bites.", boost.uncommon),
+  food("miso-soup", "Miso Soup", "uncommon", "Warm enough for one more refactor.", boost.uncommon),
+  food("pocket-pie", "Pocket Pie", "uncommon", "Folded shut, like a well-kept function.", boost.uncommon),
+  food("starfruit", "Starfruit", "rare", "Fell from a branch that grows only over green builds.", rareBoost),
+  food("mooncake", "Mooncake", "rare", "Stamped with a pattern only night owls can read.", rareBoost),
+  food("honeycomb", "Honeycomb", "rare", "Built cell by cell, like a good test suite.", rareBoost),
+]
+
+/** A level-up effect or a scene: a moment's look, named for now, which nothing draws yet. */
+const moment = (
+  id: string,
+  name: string,
+  rarity: Rarity,
+  category: "levelUpEffect" | "scene",
+  lore: string,
+): ItemDef => item({ id, name, rarity, category, slot: category, lore })
+
+const moments: ReadonlyArray<ItemDef> = [
+  moment("party-popper", "Party Popper", "common", "levelUpEffect", "One string to pull, one level to cheer."),
+  moment("confetti-pop", "Confetti Pop", "uncommon", "levelUpEffect", "Mostly paper, entirely earned."),
+  moment("terminal-green", "Terminal Green", "uncommon", "scene", "Green on black, the way the old screens glowed."),
+  moment("fireworks", "Fireworks", "rare", "levelUpEffect", "Loud enough to wake the logs."),
+  moment("comet-trail", "Comet Trail", "rare", "levelUpEffect", "Draws the new level number across the sky."),
+  moment("pixel-dragon", "Pixel Dragon", "epic", "levelUpEffect", "Circles twice, roars once, then naps on your gold."),
+]
+
+/**
+ * The catalogue the starter rules deal from, version 7: catalogue 6's items, every one with a line of lore and the
+ * pet's wear with art, and many more. An item is never taken out or renamed, since players own it.
+ */
+export const starterCatalog: ReadonlyArray<ItemDef> = [
+  ...starterWear,
+  ...foods,
+  ...moments,
+  ...bandStyles,
+  ...moreBandStyles,
+  ...sigils,
+  ...moreSigils,
+]
+
+// Catalogue 6 as rules 14 dealt from it, kept so a log of rules 14 can be run again just as it ran: the same items
+// with their fields of then, in the same order, since a roll picks an item by its place.
+
+/** Catalogue 6's items in its order. */
+const catalog6Order = [
+  "plain-cap",
+  "paper-scarf",
+  "honey-biscuit",
+  "sugar-plum",
+  "trail-mix",
+  "berry-tart",
+  "starfruit",
+  "knit-scarf",
+  "confetti-pop",
+  "terminal-green",
+  "wizard-hat",
+  "fireworks",
+  "pixel-dragon",
+  "aurora-crown",
+  ...bandStyles.map((style) => style.id),
+  ...sigils.map((one) => one.id),
+]
+
+/** The fields catalogue 7 gave items catalogue 6 already had, as catalogue 6 had them: no art, and less lore. */
+const asInCatalog6: Readonly<Record<string, Partial<ItemDef>>> = {
+  "plain-cap": { sprite: null, lore: null },
+  "paper-scarf": { sprite: null, lore: null },
+  "knit-scarf": { sprite: null, lore: null },
+  "wizard-hat": { sprite: null, lore: null },
+  "aurora-crown": { sprite: null },
+  "confetti-pop": { lore: null },
+  "terminal-green": { lore: null },
+  "fireworks": { lore: null },
+  "pixel-dragon": { lore: null },
+}
+
+/** Catalogue 6, which rules 14 dealt from. */
+export const catalog6: ReadonlyArray<ItemDef> = catalog6Order.flatMap((id) => {
+  const def = starterCatalog.find((one) => one.id === id)
+  return def === undefined ? [] : [{ ...def, ...asInCatalog6[id] }]
+})
+
+/**
+ * Rules 14: the starter rules before catalogue 7, the same in every number. The tests hold it to the rules as they
+ * shipped (test/fixtures/rules-14.json), so a later change to a number must spell rules 14 out here first.
+ */
+export const rules14: RulesConfig = { ...starterRules, version: 14, catalogVersion: 6 }

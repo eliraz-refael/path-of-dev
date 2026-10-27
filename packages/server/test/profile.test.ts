@@ -242,6 +242,64 @@ describe("profilePage", () => {
   })
 })
 
+describe("the pet's wear", () => {
+  const ids = {
+    hat: "01K6ZQ8W3J0000000000000H01",
+    cape: "01K6ZQ8W3J0000000000000C01",
+    lost: "01K6ZQ8W3J0000000000000L01",
+  }
+  /** Ada's pet wearing what `equipped` says, the hat and the cloak owned and defined, the lost entry owned only. */
+  const wearing = (equipped: NonNullable<Snapshot["pet"]>["equipped"]) => {
+    const owned = (id: string, itemId: string) => ({
+      id,
+      itemId,
+      acquiredAt: start,
+      source: { kind: "drop" as const, ref: "0" },
+      dye: null,
+    })
+    const snapshot: Snapshot = {
+      ...base,
+      pet: { species: "fox", name: "Pixel", form: 1, mood: 80, equipped },
+      inventory: [owned(ids.hat, "wizard-hat"), owned(ids.cape, "night-cloak"), owned(ids.lost, "no-such-item")],
+      items: catalog.filter((item) => item.id === "wizard-hat" || item.id === "night-cloak"),
+    }
+    const profile = profileOf("ada", { snapshot, badgeProgress: [] }, privacyOf({ public: true }))
+    return { profile, page: profilePage(profile, "https://pathof.dev/u/ada") }
+  }
+
+  it("lists what the pet wears in the pet's slot order, and leaves out wear the snapshot can't name", () => {
+    const { profile } = wearing({ back: ids.cape, head: ids.hat, hand: ids.lost })
+    expect(profile.pet?.wearing).toEqual([
+      { slot: "head", name: "Wizard Hat", sprite: "wizard-hat" },
+      { slot: "back", name: "Night Cloak", sprite: "night-cloak" },
+    ])
+  })
+
+  it("draws the pet in its wear on the dressed canvas, and says what it wears", () => {
+    const { page } = wearing({ head: ids.hat, back: ids.cape })
+    expect(page).toContain('<svg class="sprite dressed" viewBox="0 0 20 17"')
+    expect(page).toContain('aria-label="Pixel, the fox, wearing Wizard Hat and Night Cloak"')
+    expect(page).toContain("Wears Wizard Hat and Night Cloak")
+  })
+
+  it("names in the picture's label only the wear it draws, and on the card all of it", () => {
+    const { profile } = wearing({ head: ids.hat })
+    if (profile.pet === undefined || profile.pet === null) throw new Error("Ada's pet is hatched")
+    const odd = { slot: "neck", name: "Odd Scarf", sprite: "no-such-art" } as const
+    const pet = { ...profile.pet, wearing: [...profile.pet.wearing, odd] }
+    const page = profilePage({ ...profile, pet }, "https://pathof.dev/u/ada")
+    expect(page).toContain('aria-label="Pixel, the fox, wearing Wizard Hat"')
+    expect(page).toContain("Wears Wizard Hat and Odd Scarf")
+  })
+
+  it("draws a pet that wears nothing as it always was", () => {
+    const { profile, page } = wearing({})
+    expect(profile.pet?.wearing).toEqual([])
+    expect(page).toContain('<svg class="sprite" viewBox="0 0 14 12" role="img" aria-label="Pixel, the fox">')
+    expect(page).not.toContain("Wears ")
+  })
+})
+
 describe("gaugeOf", () => {
   const Tenths = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
   const Short = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 0.099 }))

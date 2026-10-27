@@ -27,6 +27,7 @@ import {
 import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import {
+  catalog6,
   equippedSigil,
   initialState,
   isSigil,
@@ -424,7 +425,10 @@ describe("sigils: drops only", () => {
     })
     expect(made.some((itemId) => itemId === "")).toBe(false)
     expect(made.filter((itemId) => starterCatalog.find((item) => item.id === itemId)?.sigil !== undefined)).toEqual([])
-    expect(new Set(made)).toEqual(new Set(["arcane-current", "starlit-edge"]))
+    const others = starterCatalog.filter(
+      (item) => item.rarity === "epic" && !isSigil(item) && item.id !== "pixel-dragon",
+    )
+    expect(new Set(made)).toEqual(new Set(others.map((item) => item.id)))
     // The shop sells none on any day of a year, even under rules that would sell everything.
     const everything: RulesConfig = {
       ...starterRules,
@@ -454,14 +458,26 @@ describe("sigils: drops only", () => {
 })
 
 describe("sigils: the starter set", () => {
-  it("has two at every rarity, each inside its range, drawn with a one-cell mark and a color", () => {
+  it("has four common and uncommon and three of each rarer, inside its range, with a one-cell mark and a color", () => {
     const sigils = starterCatalog.filter(isSigil)
     for (const item of sigils) expect(Schema.decodeUnknownSync(ItemDefSchema)(item)).toEqual(item)
     const counts = new Map<string, number>()
     for (const item of sigils) counts.set(item.rarity, (counts.get(item.rarity) ?? 0) + 1)
-    expect(Object.fromEntries(counts)).toEqual({ common: 2, uncommon: 2, rare: 2, epic: 2, legendary: 2 })
+    expect(Object.fromEntries(counts)).toEqual({ common: 4, uncommon: 4, rare: 3, epic: 3, legendary: 3 })
     expect(catalogIssue(starterRules.prompt.sigilMultiplier, starterCatalog)).toBe(undefined)
     expect(sigils.map((item) => [...(item.sigil?.glyph ?? "")].length)).toEqual(sigils.map(() => 1))
+  })
+
+  it("average the middle of each rarity's range, as catalogue 6's two a rarity did, so a sigil is no stronger", () => {
+    for (const rarity of RaritySchema.literals) {
+      const average = (catalog: ReadonlyArray<ItemDef>) => {
+        const powers = catalog.filter((item) => item.rarity === rarity).flatMap((item) => item.sigil?.multiplier ?? [])
+        return powers.reduce((sum, one) => sum + one, 0) / powers.length
+      }
+      const [min, max] = starterRules.prompt.sigilMultiplier[rarity]
+      expect(average(starterCatalog), rarity).toBeCloseTo((min + max) / 2, 9)
+      expect(average(catalog6), rarity).toBeCloseTo((min + max) / 2, 9)
+    }
   })
 
   it("steepens the curve for sigils, keeping level 1 at 100 XP and asking more for every level after", () => {

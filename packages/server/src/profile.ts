@@ -2,6 +2,7 @@ import type {
   AchievementDef,
   Criterion,
   ImportedHistory,
+  PetSlot,
   Player as PlayerType,
   Privacy,
   ProfileSection,
@@ -10,7 +11,7 @@ import type {
   Snapshot,
 } from "@pathofdev/schema"
 import type { BadgeProgress, Gauge } from "@pathofdev/engine"
-import { happyBonusPct } from "@pathofdev/engine"
+import { happyBonusPct, petSlots } from "@pathofdev/engine"
 import { isGithubLogin, isShown, Player, privacyOf, profileUrlOf } from "@pathofdev/schema"
 import { Cause, Context, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -83,6 +84,8 @@ export interface PublicProfile {
     readonly mood: number
     /** The XP bonus its mood gives now: 0 unless it is happy. */
     readonly xpBonusPct: number
+    /** What it wears, slot by slot in the pet's order, each by its name and the art its sprite names. */
+    readonly wearing: ReadonlyArray<PublicWear>
   } | null
   readonly streak?: { readonly days: number; readonly best: number; readonly restDaysLeftThisWeek: number }
   readonly stats?: {
@@ -95,6 +98,14 @@ export interface PublicProfile {
   }
   /** Shown only once the player shows it, and only when an import brought one. */
   readonly history?: PublicHistory
+}
+
+/** A piece of the pet's wear as a page draws it. */
+export interface PublicWear {
+  readonly slot: PetSlot
+  readonly name: string
+  /** The art's id (`starterWearArt`), or null for wear the page has no art for. */
+  readonly sprite: string | null
 }
 
 /** The counts an import brought from before Path of Dev, as a page shows them: when it was taken left out. */
@@ -181,6 +192,16 @@ export const badgesOf = (
 
 const speciesName = (species: string): string => rules.pet.species.find((one) => one.id === species)?.name ?? species
 
+/** What the pet wears, slot by slot, by the definitions the snapshot carries; wear it can't name is left out. */
+export const wearingOf = (snapshot: Snapshot): ReadonlyArray<PublicWear> => {
+  const equipped = snapshot.pet?.equipped ?? {}
+  return petSlots.flatMap((slot) => {
+    const entry = snapshot.inventory.find((owned) => owned.id === equipped[slot])
+    const def = entry === undefined ? undefined : snapshot.items.find((item) => item.id === entry.itemId)
+    return def === undefined ? [] : [{ slot, name: def.name, sprite: def.sprite }]
+  })
+}
+
 /** The history a page shows, field by field, the tool calls summed. */
 export const publicHistoryOf = (history: ImportedHistory): PublicHistory => ({
   prompts: history.prompts,
@@ -229,6 +250,7 @@ export const profileOf = (
           form: pet.form,
           mood: pet.mood,
           xpBonusPct: happyBonusPct(pet.mood, rules),
+          wearing: wearingOf(snapshot),
         },
       }
       : {}),

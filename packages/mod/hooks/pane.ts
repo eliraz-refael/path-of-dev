@@ -1,3 +1,4 @@
+import type { PetSlot } from '@pathofdev/schema'
 import type { BandLook, BandSlot, BandView, PaneTab, Tier, Wardrobe } from '../types'
 import { tierRank } from './celebrate'
 import { cellsOf } from './cells'
@@ -192,6 +193,63 @@ export const lookSections = (wardrobe: Wardrobe | null): Array<Section> =>
     return { slot, title: slotNames[slot], choices: [own, ...lost, ...styles] }
   })
 
+/** The pet's slots, in the order the pane lists its wear and the profile draws it. */
+export const petSlots: ReadonlyArray<PetSlot> = ['head', 'neck', 'back', 'hand', 'aura']
+
+/** One piece of the pet's wear owned: the entry to put on (the one worn, else the first owned) and how many. */
+export type WearChoice = {
+  /** Stable for the Buttons' keys: the item id, or `lost`. */
+  key: string
+  name: string
+  rarity: Tier | null
+  slot: PetSlot
+  entryId: string
+  count: number
+  lore: string | null
+  isWorn: boolean
+  /** What the pane says in place of a rarity: for a worn entry the snapshot can't name. */
+  note: string | null
+}
+
+/**
+ * The pet's wear owned, slot by slot in the pet's order, rarest first within a slot, with what is worn marked. An
+ * entry worn that the snapshot has no definition for still shows, first in its slot, so it can be taken off.
+ */
+export const wearChoices = (wardrobe: Wardrobe | null): Array<WearChoice> => {
+  const byItem = new Map<string, WearChoice>()
+  for (const item of wardrobe?.items ?? []) {
+    const slot = petSlots.find((one) => one === item.slot)
+    if (slot === undefined) continue
+    const seen = byItem.get(item.itemId)
+    const isWorn = wardrobe?.equipped[slot] === item.entryId
+    byItem.set(item.itemId, {
+      key: item.itemId,
+      name: item.name,
+      rarity: item.rarity,
+      slot,
+      entryId: isWorn || seen === undefined ? item.entryId : seen.entryId,
+      count: (seen?.count ?? 0) + 1,
+      lore: item.lore,
+      isWorn: isWorn || (seen?.isWorn ?? false),
+      note: null,
+    })
+  }
+  const known = new Set((wardrobe?.items ?? []).map((item) => item.entryId))
+  const lost = petSlots.flatMap((slot): Array<WearChoice> => {
+    const entryId = wardrobe?.equipped[slot]
+    if (entryId === undefined || known.has(entryId)) return []
+    const note = 'no longer in the catalogue'
+    return [
+      { key: 'lost', name: 'Unknown wear', rarity: null, slot, entryId, count: 1, lore: null, isWorn: true, note },
+    ]
+  })
+  const rank = (choice: WearChoice) => (choice.rarity === null ? 5 : tierRank(choice.rarity))
+  return [...lost, ...byItem.values()].sort(
+    (a, b) =>
+      petSlots.indexOf(a.slot) - petSlots.indexOf(b.slot) || rank(b) - rank(a) || a.name.localeCompare(b.name),
+  )
+}
+
 /** Everything else owned, by name, rarest first, with how many of each. */
 export type OtherItem = { itemId: string; name: string; rarity: Tier; kind: string; count: number }
 
@@ -201,6 +259,8 @@ export const otherItems = (wardrobe: Wardrobe | null): Array<OtherItem> => {
     // Band styles and, from a server that deals in them, sigils have sections of their own, as food has the pet's card.
     if (item.look !== null || (item.sigil !== undefined && wardrobe?.knowsSigils === true)) continue
     if (item.food !== undefined && wardrobe?.knowsCare === true) continue
+    // The pet's wear has a section of its own too.
+    if (petSlots.some((slot) => slot === item.slot)) continue
     const seen = counted.get(item.itemId)
     const count = (seen?.count ?? 0) + 1
     const { itemId, name, rarity } = item

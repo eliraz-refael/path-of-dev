@@ -21,4 +21,4 @@
  08:00  ✓ done    Save Points
  08:00  ✦ badge   Level 25
  08:00  ✦ badge   Level 10
- 08:00  ◆ loot    Copper Purse dropped · common
+ 08:00  ◆ loot    Brass Button dropped · common

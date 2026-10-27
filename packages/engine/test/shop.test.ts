@@ -179,14 +179,12 @@ describe("the shop: today's offers", () => {
       expect(item.category).toBe("bandStyle")
       expect(["common", "uncommon"]).toContain(item.rarity)
     }
-    expect(pantryOf({ rules: starterRules, catalog: starterCatalog }).map((item) => item.id)).toEqual([
-      "honey-biscuit",
-      "sugar-plum",
-    ])
+    // Catalogue 7's treats, by rarity and then name.
+    const treats = ["apple-slices", "honey-biscuit", "jam-drop", "cinnamon-roll", "sugar-plum"]
+    expect(pantryOf({ rules: starterRules, catalog: starterCatalog }).map((item) => item.id)).toEqual(treats)
     const offers = shopOffers(player(), { rules: starterRules, catalog: starterCatalog }, start)
-    const treats = ["honey-biscuit", "sugar-plum"]
     expect(offers.map((offer) => offer.itemId)).toEqual([...shelf.map((item) => item.id), ...treats])
-    expect(offers.map((offer) => offer.stock)).toEqual([1, 1, 1, 1, 3, 3])
+    expect(offers.map((offer) => offer.stock)).toEqual([1, 1, 1, 1, ...treats.map(() => 3)])
     expect(offers.find((offer) => offer.itemId === "honey-biscuit")).toEqual({
       offerId: "2026-10-09/honey-biscuit",
       itemId: "honey-biscuit",
@@ -281,7 +279,8 @@ describe("the shop: buying", () => {
 
   it("never sells XP food: the food on offer only lifts the mood, and an XP food's id is refused", () => {
     const pantry = pantryOf({ rules: starterRules, catalog: starterCatalog })
-    expect(pantry.map((item) => item.effect)).toEqual([null, null])
+    expect(pantry).toHaveLength(5)
+    expect(pantry.map((item) => item.effect)).toEqual(pantry.map(() => null))
     const refused = step(player({ gold: 1000 }), buy(offerIdOf(today, "trail-mix")), contextAt(1, start))
     expect(refused.refusal).toEqual({
       code: "not_allowed",
