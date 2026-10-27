@@ -64,15 +64,17 @@ const cap = (k: string, d: string) =>
     "ddddddddd",
   ])
 
-/** A cape behind the pet, falling wide past its feet: `c` the cloth, `h` the hem, `s` a speck. */
+/** A cape behind the pet, from its shoulders to a hem past its feet: `c` the cloth, `h` the hem, `s` a speck. */
 const cape = (c: string, h: string, s: string) =>
-  patch(0, 9, { c, h, s }, [
+  patch(0, 8, { c, h, s }, [
     "..cccccccccccccccc..",
-    "..cccccccccccccccc..",
-    ".scccccccccccccccc..",
-    ".cccccccccccccccccs.",
     ".cccccccccccccccccc.",
-    "cccscccccccccccscccc",
+    ".cccccccccccccccccs.",
+    "cscccccccccccccccccc",
+    "cccccccccccccccccccc",
+    "ccccccccccccccccccsc",
+    "cccscccccccccccccccc",
+    "cccccccccccccccccccc",
     "hchchchchchchchchchc",
   ])
 
@@ -89,13 +91,14 @@ const wings = (w: string, f: string, t: string) =>
     "wf................fw",
   ])
 
-/** A pendant on a chain: `c` the chain, `p` the pendant, `g` its glint. */
-const pendant = (c: string, p: string, g: string) =>
-  patch(6, 11, { c, p, g }, [
+/** A pendant on a chain, hanging below the belly: `c` the chain, `d` its rim, `p` the pendant, `g` its glint. */
+const pendant = (c: string, d: string, p: string, g: string) =>
+  patch(6, 11, { c, d, p, g }, [
     "c......c",
     ".c....c.",
-    "..cppc..",
-    "...pg...",
+    "..cddc..",
+    "..dpgd..",
+    "...dd...",
   ])
 
 // The pet's wear, a rarity at a time.
@@ -275,7 +278,7 @@ const neck: ReadonlyArray<ItemDef> = [
     "common",
     "neck",
     "Warm enough for a demo, if nobody opens a window.",
-    patch(4, 12, { p: "#f4f4f4", f: "#c6c6c6" }, [
+    patch(4, 12, { p: "#f2ead0", f: "#b8a878" }, [
       "pppfpppfpppp",
       "........pf..",
       "........fp..",
@@ -337,7 +340,7 @@ const neck: ReadonlyArray<ItemDef> = [
     "rare",
     "neck",
     "Inside, a tiny picture of the first green build.",
-    pendant("#c6c6c6", "#e4e4e4", "#5fafff"),
+    pendant("#4e4e66", "#8a8aa0", "#e4e4f0", "#5fafff"),
   ),
   wear(
     "comet-pendant",
@@ -345,11 +348,12 @@ const neck: ReadonlyArray<ItemDef> = [
     "epic",
     "neck",
     "Its tail grows longer with every streak day kept.",
-    patch(5, 11, { c: "#e0aaff", t: "#7b2cbf", u: "#c77dff", p: "#ffffff" }, [
+    patch(5, 11, { c: "#5a2a8a", w: "#e0aaff", t: "#7b2cbf", u: "#c77dff", p: "#ffffff" }, [
       ".c......c.",
       "..c....c..",
-      "...c..c...",
-      ".tuu.pp...",
+      "...cwwc...",
+      ".tuwppw...",
+      "....ww....",
     ]),
   ),
 ]
@@ -392,15 +396,13 @@ const back: ReadonlyArray<ItemDef> = [
     "uncommon",
     "back",
     "Packed light: a map, a lamp and a spare idea.",
-    patch(1, 5, { r: "#5f8f3f", k: "#3f5f2f", b: "#af875f", d: "#7a5f3f" }, [
-      "......rrrrrr..",
-      "......kkkkkk..",
-      "..............",
-      "..............",
-      "bb............",
-      "bb............",
-      "db............",
-      "bb............",
+    patch(0, 8, { r: "#5f8f3f", k: "#3f5f2f", b: "#af875f", d: "#7a5f3f" }, [
+      ".rrr............rrr.",
+      ".rkr............rkr.",
+      "..bb............bb..",
+      ".bbb............bbb.",
+      ".bdb............bdb.",
+      ".bbb............bbb.",
     ]),
   ),
   wear(
@@ -409,7 +411,7 @@ const back: ReadonlyArray<ItemDef> = [
     "rare",
     "back",
     "Stitched from the hours after the last meeting.",
-    cape("#262650", "#5f5faf", "#ffffaf"),
+    cape("#34346e", "#6c6cc8", "#ffffaf"),
   ),
   wear(
     "rocket-pack",

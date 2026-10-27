@@ -216,8 +216,19 @@ import { isAnnounced, sameUpdate, updateLine, updateOf, updateText } from './upd
 import { loops as isLooping, ownedLooks, ratesOf, wornLooks } from './looks'
 import type { MissionEntry } from './missions'
 import { knowsTogether, missionChip, missionsLayout, missionsViewOf, roomBeside, runningCount } from './missions'
-import type { Choice } from './pane'
-import { brand, headerGap, headerOf, lookSections, otherItems, paneId, renamedNote, tabBarOf, tabOf } from './pane'
+import type { Choice, WearChoice } from './pane'
+import {
+  brand,
+  headerGap,
+  headerOf,
+  lookSections,
+  otherItems,
+  paneId,
+  renamedNote,
+  tabBarOf,
+  tabOf,
+  wearChoices,
+} from './pane'
 import type { PetAsk, StepContext, Walker } from './pet-motion'
 import {
   asleepWalker,
@@ -3839,6 +3850,69 @@ export const register: Register = (on, options) => {
       )
     }
 
+    // The pet's wear, one piece a slot: what the public profile draws the pet in. It goes on once the pet hatches.
+    const wearOwned = wearChoices(owned)
+    const wearRow = (choice: WearChoice) => {
+      const notes = [choice.rarity, choice.slot, ...(choice.count > 1 ? [`×${choice.count}`] : [])].join(' · ')
+      return (
+        <Box key={`wear:${choice.key}`} flexDirection="column" marginLeft={2} marginBottom={1}>
+          <Box flexWrap="wrap" columnGap={2}>
+            <Text>
+              <Text color={choice.isWorn ? 'success' : 'inactive'}>{choice.isWorn ? '●' : '○'}</Text>{' '}
+              <Text bold color={rarityColors[choice.rarity]}>
+                {choice.name}
+              </Text>
+              <Text dimColor> {notes}</Text>
+            </Text>
+            {pet === null ? null : choice.isWorn ? (
+              <Text color="success">worn</Text>
+            ) : (
+              <Button
+                key={`equip:${choice.slot}:${choice.key}`}
+                label="Wear"
+                onPress={() => void wear($, choice.slot, choice.entryId)}
+              />
+            )}
+            {pet !== null && choice.isWorn ? (
+              <Button
+                key={`unequip:${choice.slot}`}
+                label="Take off"
+                dimColor
+                onPress={() => void wear($, choice.slot, null)}
+              />
+            ) : null}
+          </Box>
+          {choice.lore === null ? null : (
+            <Box marginLeft={2}>
+              <Text dimColor italic>
+                {choice.lore}
+              </Text>
+            </Box>
+          )}
+        </Box>
+      )
+    }
+    const wearIntro =
+      wearOwned.length === 0
+        ? 'none yet: hats, scarves, capes, things to hold and auras drop like any loot'
+        : pet === null
+          ? `${wearOwned.length} owned · for your pet to wear once it hatches`
+          : `${wearOwned.length} owned · one a slot, drawn on your pet on your public profile`
+    const wearSection = (
+      <Box key="wear" flexDirection="column">
+        <Text>
+          <Text bold>Pet wear</Text>
+          <Text dimColor>
+            {'  '}
+            {wearIntro}
+          </Text>
+        </Text>
+        <Text> </Text>
+        {wearOwned.map(wearRow)}
+        {wearOwned.length === 0 ? <Text> </Text> : null}
+      </Box>
+    )
+
     return (
       <Box flexDirection="column" paddingX={1}>
         {header}
@@ -3863,6 +3937,7 @@ export const register: Register = (on, options) => {
             {section.choices.map((choice) => choiceRow(section.slot, choice))}
           </Box>
         ))}
+        {wearSection}
         <Text bold>Other items</Text>
         {others.length === 0 ? (
           <Text dimColor>  Nothing yet: loot drops from finished turns, graded prompts and level-ups.</Text>

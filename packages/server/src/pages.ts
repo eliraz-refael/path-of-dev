@@ -1,10 +1,11 @@
 import type { Gauge } from "@pathofdev/engine"
-import type { Criterion, QualityDimension, Rarity } from "@pathofdev/schema"
-import { petSprite } from "@pathofdev/schema"
+import { starterWearArt } from "@pathofdev/engine"
+import type { Criterion, QualityDimension, Rarity, Sprite, WearArt } from "@pathofdev/schema"
+import { dressedPet, petSprite } from "@pathofdev/schema"
 import { createHash } from "node:crypto"
 import type { Html } from "./html.ts"
 import { html, raw, spriteSvg } from "./html.ts"
-import type { PublicBadge, PublicBadges, PublicHistory, PublicProfile } from "./profile.ts"
+import type { PublicBadge, PublicBadges, PublicHistory, PublicProfile, PublicWear } from "./profile.ts"
 
 // The pages `/u/<login>` answers, from a PublicProfile (profile.ts), which holds only what the player shows:
 //
@@ -63,6 +64,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .side { display: grid; gap: 10px; min-width: 0; }
 .portrait { aspect-ratio: 1; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; display: grid; place-items: center; }
 .sprite { display: block; width: 62%; shape-rendering: crispEdges; }
+.sprite.dressed { width: 80%; }
 .glyph { font-size: 5rem; line-height: 1; }
 .name { font: 700 1.6rem/1.15 var(--display); letter-spacing: -0.015em; margin-top: 8px; overflow-wrap: anywhere; }
 .login { color: var(--muted); font-size: 1.05rem; overflow-wrap: anywhere; }
@@ -231,6 +233,15 @@ export const qualityNames: Readonly<Record<QualityDimension, string>> = {
   context: "context",
 }
 
+/** The pet as the portrait draws it: in what it wears, when any of it has art, else as it comes. */
+const portraitOf = (wearing: ReadonlyArray<PublicWear>): { readonly sprite: Sprite; readonly dressed: boolean } => {
+  const worn = wearing.flatMap((piece): Array<{ slot: PublicWear["slot"]; art: WearArt }> => {
+    const art = piece.sprite === null ? undefined : starterWearArt[piece.sprite]
+    return art === undefined ? [] : [{ slot: piece.slot, art }]
+  })
+  return worn.length === 0 ? { sprite: petSprite, dressed: false } : { sprite: dressedPet(worn), dressed: true }
+}
+
 const side = (view: PublicProfile): Html => {
   const { character } = view
   const pet = view.pet ?? null
@@ -240,7 +251,7 @@ const side = (view: PublicProfile): Html => {
     ...(view.stats === undefined ? [] : [["Best grade", grade(view.stats.best)] as const]),
   ]
   return html`<aside class="side">
-<div class="portrait">${pet === null ? html`<span class="glyph" aria-hidden="true">${character.glyph}</span>` : spriteSvg(petSprite, `${pet.name}, the ${pet.species.toLowerCase()}`)}</div>
+<div class="portrait">${pet === null ? html`<span class="glyph" aria-hidden="true">${character.glyph}</span>` : petPortrait(pet)}</div>
 <h1 class="name">${character.name}</h1>
 <p class="login"><a href="https://github.com/${encodeURIComponent(view.login)}">@${view.login}</a></p>
 <p class="rank"><span class="lv">Level ${character.level}</span> · ${character.title} <span aria-hidden="true">${character.glyph}</span>${character.prestige > 0 ? html` <span class="prestige">Prestige ${character.prestige}</span>` : ""}</p>
@@ -249,6 +260,17 @@ const side = (view: PublicProfile): Html => {
 ${mini.length === 0 ? "" : html`<dl class="mini">${mini.map(([term, value]) => html`<div><dt>${term}</dt><dd>${value}</dd></div>`)}</dl>`}
 </aside>`
 }
+
+/** The pet's portrait, labelled with what it wears. */
+const petPortrait = (pet: NonNullable<PublicProfile["pet"]>): Html => {
+  const { sprite, dressed } = portraitOf(pet.wearing)
+  const wearing = pet.wearing.length === 0 ? "" : `, wearing ${listed(pet.wearing.map((piece) => piece.name))}`
+  return spriteSvg(sprite, `${pet.name}, the ${pet.species.toLowerCase()}${wearing}`, dressed ? "sprite dressed" : "sprite")
+}
+
+/** Names as a sentence lists them: "a", "a and b", "a, b and c". */
+const listed = (names: ReadonlyArray<string>): string =>
+  names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 
 const rarityNames: Readonly<Record<Rarity, string>> = {
   common: "Common",
@@ -319,6 +341,7 @@ const petCard = (pet: NonNullable<PublicProfile["pet"]> | null): Html =>
 <div class="head"><h2 id="pet">${pet.name}</h2><span class="count">${pet.species.toLowerCase()}, ${forms[pet.form] ?? forms[0]} form</span></div>
 <div class="mood"><span>Mood</span>${bar(pet.mood / 100, "pink")}<b>${fmt(pet.mood)}</b></div>
 ${pet.xpBonusPct > 0 ? html`<p class="sub">Happy, so +${pet.xpBonusPct}% XP</p>` : ""}
+${pet.wearing.length === 0 ? "" : html`<p class="sub">Wears ${listed(pet.wearing.map((piece) => piece.name))}</p>`}
 </section>`
 
 const streakCard = (streak: NonNullable<PublicProfile["streak"]>): Html =>

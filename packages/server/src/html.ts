@@ -50,9 +50,9 @@ export const html = (strings: TemplateStringsArray, ...slots: ReadonlyArray<Slot
 export const raw = (constant: string): Html => make(constant)
 
 /** A sprite as an inline SVG, one rect per run, in its own palette; `label` names it for a screen reader. */
-export const spriteSvg = (sprite: Sprite, label: string): Html => {
+export const spriteSvg = (sprite: Sprite, label: string, className = "sprite"): Html => {
   const width = sprite.rows[0]?.length ?? 0
-  return html`<svg class="sprite" viewBox="0 0 ${width} ${sprite.rows.length}" role="img" aria-label="${label}">${
+  return html`<svg class="${className}" viewBox="0 0 ${width} ${sprite.rows.length}" role="img" aria-label="${label}">${
     spriteRuns(sprite.rows).map((run) =>
       html`<rect x="${run.x}" y="${run.y}" width="${run.width}" height="1" fill="${sprite.palette[run.cell] ?? "none"}"/>`
     )
