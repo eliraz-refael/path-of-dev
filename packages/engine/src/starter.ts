@@ -10,6 +10,7 @@ import type {
   RulesConfig,
   ScoringFact,
 } from "@pathofdev/schema"
+import { starterScenes, terminalGreen } from "./starter-scenes.ts"
 import { starterWear } from "./starter-wear.ts"
 
 // The starter config and catalogue a fresh local server begins with: the design doc's numbers. One deviation for
@@ -102,7 +103,7 @@ export const starterAchievements: ReadonlyArray<AchievementDef> = [
 ]
 
 export const starterRules: RulesConfig = {
-  version: 15,
+  version: 16,
   schemaVersion: 11,
   appliesFrom: null,
   // Steeper than the 1.6 before sigils: a player wearing the sigil typical of their stage reaches each level about
@@ -234,7 +235,7 @@ export const starterRules: RulesConfig = {
       loot: { chanceAtTen: 0.175, greatAt: 9 },
     },
   },
-  catalogVersion: 7,
+  catalogVersion: 8,
   // Three dailies run each local day; each local week offers five weeklies, of which three can run at once.
   missions: {
     daily: { count: 3, tier: "uncommon" },
@@ -806,27 +807,41 @@ const foods: ReadonlyArray<ItemDef> = [
   food("honeycomb", "Honeycomb", "rare", "Built cell by cell, like a good test suite.", rareBoost),
 ]
 
-/** A level-up effect or a scene: a moment's look, named for now, which nothing draws yet. */
+// The XP food catalogue 8 adds with its scenes, to keep XP food its rarity's share of the drops that aren't sigils.
+const moreFoods: ReadonlyArray<ItemDef> = [
+  food("pretzel-twist", "Pretzel Twist", "common", "Knotted like a rebase gone sideways.", boost.common),
+  food("banana-bread", "Banana Bread", "common", "Baked from the ones nobody ate on Monday.", boost.common),
+  food("toasted-bagel", "Toasted Bagel", "common", "A hole in the middle, like every first draft.", boost.common),
+  food("mint-tea", "Mint Tea", "common", "Calms the pet, sharpens the prompt.", boost.common),
+  food("ramen-bowl", "Ramen Bowl", "uncommon", "Slurped between two deploys.", boost.uncommon),
+  food("matcha-latte", "Matcha Latte", "uncommon", "Green, like every check on the PR.", boost.uncommon),
+  food("blueberry-muffin", "Blueberry Muffin", "uncommon", "Bursting at the seams, like a big diff.", boost.uncommon),
+  food("golden-peach", "Golden Peach", "rare", "Ripens only on a branch that passed review.", rareBoost),
+  food("dragonfruit", "Dragonfruit", "rare", "Fierce outside, soft inside, like a good reviewer.", rareBoost),
+  food("stardust-truffle", "Stardust Truffle", "rare", "Dusted with something that sparkles under a lamp.", rareBoost),
+]
+
+/** A level-up effect: a moment's look, named for now, which nothing draws yet. */
 const moment = (
   id: string,
   name: string,
   rarity: Rarity,
-  category: "levelUpEffect" | "scene",
+  category: "levelUpEffect",
   lore: string,
 ): ItemDef => item({ id, name, rarity, category, slot: category, lore })
 
 const moments: ReadonlyArray<ItemDef> = [
   moment("party-popper", "Party Popper", "common", "levelUpEffect", "One string to pull, one level to cheer."),
   moment("confetti-pop", "Confetti Pop", "uncommon", "levelUpEffect", "Mostly paper, entirely earned."),
-  moment("terminal-green", "Terminal Green", "uncommon", "scene", "Green on black, the way the old screens glowed."),
+  terminalGreen,
   moment("fireworks", "Fireworks", "rare", "levelUpEffect", "Loud enough to wake the logs."),
   moment("comet-trail", "Comet Trail", "rare", "levelUpEffect", "Draws the new level number across the sky."),
   moment("pixel-dragon", "Pixel Dragon", "epic", "levelUpEffect", "Circles twice, roars once, then naps on your gold."),
 ]
 
 /**
- * The catalogue the starter rules deal from, version 7: catalogue 6's items, every one with a line of lore and the
- * pet's wear with art, and many more. An item is never taken out or renamed, since players own it.
+ * The catalogue the starter rules deal from, version 8: catalogue 7's items, Terminal Green now with art, and after
+ * them the scenes and the XP food that keeps their odds. An item is never taken out or renamed, since players own it.
  */
 export const starterCatalog: ReadonlyArray<ItemDef> = [
   ...starterWear,
@@ -836,6 +851,8 @@ export const starterCatalog: ReadonlyArray<ItemDef> = [
   ...moreBandStyles,
   ...sigils,
   ...moreSigils,
+  ...moreFoods,
+  ...starterScenes,
 ]
 
 // Catalogue 6 as rules 14 dealt from it, kept so a log of rules 14 can be run again just as it ran: the same items
@@ -869,7 +886,7 @@ const asInCatalog6: Readonly<Record<string, Partial<ItemDef>>> = {
   "wizard-hat": { sprite: null, lore: null },
   "aurora-crown": { sprite: null },
   "confetti-pop": { lore: null },
-  "terminal-green": { lore: null },
+  "terminal-green": { sprite: null, lore: null },
   "fireworks": { lore: null },
   "pixel-dragon": { lore: null },
 }
@@ -885,3 +902,16 @@ export const catalog6: ReadonlyArray<ItemDef> = catalog6Order.flatMap((id) => {
  * shipped (test/fixtures/rules-14.json), so a later change to a number must spell rules 14 out here first.
  */
 export const rules14: RulesConfig = { ...starterRules, version: 14, catalogVersion: 6 }
+
+// Catalogue 7 as rules 15 dealt from it, kept so a log of rules 15 runs again as it ran: catalogue 8's first items, in
+// the same order, Terminal Green without the art catalogue 8 gave it.
+
+const addedInCatalog8 = new Set([...moreFoods, ...starterScenes].map((one) => one.id))
+
+/** Catalogue 7, which rules 15 dealt from. */
+export const catalog7: ReadonlyArray<ItemDef> = starterCatalog
+  .filter((one) => !addedInCatalog8.has(one.id))
+  .map((one) => (one.id === "terminal-green" ? { ...one, sprite: null } : one))
+
+/** Rules 15: the starter rules before catalogue 8, the same in every number. */
+export const rules15: RulesConfig = { ...starterRules, version: 15, catalogVersion: 7 }

@@ -1,7 +1,7 @@
 import type { Gauge } from "@pathofdev/engine"
-import { starterWearArt } from "@pathofdev/engine"
+import { starterSceneArt, starterWearArt } from "@pathofdev/engine"
 import type { Criterion, QualityDimension, Rarity, Sprite, WearArt } from "@pathofdev/schema"
-import { dressedPet, petSprite } from "@pathofdev/schema"
+import { dressedPet, petSprite, sceneWithPet } from "@pathofdev/schema"
 import { createHash } from "node:crypto"
 import type { Html } from "./html.ts"
 import { html, raw, spriteSvg } from "./html.ts"
@@ -65,6 +65,8 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .portrait { aspect-ratio: 1; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; display: grid; place-items: center; }
 .sprite { display: block; width: 62%; shape-rendering: crispEdges; }
 .sprite.dressed { width: 80%; }
+.portrait.scene { aspect-ratio: 2; border-radius: 14px; overflow: hidden; }
+.sprite.scene { width: 100%; height: 100%; }
 .glyph { font-size: 5rem; line-height: 1; }
 .name { font: 700 1.6rem/1.15 var(--display); letter-spacing: -0.015em; margin-top: 8px; overflow-wrap: anywhere; }
 .login { color: var(--muted); font-size: 1.05rem; overflow-wrap: anywhere; }
@@ -255,7 +257,7 @@ const side = (view: PublicProfile): Html => {
     ...(view.stats === undefined ? [] : [["Best grade", grade(view.stats.best)] as const]),
   ]
   return html`<aside class="side">
-<div class="portrait">${pet === null ? html`<span class="glyph" aria-hidden="true">${character.glyph}</span>` : petPortrait(pet)}</div>
+${pet === null ? html`<div class="portrait"><span class="glyph" aria-hidden="true">${character.glyph}</span></div>` : petPortrait(pet)}
 <h1 class="name">${character.name}</h1>
 <p class="login"><a href="https://github.com/${encodeURIComponent(view.login)}">@${view.login}</a></p>
 <p class="rank"><span class="lv">Level ${character.level}</span> · ${character.title} <span aria-hidden="true">${character.glyph}</span>${character.prestige > 0 ? html` <span class="prestige">Prestige ${character.prestige}</span>` : ""}</p>
@@ -265,14 +267,20 @@ ${mini.length === 0 ? "" : html`<dl class="mini">${mini.map(([term, value]) => h
 </aside>`
 }
 
-/** The pet's portrait, labelled with what it wears. */
+/** The pet's portrait, labelled with what it wears: in a round frame, or in the scene it stands in, whole. */
 const petPortrait = (pet: NonNullable<PublicProfile["pet"]>): Html => {
   const { sprite, dressed } = portraitOf(pet.wearing)
   // The label says what the picture shows: wear with no art to draw is left out of it, though the card names it.
   const drawn = pet.wearing.filter((piece) => artOf(piece) !== undefined)
   const wearing = drawn.length === 0 ? "" : `, wearing ${listed(drawn.map((piece) => piece.name))}`
   const label = `${pet.name}, the ${pet.species.toLowerCase()}${wearing}`
-  return spriteSvg(sprite, label, dressed ? "sprite dressed" : "sprite")
+  const scene = pet.scene
+  const backdrop = scene?.sprite === null || scene?.sprite === undefined ? undefined : starterSceneArt[scene.sprite]
+  if (scene === null || backdrop === undefined) {
+    return html`<div class="portrait">${spriteSvg(sprite, label, dressed ? "sprite dressed" : "sprite")}</div>`
+  }
+  const picture = spriteSvg(sceneWithPet(backdrop, sprite), `${label}, in ${scene.name}`, "sprite scene")
+  return html`<div class="portrait scene">${picture}</div>`
 }
 
 /** Names as a sentence lists them: "a", "a and b", "a, b and c". */
@@ -349,6 +357,7 @@ const petCard = (pet: NonNullable<PublicProfile["pet"]> | null): Html =>
 <div class="mood"><span>Mood</span>${bar(pet.mood / 100, "pink")}<b>${fmt(pet.mood)}</b></div>
 ${pet.xpBonusPct > 0 ? html`<p class="sub">Happy, so +${pet.xpBonusPct}% XP</p>` : ""}
 ${pet.wearing.length === 0 ? "" : html`<p class="sub">Wears ${listed(pet.wearing.map((piece) => piece.name))}</p>`}
+${pet.scene === null ? "" : html`<p class="sub">Stands in ${pet.scene.name}</p>`}
 </section>`
 
 const streakCard = (streak: NonNullable<PublicProfile["streak"]>): Html =>

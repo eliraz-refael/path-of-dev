@@ -56,6 +56,7 @@ export const wardrobeOf = (snapshot: Snapshot, rules: Partial<RulesConfig> = {})
       lore,
       ...(sigil === null ? {} : { sigil }),
       ...(food === undefined ? {} : { food }),
+      ...(typeof def.sprite === 'string' ? { sprite: def.sprite } : {}),
     }
     return [owned]
   })

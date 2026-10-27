@@ -86,6 +86,8 @@ export interface PublicProfile {
     readonly xpBonusPct: number
     /** What it wears, slot by slot in the pet's order, each by its name and the art its sprite names. */
     readonly wearing: ReadonlyArray<PublicWear>
+    /** The scene it stands in, by its name and the art its sprite names; null with none worn, or one unnamed. */
+    readonly scene: PublicScene | null
   } | null
   readonly streak?: { readonly days: number; readonly best: number; readonly restDaysLeftThisWeek: number }
   readonly stats?: {
@@ -106,6 +108,20 @@ export interface PublicWear {
   readonly name: string
   /** The art's id (`starterWearArt`), or null for wear the page has no art for. */
   readonly sprite: string | null
+}
+
+/** The scene the pet stands in, as a page draws it. */
+export interface PublicScene {
+  readonly name: string
+  /** The art's id (`starterSceneArt`), or null for a scene the page has no art for. */
+  readonly sprite: string | null
+}
+
+/** The scene worn, by the definition the snapshot carries; null with none worn, or one it can't name. */
+export const sceneOf = (snapshot: Snapshot): PublicScene | null => {
+  const entry = snapshot.inventory.find((owned) => owned.id === snapshot.character.equipped.scene)
+  const def = entry === undefined ? undefined : snapshot.items.find((item) => item.id === entry.itemId)
+  return def === undefined || def.category !== "scene" ? null : { name: def.name, sprite: def.sprite }
 }
 
 /** The counts an import brought from before Path of Dev, as a page shows them: when it was taken left out. */
@@ -251,6 +267,7 @@ export const profileOf = (
           mood: pet.mood,
           xpBonusPct: happyBonusPct(pet.mood, rules),
           wearing: wearingOf(snapshot),
+          scene: sceneOf(snapshot),
         },
       }
       : {}),
