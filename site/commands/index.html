@@ -257,7 +257,7 @@
 
         <section id="admins" aria-labelledby="admins-h">
           <h2 id="admins-h">For the server's admins</h2>
-          <p>Signup on the online server is open to anyone with a GitHub account. Its admins keep a beta list, which would let in only those named should signup ever close again. Anyone else is told only the admins can use these.</p>
+          <p>Signup on the online server is open to anyone with a GitHub account. Its admins keep a beta list, which would let in only those named should signup ever close again, and can see how many play. Anyone else is told only the admins can use these.</p>
           <dl class="cmds">
             <div class="cmd" data-command="/pathofdev beta list" data-example="beta list">
               <dt><code>/pathofdev beta list</code><span class="where">admins</span></dt>
@@ -270,6 +270,10 @@
             <div class="cmd" data-command="/pathofdev beta remove &lt;github-login&gt;" data-example="beta remove octocat">
               <dt><code>/pathofdev beta remove &lt;github-login&gt;</code><span class="where">admins</span></dt>
               <dd><p>Takes a login off it. Their account stays.</p></dd>
+            </div>
+            <div class="cmd" data-command="/pathofdev admin stats" data-example="admin stats">
+              <dt><code>/pathofdev admin stats</code><span class="where">admins</span></dt>
+              <dd><p>How many play: players signed up and who played, today (the last 24 hours) and this week (the last 7 days), public pages, history imports and prompts graded today. Counts only, never who.</p></dd>
             </div>
           </dl>
         </section>

@@ -117,6 +117,8 @@ import {
   stampOf,
 } from './account'
 import type { ExportStep } from './account'
+import type { AdminAsk } from './admin'
+import { adminAskOf, adminTextOf, statsRoute } from './admin'
 import type { BetaAsk } from './beta'
 import type { Tally } from './history'
 import {
@@ -2146,6 +2148,10 @@ const signedInOnline = async ($: EngineInterface, has: string): Promise<{ to: On
 const keepBeta = ($: EngineInterface, ask: BetaAsk): Promise<string> =>
   askOnline($, 'no beta list', betaRouteOf(ask), (response, to) => betaTextOf(ask, response, to.origin))
 
+/** `/pathofdev admin stats`: how many play on the online server, which only its admins see. */
+const askAdmin = ($: EngineInterface, ask: AdminAsk): Promise<string> =>
+  askOnline($, 'no admin stats', statsRoute, (response, to) => adminTextOf(ask, response, to.origin))
+
 /** `/pathofdev profile …`: what the player's public page shows, on the online server; the pane says it from now on. */
 const keepProfile = ($: EngineInterface, ask: ProfileAsk): Promise<string> =>
   askOnline($, 'no public profile', profileRouteOf(ask), async (response, to, token) => {
@@ -2539,8 +2545,9 @@ const draftStep = async ($: EngineInterface, change: Partial<Pick<Wizard, 'name'
 }
 
 /**
- * What `/pathofdev <args>` answers: the pane opened, the welcome, a sign-in or out, the beta list, the profile, an
- * import of the history, the account's export or delete, the servers' answer, or dev mode's to `dev …`.
+ * What `/pathofdev <args>` answers: the pane opened, the welcome, a sign-in or out, the beta list, the admins' stats,
+ * the profile, an import of the history, the account's export or delete, the servers' answer, or dev mode's to
+ * `dev …`.
  */
 const runCommandLine = async ($: EngineInterface, args: string): Promise<string> => {
   if (args.trim() === 'welcome') return openWelcome($)
@@ -2549,6 +2556,8 @@ const runCommandLine = async ($: EngineInterface, args: string): Promise<string>
   if (account !== null) return typeof account === 'string' ? account : account.kind === 'login' ? login($) : logout($)
   const beta = betaAskOf(args)
   if (beta !== null) return typeof beta === 'string' ? beta : keepBeta($, beta)
+  const admin = adminAskOf(args)
+  if (admin !== null) return typeof admin === 'string' ? admin : askAdmin($, admin)
   const profile = profileAskOf(args)
   if (profile !== null) return typeof profile === 'string' ? profile : keepProfile($, profile)
   const petAsk = petAskOf(args)
@@ -2751,9 +2760,9 @@ export const register: Register = (on, options) => {
           'guide, `last` for how your last prompt was scored, `server` to say or switch which server you play on, ' +
           '`login` and `logout` for the online server, ' +
           '`profile public|private|hide|show` for your public page there, `account export|delete` for your data ' +
-          'there, `beta list|add|remove` for its admins, `import history` to count your Claude Code work from ' +
-          'before Path of Dev (counts only, no XP), `pet still|move|hide|show|tip` for your pet on the band, ' +
-          '`dev …` on the dev server)',
+          'there, `beta list|add|remove` and `admin stats` for its admins, `import history` to count your ' +
+          'Claude Code work from before Path of Dev (counts only, no XP), `pet still|move|hide|show|tip` for your ' +
+          'pet on the band, `dev …` on the dev server)',
       })
       .catch(() => undefined)
     await $.command

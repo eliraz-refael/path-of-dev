@@ -20,7 +20,7 @@ import type { HttpInit, HttpResponse, PluginOptions } from 'claude-code'
 // never logs a request's headers.
 
 // The mod's version, as plugin.json has it, sent with every request: the one a server's `minClientVersion` names.
-export const clientVersion = '0.13.0'
+export const clientVersion = '0.14.0'
 
 /** The server can't be reached, or can't take the request now: the band shows it offline, and what waits stays. */
 export class ServerDown extends Error {}
@@ -136,6 +136,10 @@ export const tokenOf = (stored: unknown): string | null => (typeof stored === 's
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
+
+/** A count from the server: a whole number, never below 0. */
+export const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 
 export const isSession = (value: unknown): value is SessionResponse =>
   isRecord(value) && isRecord(value['snapshot']) && typeof value['snapshot']['cursor'] === 'number'

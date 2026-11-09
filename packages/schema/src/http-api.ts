@@ -1,6 +1,7 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSecurity } from "effect/http-api"
 import { Context, Schema } from "effect"
 import {
+  AdminStats,
   BetaAddRequest,
   BetaChange,
   BetaList,
@@ -50,7 +51,10 @@ export class GitHubUnavailable extends Schema.TaggedError<GitHubUnavailable>()(
   { httpApiStatus: 503 },
 ) {}
 
-/** The request's player may not do this: the beta list is the server's admins' alone. Nothing was written. */
+/**
+ * The request's player may not do this: the beta list and the server's stats are its admins' alone. Nothing was read
+ * or written.
+ */
 export class Forbidden extends Schema.TaggedError<Forbidden>()(
   "Forbidden",
   { message: Schema.String },
@@ -233,6 +237,15 @@ export class BetaApi extends HttpApiGroup.make("beta", { topLevel: true })
   .middleware(Authentication) {}
 
 /**
+ * The public server's own numbers, for its admins: how many play there, as counts alone (never a login or an id). A
+ * signed-in player who is no admin is answered 403 before anything is read, and an admin over their limit 429; never
+ * on the local server.
+ */
+export class AdminApi extends HttpApiGroup.make("admin", { topLevel: true })
+  .add(HttpApiEndpoint.get("adminStats", "/v1/admin/stats", { success: AdminStats, error: [Forbidden, RateLimited] }))
+  .middleware(Authentication) {}
+
+/**
  * The player's own account on the public server, from the mod: what their public page shows, an export of everything
  * kept of them, a page at a time, and deleting it all. Each acts for the token's player whether or not the beta still
  * lets them in; never on the local server, whose save is the player's own disk.
@@ -265,6 +278,11 @@ export class PathOfDevApi extends HttpApi.make("pathofdev").add(ModApi) {}
 
 /**
  * The public server's routes: the mod's, with the commands of play alone, the sign-in that gives it a game token, the
- * beta list, and the account.
+ * beta list, the admins' stats, and the account.
  */
-export class OnlineApi extends HttpApi.make("pathofdev").add(OnlineModApi).add(AuthApi).add(BetaApi).add(AccountApi) {}
+export class OnlineApi extends HttpApi.make("pathofdev")
+  .add(OnlineModApi)
+  .add(AuthApi)
+  .add(BetaApi)
+  .add(AdminApi)
+  .add(AccountApi) {}

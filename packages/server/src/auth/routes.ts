@@ -7,6 +7,7 @@ import { limitAddress, limits } from "../limits.ts"
 import type { GithubIdentity, NewPlayer } from "../players.ts"
 import { Players } from "../players.ts"
 import { RateLimiter } from "../rate-limit.ts"
+import { AdminHandlers } from "./admin.ts"
 import { Allowlist } from "./allowlist.ts"
 import { BetaHandlers } from "./beta.ts"
 import type { GithubUser } from "./github.ts"
@@ -77,7 +78,10 @@ export const AuthHandlers = HttpApiBuilder.group(
   }),
 )
 
-/** The public server's routes with their handlers: the mod's, signing in and out, the beta list, and the account. */
+/**
+ * The public server's routes with their handlers: the mod's, signing in and out, the beta list, the admins' stats, and
+ * the account.
+ */
 export const OnlineRoutes = HttpApiBuilder.layer(OnlineApi).pipe(
-  Layer.provide([OnlineModHandlers, AuthHandlers, BetaHandlers, AccountHandlers]),
+  Layer.provide([OnlineModHandlers, AuthHandlers, BetaHandlers, AdminHandlers, AccountHandlers]),
 )

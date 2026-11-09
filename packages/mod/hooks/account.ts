@@ -1,6 +1,6 @@
 import type { HttpResponse } from 'claude-code'
 import type { Route } from './server'
-import { argsOf, commonTextOf, isRecord, messageOf, parsed, printable } from './server'
+import { argsOf, commonTextOf, isCount, isRecord, messageOf, parsed, printable } from './server'
 
 // The player's account on the online server, from the prompt: `/pathofdev account export` writes everything the server
 // keeps of them to files, and `/pathofdev account delete <login>` deletes it all. This file holds the pure half: what
@@ -137,7 +137,6 @@ export const exportsDirOf = (named: string | undefined, home: string | undefined
 export const stampOf = (ms: number): string => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z').replaceAll(':', '-')
 
 const isPartName = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z]{1,32}$/.test(value)
-const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 
 const partsOf = (head: Record<string, unknown>): ReadonlyArray<PartHead> | null => {
   const parts = head['parts']

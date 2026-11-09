@@ -40,6 +40,7 @@ import { core } from "./services.ts"
 //     ├─ POST /v1/auth/logout ──────▶ Tokens.revoke
 //     │                                 both first the client address's limit ─▶ 429: GitHub never asked
 //     ├─ /v1/beta ──────────────────▶ BearerAuth ─▶ an admin? ─▶ Allowlist: the table, and its copy in memory
+//     ├─ GET  /v1/admin/stats ──────▶ BearerAuth ─▶ an admin? ─▶ their limit ─▶ counts over every player, no logins
 //     ├─ /v1/account/* ─────────────▶ AccountAuth (token ─▶ player; no allowlist) ─▶ AccountHandlers ─▶ AccountData:
 //     │                                 privacy, the export's head and pages, the delete (one transaction)
 //     └─ /v1/sessions, /v1/events, /v1/commands, /v1/stream
@@ -204,8 +205,8 @@ export const RetryAfter = HttpRouter.middleware(
 )
 
 /**
- * The public server's routes: the mod's, signing in and out, the beta list, the account, the public pages, and the
- * health check.
+ * The public server's routes: the mod's, signing in and out, the beta list, the admins' stats, the account, the public
+ * pages, and the health check.
  */
 export const PublicRoutes = Layer.mergeAll(OnlineRoutes, ProfilePages, Healthz, RetryAfter)
 

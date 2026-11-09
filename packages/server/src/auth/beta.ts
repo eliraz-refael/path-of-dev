@@ -1,9 +1,9 @@
 import type { BetaList } from "@pathofdev/schema"
-import { CurrentPlayer, Forbidden, InvalidLogin, isGithubLogin, OnlineApi } from "@pathofdev/schema"
+import { InvalidLogin, isGithubLogin, OnlineApi } from "@pathofdev/schema"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import type { Signup, Standing } from "./allowlist.ts"
-import { Allowlist } from "./allowlist.ts"
+import { adminOnly, Allowlist } from "./allowlist.ts"
 
 // The beta list from the mod: `/pathofdev beta list|add|remove` for the public server's admins, so letting a player in
 // takes no redeploy. Each request is a signed-in player's (BearerAuth), and only an admin's goes further:
@@ -60,14 +60,7 @@ export const BetaHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const allowlist = yield* Allowlist
 
-    /** The admin the request acts for, by GitHub user id: never by login, which a rename can hand to someone else. */
-    const admin = Effect.gen(function* () {
-      const { githubUserId } = yield* CurrentPlayer
-      if (githubUserId === null || !allowlist.isAdmin(githubUserId)) {
-        return yield* new Forbidden({ message: onlyAdmins })
-      }
-      return githubUserId
-    })
+    const admin = adminOnly(allowlist, onlyAdmins)
 
     const checked = (login: string) =>
       isGithubLogin(login) ? Effect.succeed(login) : Effect.fail(new InvalidLogin({ message: notALogin }))
