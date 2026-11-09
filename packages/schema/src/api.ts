@@ -156,6 +156,27 @@ export interface BetaList extends Schema.Schema.Type<typeof BetaList> {}
 export const BetaChange = Schema.Struct({ login: Schema.String, changed: Schema.Boolean, message: Schema.String })
 export interface BetaChange extends Schema.Schema.Type<typeof BetaChange> {}
 
+/**
+ * `GET /v1/admin/stats`: how many play on the public server, for its admins, as counts and nothing else: never a
+ * login, a name or an id. Each window runs back from the server's clock as it answers, its first millisecond in:
+ * `lastDay` the 24 hours before, `lastWeek` the 7 days.
+ *
+ * - `players`: the accounts there are, and those made in each window.
+ * - `played`: the players who ever sent the server anything, an event or a command, and those who did in each window.
+ *   What the server writes of its own (missions rolled, sessions kept live, a migration's carry) is no play.
+ * - `publicProfiles`: the players whose page anyone can see.
+ * - `historyImported`: the players who imported their Claude Code work from before Path of Dev.
+ * - `promptsGraded`: the graded prompts the server took in the last 24 hours.
+ */
+export const AdminStats = Schema.Struct({
+  players: Schema.Struct({ total: Count, lastDay: Count, lastWeek: Count }),
+  played: Schema.Struct({ ever: Count, lastDay: Count, lastWeek: Count }),
+  publicProfiles: Count,
+  historyImported: Count,
+  promptsGraded: Schema.Struct({ lastDay: Count }),
+})
+export interface AdminStats extends Schema.Schema.Type<typeof AdminStats> {}
+
 /** The one error shape every route uses; `429` carries `retryAfterMs`. */
 export const ApiError = Schema.Struct({
   code: Schema.String,

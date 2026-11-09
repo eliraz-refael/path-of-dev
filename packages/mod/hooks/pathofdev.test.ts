@@ -57,6 +57,8 @@ type Accounts = {
   logout?: number
   /** The beta list: the tokens of the server's admins, and the logins added, by their lower case. */
   beta?: { admins: Set<string>; logins: Map<string, string>; signup?: 'open' | 'allowlist' }
+  /** The server's stats: the tokens of its admins, and the body it answers them; any other token, 403. */
+  stats?: { admins: Set<string>; status?: number; body: unknown }
   /** The player's account: their privacy, the export's parts and their rows, and whether it was deleted. */
   account?: { isPublic: boolean; hidden: Array<string>; parts: Record<string, number>; deleted: boolean; deleteStatus?: number; profileStatus?: number; profileTakes?: number }
 }
@@ -423,6 +425,11 @@ const fakeServer = (on: On, clock: Clock, options: ServerOptions = {}) => {
           ? changed ? `${login} is off the beta list: their next request is turned away.` : `${login} was not on the beta list, so nothing changed.`
           : changed ? `${login} is on the beta list now: they can sign in.` : `${login} was on the beta list already: nothing changed.`
         return reply(200, { login, changed, message })
+      }
+      const stats = accounts.stats
+      if (stats !== undefined && path === '/v1/admin/stats') {
+        if (!stats.admins.has(token)) return reply(403, { _tag: 'Forbidden', message: "Only the server's admins can see its stats" })
+        return reply(stats.status ?? 200, stats.body)
       }
     }
     if (path === '/v1/history') {
@@ -5714,6 +5721,114 @@ describe('the beta list', () => {
       'You play on your own save (~/.pathofdev), which has no beta list. /pathofdev server online switches to the ' +
         'online server.',
     )
+  })
+})
+
+describe('the admin stats', () => {
+  const run = ($: Parameters<TestBody>[0], args: string) =>
+    $.command.run({ command: 'pathofdev', args, origin: composer, presentation })
+  const origin = 'https://api.pathof.dev'
+  const t0 = Date.parse('2026-10-09T08:00:00Z')
+  const counts = {
+    players: { total: 42, lastDay: 3, lastWeek: 17 },
+    played: { ever: 38, lastDay: 9, lastWeek: 25 },
+    publicProfiles: 12,
+    historyImported: 7,
+    promptsGraded: { lastDay: 130 },
+  }
+  const reply = [
+    'Path of Dev on https://api.pathof.dev (today: the last 24 h, this week: the last 7 days):',
+    'Players: 42 (3 today, 17 this week)',
+    'Played: 38 ever, 9 today, 25 this week',
+    'Public pages: 12 · History imported: 7 · Prompts graded today: 130',
+  ].join('\n')
+
+  /** A session on the online server, holding `token` (none when null), whose admins hold `pod_admin`. */
+  const online = async ($: Parameters<TestBody>[0], on: On, token: string | null, stats: Partial<NonNullable<Accounts['stats']>> = {}) => {
+    const clock = mock.clock(on, { now: t0 })
+    const kept = new Map<string, unknown>([[`explored@${origin}`, ['acme/widgets']]])
+    if (token !== null) kept.set(`token@${origin}`, token)
+    on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+    on('store.set', ($, e) => {
+      kept.set(e.key, e.value)
+      return { value: undefined }
+    })
+    on('store.delete', ($, e) => {
+      kept.delete(e.key)
+      return { value: undefined }
+    })
+    mock.env(on, { HOME: '/home/player' })
+    const accounts: Accounts = {
+      tokens: new Set(['pod_admin', 'pod_player']),
+      githubToken: 'gho_unused',
+      issue: 'pod_issued',
+      login: 'octocat',
+      stats: { admins: new Set(['pod_admin']), body: counts, ...stats },
+    }
+    const server = fakeServer(on, clock, { level: 4, accounts })
+    await $.session.start(start)
+    await until(clock, async () => /offline|Lv 4/.test((await band($).catch(() => ({ all: '' }))).all))
+    const asked = () => server.sent.filter((one) => one.path.startsWith('/v1/admin'))
+    return { asked }
+  }
+
+  test('an admin sees the counts in a few short lines, asked with their game token', { options: { server: 'online' } }, async ($, on) => {
+    const { asked } = await online($, on, 'pod_admin')
+    expect((await run($, 'admin stats')).text).toBe(reply)
+    expect((await run($, '  admin   stats ')).text).toBe(reply)
+    expect(asked().map((one) => [one.method, one.path, one.body, one.authorization])).toEqual([
+      ['GET', '/v1/admin/stats', undefined, 'Bearer pod_admin'],
+      ['GET', '/v1/admin/stats', undefined, 'Bearer pod_admin'],
+    ])
+  })
+
+  test('shows only the counts it knows: a login in the answer is never printed', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, 'pod_admin', { body: { ...counts, logins: ['mona'], players: { ...counts.players, newest: 'mona' } } })
+    const text = (await run($, 'admin stats')).text
+    expect(text).toBe(reply)
+    expect(text).not.toContain('mona')
+  })
+
+  test('an answer without every count is said as what the server answered', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, 'pod_admin', { body: { ...counts, publicProfiles: 'mona' } })
+    expect((await run($, 'admin stats')).text).toBe('The Path of Dev server at https://api.pathof.dev answered the admin stats with 200.')
+  })
+
+  test('a player who is no admin hears that only admins see the stats', { options: { server: 'online' } }, async ($, on) => {
+    const { asked } = await online($, on, 'pod_player')
+    expect((await run($, 'admin stats')).text).toBe("Only the server's admins can see its stats.")
+    expect(asked()).toHaveLength(1)
+  })
+
+  test('over the limit, it says to try again', { options: { server: 'online' } }, async ($, on) => {
+    await online($, on, 'pod_admin', { status: 429, body: { _tag: 'RateLimited', code: 'rate_limited', message: 'Slow down', retryAfterMs: 6000 } })
+    expect((await run($, 'admin stats')).text).toBe(
+      'The Path of Dev server at https://api.pathof.dev answered 429: try again in a minute.',
+    )
+  })
+
+  test('signed out, it says to sign in, and asks the server nothing', { options: { server: 'online' } }, async ($, on) => {
+    const { asked } = await online($, on, null)
+    expect((await run($, 'admin stats')).text).toBe(
+      "You're not signed in to https://api.pathof.dev: /pathofdev login signs you in.",
+    )
+    expect(asked()).toEqual([])
+  })
+
+  test('args that do not parse are answered here, and nothing is sent', { options: { server: 'online' } }, async ($, on) => {
+    const { asked } = await online($, on, 'pod_admin')
+    const usage = "Server stats, for the online server's admins: /pathofdev admin stats."
+    for (const args of ['admin', 'admin list', 'admin stats now', 'admin Stats']) expect((await run($, args)).text).toBe(usage)
+    expect(asked()).toEqual([])
+  })
+
+  test('on a local server, there are no admin stats, and nothing is sent', async ($, on) => {
+    const { sent } = await streaming($, on, ownedOf())
+    expect((await run($, 'admin stats')).text).toBe(
+      'You play on your own save (~/.pathofdev), which has no admin stats. /pathofdev server online switches to the ' +
+        'online server.',
+    )
+    expect(sent.filter((one) => one.path.startsWith('/v1/admin'))).toEqual([])
   })
 })
 

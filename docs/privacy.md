@@ -23,6 +23,10 @@ token, only your GitHub user id and login. One account per GitHub account:
 The mod never sends a prompt's text, only Haiku's grades for it. It never sends a repo's name either, only opaque keys.
 Slash-command names are counted in your stats.
 
+The server's admins can read totals across every player with `/pathofdev admin stats`: how many players there are and
+how many played, in the last 24 hours and the last 7 days, how many pages are public, how many imported their history,
+and how many prompts were graded in the last 24 hours. Counts only: the answer never names a player, by login or id.
+
 On your machine, the mod keeps the game token it got at sign-in in its own store on disk, where Claude Code keeps each
 plugin's data, and sends it only to the server it came from, over https. Anyone who can read that store can play as you
 until the token is revoked: `/pathofdev logout` revokes it on the server and forgets it, and so does a delete.

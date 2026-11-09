@@ -15,6 +15,7 @@ import { retryAfterSecondsOf, withRetryAfter } from "./rate-limit.ts"
 //   /v1/events  per player ─────────▶ writes, then events: one token per event in the batch
 //   /v1/commands per player ────────▶ writes
 //   /v1/snapshot per player ────────▶ snapshots  a watcher's read, in a bucket of its own: it never spends the mods'
+//   /v1/admin/stats per player ─────▶ stats    an admin's read of counts over every table: a few a minute
 //
 // The mod's own pace, which the per-player numbers are set from. Every Claude Code session runs its own copy of the
 // mod, and they share one queue on disk. A copy sends what waits (a batch of up to 100 events a request) when a
@@ -44,6 +45,11 @@ export const limits = {
   events: { name: "events", capacity: 1_000, everyMs: 100 },
   /** `GET /v1/snapshot`, per player: as many as `writes`, a watcher reading about once for each batch the mods send. */
   snapshots: { name: "snapshots", capacity: 300, everyMs: 100 },
+  /**
+   * `GET /v1/admin/stats`, per player: 10 at once, then 10 a minute. Each counts across every player's rows, so it is
+   * a person's ask, never a loop's.
+   */
+  stats: { name: "stats", capacity: 10, everyMs: 6_000 },
 } satisfies Record<string, Rule>
 
 const encodeLimited = Schema.encodeSync(RateLimited)
@@ -81,3 +87,7 @@ export const limitWrite = (limiter: RateLimiter["Service"], playerId: string, ev
 /** A player's snapshot, against its own per-player limit: a watcher's reads never spend the mods' writes. */
 export const limitSnapshot = (limiter: RateLimiter["Service"], playerId: string) =>
   withRetryAfter(limiter.check(playerId, limits.snapshots))
+
+/** An admin's read of the server's stats, against its own per-player limit. */
+export const limitStats = (limiter: RateLimiter["Service"], playerId: string) =>
+  withRetryAfter(limiter.check(playerId, limits.stats))

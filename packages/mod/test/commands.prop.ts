@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import manifest from '../.claude-plugin/plugin.json'
 import { dataAskOf, dataUsage } from '../hooks/account'
+import { adminAskOf, adminUsage } from '../hooks/admin'
 import { betaAskOf, betaUsage } from '../hooks/beta'
 import { devAskOf, devUsage } from '../hooks/dev'
 import { historyAskOf, historyUsage } from '../hooks/history'
@@ -46,6 +47,7 @@ type Outcome =
 const parsers: Readonly<Record<string, (args: string) => unknown>> = {
   accountAskOf,
   betaAskOf,
+  adminAskOf,
   profileAskOf,
   petAskOf,
   historyAskOf,
@@ -127,10 +129,20 @@ describe('the command reference', () => {
 
   it('documents every command the mod runs', () => {
     // Every word the parsers compare against, and every word of their usage lines and the command's description.
-    const sources = ['account', 'beta', 'dev', 'history', 'login', 'pet-motion', 'profile', 'switching']
+    const sources = ['account', 'admin', 'beta', 'dev', 'history', 'login', 'pet-motion', 'profile', 'switching']
       .map((name) => read(`../hooks/${name}.ts`))
       .join('\n')
-    const usages = [accountUsage, betaUsage, dataUsage, devUsage, historyUsage, petUsage, profileUsage, serverUsage]
+    const usages = [
+      accountUsage,
+      adminUsage,
+      betaUsage,
+      dataUsage,
+      devUsage,
+      historyUsage,
+      petUsage,
+      profileUsage,
+      serverUsage,
+    ]
     const description = /name: 'pathofdev',\s*description:([\s\S]*?)\}\)/.exec(source)?.[1] ?? ''
     const vocabulary = new Set([
       ...all(sources, /'([a-z][a-z-]{0,15})'/g).map(([, word]) => word!),
