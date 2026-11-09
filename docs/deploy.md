@@ -19,7 +19,7 @@ The server reads its settings from the environment at boot, and stops naming the
 | `DATABASE_URL` | yes | The Postgres URL. Migrations run at every boot. |
 | `SIGNUP` | no | `open` (the default, the open beta): anyone with a GitHub account signs in. `allowlist` closes signup to the beta list below, with no code change. Anything else stops the boot. |
 | `ALLOWED_LOGINS` | no | With `SIGNUP=allowlist`, GitHub logins let in from boot, separated by commas or spaces, in any case; none by default. Admins add more from the mod (below). |
-| `ADMIN_GITHUB_IDS` | no | The GitHub user ids (numbers, not logins) of the server's admins, separated by commas or spaces; none by default. Admins are always let in, and keep the beta list. |
+| `ADMIN_GITHUB_IDS` | no | The GitHub user ids (numbers, not logins) of the server's admins, separated by commas or spaces; none by default. Admins are always let in, keep the beta list, and can read the server's stats (`/pathofdev admin stats`). |
 | `GITHUB_CLIENT_SECRET` | yes | The OAuth app's client secret: the server checks every sign-in's token was issued to the app. |
 | `GITHUB_CLIENT_ID` | no | The OAuth app's client id; defaults to Path of Dev's, `Ov23liaxznq5Qln0tRis`. |
 | `PORT` | no | Defaults to 3000. |

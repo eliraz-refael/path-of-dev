@@ -1,7 +1,7 @@
 import type { AdminStats } from '@pathofdev/schema'
 import type { HttpResponse } from 'claude-code'
 import type { Route } from './server'
-import { argsOf, commonTextOf, isRecord, parsed } from './server'
+import { argsOf, commonTextOf, isCount, isRecord, parsed } from './server'
 
 // The online server's own numbers, from the prompt: `/pathofdev admin stats`, for the server's admins (by GitHub user
 // id, set on the server), as the beta list is. The mod sends the request with the player's game token and shows the
@@ -33,8 +33,6 @@ export const adminAskOf = (args: string): AdminAsk | string | null => {
 /** The route the stats are asked on, to the online target. */
 export const statsRoute: Route = { path: '/v1/admin/stats' }
 
-const isCount = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 const hasCounts = (value: unknown, keys: ReadonlyArray<string>): boolean =>
   isRecord(value) && keys.every((key) => isCount(value[key]))
 

@@ -59,6 +59,8 @@ const Drawn = Schema.Struct({
   joined: Ago,
   zone: Zone,
   isPublic: Schema.Boolean,
+  /** False: a rename handed the login on, so no page is reached by it, public or not. */
+  hasLogin: Schema.Boolean,
   hasHistory: Schema.Boolean,
   inputs: Schema.Array(Input).check(Schema.isMaxLength(5)),
 })
@@ -81,7 +83,7 @@ const place = (players: ReadonlyArray<typeof Drawn.Type>) =>
       const profile = JSON.stringify({ public: player.isPublic })
       yield* sql`
         INSERT INTO players (id, github_user_id, github_login, display_name, roll_seed, created_at, profile)
-        VALUES (${id}, ${100 + i}, ${`login-${i}`}, ${`Name ${i}`}, 'seed', ${spelt(now - player.joined, player.zone)},
+        VALUES (${id}, ${100 + i}, ${player.hasLogin ? `login-${i}` : null}, ${`Name ${i}`}, 'seed', ${spelt(now - player.joined, player.zone)},
           ${profile}::jsonb)
       `
       if (player.hasHistory) {
@@ -125,7 +127,7 @@ const modelOf = (players: ReadonlyArray<typeof Drawn.Type>): AdminStats => {
       lastDay: last.filter((ago) => within(ago, day)).length,
       lastWeek: last.filter((ago) => within(ago, week)).length,
     },
-    publicProfiles: players.filter((player) => player.isPublic).length,
+    publicProfiles: players.filter((player) => player.isPublic && player.hasLogin).length,
     historyImported: players.filter((player) => player.hasHistory).length,
     promptsGraded: { lastDay: graded.length },
   }
@@ -151,6 +153,7 @@ describe("the stats", () => {
         joined,
         zone: 0,
         isPublic: false,
+        hasLogin: true,
         hasHistory: false,
         inputs: [{ ago, zone: 0, kind: "client", isGraded: true, isAccepted: true }],
       })

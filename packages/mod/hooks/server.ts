@@ -137,6 +137,10 @@ export const tokenOf = (stored: unknown): string | null => (typeof stored === 's
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
+/** A count from the server: a whole number, never below 0. */
+export const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+
 export const isSession = (value: unknown): value is SessionResponse =>
   isRecord(value) && isRecord(value['snapshot']) && typeof value['snapshot']['cursor'] === 'number'
 export const isEvents = (value: unknown): value is EventsResponse => isRecord(value) && Array.isArray(value['results'])

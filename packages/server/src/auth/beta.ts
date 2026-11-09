@@ -2,9 +2,8 @@ import type { BetaList } from "@pathofdev/schema"
 import { InvalidLogin, isGithubLogin, OnlineApi } from "@pathofdev/schema"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
-import { adminOnly } from "./admin.ts"
 import type { Signup, Standing } from "./allowlist.ts"
-import { Allowlist } from "./allowlist.ts"
+import { adminOnly, Allowlist } from "./allowlist.ts"
 
 // The beta list from the mod: `/pathofdev beta list|add|remove` for the public server's admins, so letting a player in
 // takes no redeploy. Each request is a signed-in player's (BearerAuth), and only an admin's goes further:

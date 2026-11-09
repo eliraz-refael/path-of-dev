@@ -1,4 +1,5 @@
 import type { BetaEntry } from "@pathofdev/schema"
+import { CurrentPlayer, Forbidden } from "@pathofdev/schema"
 import { Context, Duration, Effect, Layer, Ref, Schema, Semaphore } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import type { SqlError } from "effect/sql/SqlError"
@@ -212,4 +213,17 @@ const make = (config: BetaConfig) =>
     )
 
     return Allowlist.of({ signup: config.signup, allows, isAdmin, entries, add, remove, standing, refresh })
+  })
+
+/**
+ * The admin the request acts for, by GitHub user id (never by login, which a rename can hand to someone else), or a
+ * 403 that says `refusal`.
+ */
+export const adminOnly = (allowlist: Allowlist["Service"], refusal: string) =>
+  Effect.gen(function* () {
+    const { githubUserId } = yield* CurrentPlayer
+    if (githubUserId === null || !allowlist.isAdmin(githubUserId)) {
+      return yield* new Forbidden({ message: refusal })
+    }
+    return githubUserId
   })
