@@ -5,6 +5,7 @@ import {
   Count,
   Glyph,
   Goal,
+  IsoDate,
   IsoDateTime,
   ItemCategory,
   Multiplier,
@@ -320,6 +321,78 @@ export const AchievementDef = Schema.Struct({
 }).check(storable)
 export interface AchievementDef extends Schema.Schema.Type<typeof AchievementDef> {}
 
+// Seasons: a span of local days with a pass that ordinary play fills, a second, short track beside the level. A season
+// is rules data, frozen once it starts, as a replay prices its days by it. Pass XP is a function of the days played:
+//
+//   XP granted on a season day ─▶ its day's tally, up to `perDay` ─▶ × `rested.factor` after a day without play ─┐
+//   a mission completed on a season day ─▶ + `missions[cadence]` ───────────────────────────────────────────────┴▶ pass
+//   pass XP ─▶ each tier's cost in turn ─▶ its gold and items, once; past the last, `beyond` pays gold every `xp`
+
+/** An id kept for good, as a badge's, a species' and an item's are. */
+const Id = Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/u)))
+
+/**
+ * An item a season makes for itself, named here before the catalogue has it: until it does, its tier grants nothing
+ * for it, and the name and rarity say what is coming.
+ */
+export const SeasonExclusive = Schema.Struct({ id: Id, name: Name, rarity: Rarity })
+export interface SeasonExclusive extends Schema.Schema.Type<typeof SeasonExclusive> {}
+
+/** One tier of a pass: what it costs past the tier before, and what reaching it grants. */
+export const SeasonTier = Schema.Struct({
+  xp: Goal,
+  gold: Schema.optionalKey(Goal),
+  /** Catalogue items, each landing through a named drop. */
+  items: Schema.optionalKey(Schema.NonEmptyArray(Id)),
+  exclusive: Schema.optionalKey(SeasonExclusive),
+}).check(
+  Schema.makeFilter(
+    (tier) =>
+      tier.gold !== undefined || tier.items !== undefined || tier.exclusive !== undefined || "a tier names a reward",
+  ),
+)
+export interface SeasonTier extends Schema.Schema.Type<typeof SeasonTier> {}
+
+/** How play fills a season's pass, and what it pays out. */
+export const SeasonPass = Schema.Struct({
+  /** The XP a local day counts toward the pass, at most. */
+  perDay: Goal,
+  /** A played day counts `factor` times, its cap too, when the day before it had no play, and so does the first. */
+  rested: Schema.Struct({ factor: Goal }),
+  /** Added for a mission completed on a season day, by its cadence, on top of the day's cap. */
+  missions: Schema.Struct({ daily: Count, weekly: Count }),
+  tiers: Schema.NonEmptyArray(SeasonTier),
+  /** Past the last tier, every `xp` more pays `gold`. */
+  beyond: Schema.Struct({ xp: Goal, gold: Count }),
+})
+export interface SeasonPass extends Schema.Schema.Type<typeof SeasonPass> {}
+
+/** A season: its id, kept for good, and its first and last local days, both inclusive, in each player's zone. */
+export const Season = Schema.Struct({
+  id: Id,
+  name: Name,
+  startsOn: IsoDate,
+  endsOn: IsoDate,
+  pass: SeasonPass,
+}).check(
+  Schema.makeFilter(
+    (season) => season.startsOn < season.endsOn || { path: ["endsOn"], issue: "a season ends after it starts" },
+  ),
+)
+export interface Season extends Schema.Schema.Type<typeof Season> {}
+
+/** The seasons in date order, none overlapping another, each with an id of its own. */
+const Seasons = Schema.Array(Season).check(
+  Schema.makeFilter((seasons) => {
+    const ordered = seasons.every((season, i) => i === 0 || (seasons[i - 1]?.endsOn ?? "") < season.startsOn)
+    return ordered || "seasons run in date order, and never overlap"
+  }),
+  Schema.makeFilter((seasons) => {
+    const ids = seasons.map((season) => season.id)
+    return new Set(ids).size === ids.length || "each season needs an id of its own"
+  }),
+)
+
 /** The game's tuning. The mod never hard-codes a number from it. */
 export const RulesConfig = Schema.Struct({
   /** Tuning version. */
@@ -374,6 +447,8 @@ export const RulesConfig = Schema.Struct({
   questPacks: Schema.Array(Schema.String),
   /** The badges a player can earn, in the order the profile shows them. */
   achievements: Schema.Array(AchievementDef),
+  /** From rules schema 12; absent, as in the rules before it, reads as none. */
+  seasons: Schema.optionalKey(Seasons),
 }).check(
   Schema.makeFilter((rules) => {
     const ids = rules.achievements.map((def) => def.id)

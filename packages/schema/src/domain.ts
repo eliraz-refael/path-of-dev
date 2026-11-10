@@ -19,7 +19,7 @@ import {
   Ulid,
 } from "./primitives.ts"
 import { QuestState } from "./quests.ts"
-import { Egg } from "./rules.ts"
+import { Egg, SeasonExclusive } from "./rules.ts"
 
 // The snapshot is everything the mod draws, sent whole when a session opens and kept current by server events.
 
@@ -254,9 +254,12 @@ export const ItemDef = Schema.Struct({
 )
 export interface ItemDef extends Schema.Schema.Type<typeof ItemDef> {}
 
-/** Where an entry came from; `dev` marks what dev mode made, so an import to a public server can drop it. */
+/**
+ * Where an entry came from; `dev` marks what dev mode made, so an import to a public server can drop it, and `season`
+ * a season's tier, its ref `<season>/<tier>`.
+ */
 export const ItemSource = Schema.Struct({
-  kind: Schema.Literals(["drop", "quest", "shop", "craft", "achievement", "dev"]),
+  kind: Schema.Literals(["drop", "quest", "shop", "craft", "achievement", "dev", "season"]),
   ref: Schema.String,
 })
 export interface ItemSource extends Schema.Schema.Type<typeof ItemSource> {}
@@ -355,6 +358,40 @@ export const PlayerStats = Schema.Struct({
 })
 export interface PlayerStats extends Schema.Schema.Type<typeof PlayerStats> {}
 
+/**
+ * A season as the mod draws it: the one running or settling today, else the next to come, else the last one over.
+ * `upcoming` before its first local day, `running` through its last, `settling` for the 7 days after, while play
+ * dated inside it can still arrive, then `over`. The instants are the player's local midnights: the first day's, and
+ * the one after the last day. `tier` is the highest reached, at most the pass's tiers, and `beyond.reached` counts
+ * those past them; the bar is `intoTier` of `forTier`. `today` is the day's pass XP against its cap, and `doubled`
+ * when play today counts `factor` times. The tiers' items are in the snapshot's `items`; an exclusive is named in its
+ * tier, since the catalogue holds it only once it lands.
+ */
+export const SeasonView = Schema.Struct({
+  id: Schema.String,
+  name: Name,
+  status: Schema.Literals(["upcoming", "running", "settling", "over"]),
+  startsAt: IsoDateTime,
+  endsAt: IsoDateTime,
+  xp: Count,
+  tier: Count,
+  /** Each tier: its cost, the pass XP it is reached at, and its rewards. */
+  tiers: Schema.Array(
+    Schema.Struct({
+      xp: Count,
+      at: Count,
+      gold: Schema.optionalKey(Count),
+      items: Schema.optionalKey(Schema.Array(Schema.String)),
+      exclusive: Schema.optionalKey(SeasonExclusive),
+    }),
+  ),
+  beyond: Schema.Struct({ xp: Count, gold: Count, reached: Count }),
+  intoTier: Count,
+  forTier: Count,
+  today: Schema.Struct({ pass: Count, cap: Count, factor: Count, doubled: Schema.Boolean }),
+})
+export interface SeasonView extends Schema.Schema.Type<typeof SeasonView> {}
+
 export const Snapshot = Schema.Struct({
   /** The mod keeps cursor, cache, queue and token per server. */
   serverId: Schema.String,
@@ -385,5 +422,7 @@ export const Snapshot = Schema.Struct({
   cursor: Count,
   /** Present only on a local server in dev mode, which takes the dev commands: the mod shows its dev controls. */
   dev: Schema.optionalKey(Schema.Literal(true)),
+  /** The season to show, when the rules have one: absent from a server before rules 17, so a mod shows none. */
+  season: Schema.optionalKey(SeasonView),
 })
 export interface Snapshot extends Schema.Schema.Type<typeof Snapshot> {}

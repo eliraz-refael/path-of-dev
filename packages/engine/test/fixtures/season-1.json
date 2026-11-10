@@ -1,0 +1,198 @@
+{
+  "id": "s1",
+  "name": "Season 1: Trailhead",
+  "startsOn": "2026-11-26",
+  "endsOn": "2027-01-24",
+  "pass": {
+    "perDay": 300,
+    "rested": {
+      "factor": 2
+    },
+    "missions": {
+      "daily": 30,
+      "weekly": 120
+    },
+    "tiers": [
+      {
+        "xp": 200,
+        "gold": 100
+      },
+      {
+        "xp": 200,
+        "items": [
+          "sugar-plum"
+        ]
+      },
+      {
+        "xp": 200,
+        "items": [
+          "kite-hill"
+        ]
+      },
+      {
+        "xp": 200,
+        "items": [
+          "trail-mix"
+        ]
+      },
+      {
+        "xp": 200,
+        "items": [
+          "rope-rule"
+        ]
+      },
+      {
+        "xp": 680,
+        "gold": 150
+      },
+      {
+        "xp": 680,
+        "items": [
+          "trail-pack"
+        ]
+      },
+      {
+        "xp": 680,
+        "exclusive": {
+          "id": "trailhead",
+          "name": "Trailhead",
+          "rarity": "rare"
+        }
+      },
+      {
+        "xp": 680,
+        "items": [
+          "matcha-latte"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "brass-lantern"
+        ]
+      },
+      {
+        "xp": 680,
+        "gold": 200
+      },
+      {
+        "xp": 680,
+        "items": [
+          "snowy-cabin"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "knit-scarf"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "golden-peach"
+        ]
+      },
+      {
+        "xp": 680,
+        "exclusive": {
+          "id": "pathfinders-hat",
+          "name": "Pathfinder's Hat",
+          "rarity": "rare"
+        }
+      },
+      {
+        "xp": 680,
+        "gold": 250
+      },
+      {
+        "xp": 680,
+        "items": [
+          "frost-rule"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "observatory"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "stardust-truffle"
+        ]
+      },
+      {
+        "xp": 680,
+        "exclusive": {
+          "id": "summit-banner",
+          "name": "Summit Banner",
+          "rarity": "epic"
+        }
+      },
+      {
+        "xp": 680,
+        "gold": 300
+      },
+      {
+        "xp": 680,
+        "items": [
+          "tempered-steel"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "sky-islands"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "honeycomb"
+        ]
+      },
+      {
+        "xp": 680,
+        "exclusive": {
+          "id": "switchback-edge",
+          "name": "Switchback Edge",
+          "rarity": "epic"
+        }
+      },
+      {
+        "xp": 680,
+        "gold": 350
+      },
+      {
+        "xp": 680,
+        "items": [
+          "comet-pendant"
+        ]
+      },
+      {
+        "xp": 680,
+        "items": [
+          "thunder-halo"
+        ]
+      },
+      {
+        "xp": 680,
+        "gold": 400
+      },
+      {
+        "xp": 680,
+        "exclusive": {
+          "id": "summit-at-dawn",
+          "name": "Summit at Dawn",
+          "rarity": "legendary"
+        }
+      }
+    ],
+    "beyond": {
+      "xp": 1000,
+      "gold": 100
+    }
+  }
+}

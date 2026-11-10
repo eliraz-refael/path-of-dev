@@ -48,10 +48,11 @@ const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 /**
  * Ids for whatever one input creates: a ULID whose time is the log row's receipt time and whose random part is
- * drawn from the seed and the log seq, so a replay creates the same ids.
+ * drawn from the seed and the log seq, so a replay creates the same ids. A part of the step that makes ids after the
+ * input's own draws them from a `stream` of its own, so the two never meet.
  */
-export const ulids = (seed: string, logSeq: number, now: string): (() => string) => {
-  const next = draws(seed, `ids:${logSeq}`)
+export const ulids = (seed: string, logSeq: number, now: string, stream = "ids"): (() => string) => {
+  const next = draws(seed, `${stream}:${logSeq}`)
   let time = ""
   for (let ms = Date.parse(now), i = 0; i < 10; i++, ms = Math.floor(ms / 32)) time = crockford[ms % 32] + time
   return () => {

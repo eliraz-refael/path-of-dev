@@ -50,8 +50,8 @@ export const LootDropped = serverEvent("loot.dropped", {
   tier,
 })
 /**
- * Updates the gold counter. `reason`: `drop`, `quest` for a quest's reward, `shop` for a purchase, `reroll` for a
- * duplicate re-rolled, or `dev` for gold a dev command set.
+ * Updates the gold counter. `reason`: `drop`, `quest` for a quest's reward, `season` for a season tier's, `shop` for a
+ * purchase, `reroll` for a duplicate re-rolled, or `dev` for gold a dev command set.
  */
 export const GoldChanged = serverEvent("gold.changed", { delta: Schema.Int, totalAfter: Count, reason: Schema.String })
 /** A pending, verified, rejected or expired claim, shown in the quest log. */
@@ -76,6 +76,24 @@ export const QuestCompleted = serverEvent("quest.completed", {
   title: Schema.String,
   tier,
   rewards: QuestRewards,
+})
+/**
+ * A season's pass reached a higher tier: the banner names the season and the tier it is at now, `to`, from `from`, as
+ * one moment for tiers reached together. Their rewards arrive as their own events (`gold.changed` with reason
+ * `season`, `loot.dropped`), and `rewards` says what the tiers promised: their gold, their catalogue items, and the
+ * exclusives they name, which land once the catalogue holds them. `to` counts the tiers past the pass's last on.
+ */
+export const SeasonTierReached = serverEvent("season.tier", {
+  id: Schema.String,
+  name: Name,
+  from: Count,
+  to: Count,
+  tier,
+  rewards: Schema.Struct({
+    gold: Count,
+    items: Schema.Array(Schema.String),
+    exclusives: Schema.Array(Schema.String),
+  }),
 })
 /** A badge earned: the banner, at the badge's rarity, names it and shows its glyph. */
 export const AchievementUnlocked = serverEvent("achievement.unlocked", {
@@ -183,6 +201,7 @@ export const ServerEventDraft = Schema.Union([
   QuestAbandoned,
   QuestProgress,
   QuestCompleted,
+  SeasonTierReached,
   AchievementUnlocked,
   PetHatched,
   PetChanged,

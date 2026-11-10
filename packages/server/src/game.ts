@@ -1,17 +1,21 @@
 import { starterCatalog, starterRules } from "@pathofdev/engine"
 import type { ItemDef, RulesConfig } from "@pathofdev/schema"
-import { achievementsIssue, catalogIssue } from "@pathofdev/schema"
+import { achievementsIssue, catalogIssue, seasonIssue } from "@pathofdev/schema"
 import { Clock, Context, Effect, Layer } from "effect"
 
 // The rules the proof of concept runs under. Publishing rules versions (rules_versions, rules_head) comes later; for
 // now every input runs under the starter config and catalogue.
 
 /**
- * The catalogue as the rules allow it: a sigil outside its rarity's range would be held to the range unseen, and a
- * badge the catalogue can't satisfy would never unlock, so the server refuses to start on either instead.
+ * The catalogue as the rules allow it: a sigil outside its rarity's range would be held to the range unseen, a badge
+ * the catalogue can't satisfy would never unlock, and a season tier naming an item it lacks would grant a stand-in, so
+ * the server refuses to start on any of them instead.
  */
 export const checkedRules = (rules: RulesConfig, catalog: ReadonlyArray<ItemDef>): ReadonlyArray<ItemDef> => {
-  const issue = catalogIssue(rules.prompt.sigilMultiplier, catalog) ?? achievementsIssue(rules.achievements, catalog)
+  const issue =
+    catalogIssue(rules.prompt.sigilMultiplier, catalog) ??
+    achievementsIssue(rules.achievements, catalog) ??
+    seasonIssue(rules.seasons ?? [], catalog)
   if (issue !== undefined) throw new Error(`The catalogue doesn't fit the rules: ${issue}`)
   return catalog
 }

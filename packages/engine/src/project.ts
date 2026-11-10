@@ -2,6 +2,7 @@ import type { CharacterSlot, Context, PetSlot, Player, PlayerState, Slot, Snapsh
 import { isLater, localDay } from "./days.ts"
 import { glyphFor, levelOf, moodNow, titleFor, totalXp } from "./derive.ts"
 import { questStatesOf } from "./quests.ts"
+import { seasonShown, seasonViewOf } from "./season.ts"
 import { craftable, shopOffers } from "./shop.ts"
 import { statsOf } from "./stats.ts"
 import { bestStreakOf, streakAsOf } from "./streak.ts"
@@ -47,11 +48,14 @@ export const project = (
   const today = localDay(now, state.timezone)
   const streak = streakAsOf(progress.activeDays, today, rules.streak.restDaysPerWeek)
   const shop = shopOffers(state, context, now)
-  // The definitions the mod draws from: what the player owns, what the shop offers and what the shards can make.
+  const season = seasonShown(rules, today)
+  // The definitions the mod draws from: what the player owns, what the shop offers, what the shards can make and what
+  // the season's tiers grant.
   const shown = new Set([
     ...holdings.inventory.map((entry) => entry.itemId),
     ...shop.map((offer) => offer.itemId),
     ...craftable(state, context).map((item) => item.id),
+    ...(season?.pass.tiers.flatMap((tier) => tier.items ?? []) ?? []),
   ])
   return {
     serverId: meta.serverId,
@@ -111,5 +115,6 @@ export const project = (
     stats: statsOf(state, now),
     cursor: meta.cursor,
     ...(meta.dev === true ? { dev: true } : {}),
+    ...(season === undefined ? {} : { season: seasonViewOf(state, season, today) }),
   }
 }

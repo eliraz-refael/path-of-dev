@@ -11,7 +11,7 @@ token, only your GitHub user id and login. One account per GitHub account:
 | Table | What it holds |
 | --- | --- |
 | `players` | Your GitHub user id and login, your name on GitHub (or your login), when the account was made, your profile's privacy, and the seed your loot is rolled from |
-| `player_state` | Your save: character, level, XP, pet, items, gold, missions, streak and stats |
+| `player_state` | Your save: character, level, XP, pet, items, gold, missions, streak, season pass and stats |
 | `event_log` | Everything the mod sent that the server took: each event and command, when it came, and what the game made of it |
 | `server_events` | What the game sent back: XP, level-ups, drops, mission progress |
 | `rolls` | Each loot roll and what it drew |

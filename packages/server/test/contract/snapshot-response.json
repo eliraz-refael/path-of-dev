@@ -64,6 +64,61 @@
     ],
     "items": [
       {
+        "id": "knit-scarf",
+        "name": "Knit Scarf",
+        "rarity": "uncommon",
+        "category": "wearable",
+        "slot": "neck",
+        "sprite": "knit-scarf",
+        "lore": "Every stripe a sprint, and not one dropped stitch.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "comet-pendant",
+        "name": "Comet Pendant",
+        "rarity": "epic",
+        "category": "wearable",
+        "slot": "neck",
+        "sprite": "comet-pendant",
+        "lore": "Its tail grows longer with every streak day kept.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "trail-pack",
+        "name": "Trail Pack",
+        "rarity": "uncommon",
+        "category": "wearable",
+        "slot": "back",
+        "sprite": "trail-pack",
+        "lore": "Packed light: a map, a lamp and a spare idea.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "brass-lantern",
+        "name": "Brass Lantern",
+        "rarity": "rare",
+        "category": "wearable",
+        "slot": "hand",
+        "sprite": "brass-lantern",
+        "lore": "Burns brightest in the oldest code.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "thunder-halo",
+        "name": "Thunder Halo",
+        "rarity": "epic",
+        "category": "wearable",
+        "slot": "aura",
+        "sprite": "thunder-halo",
+        "lore": "Hums at the pitch of a passing build.",
+        "effect": null,
+        "look": null
+      },
+      {
         "id": "honey-biscuit",
         "name": "Honey Biscuit",
         "rarity": "common",
@@ -116,6 +171,34 @@
         "sprite": null,
         "lore": "Unrolls slowly, like a good explanation.",
         "effect": null,
+        "look": null
+      },
+      {
+        "id": "trail-mix",
+        "name": "Trail Mix",
+        "rarity": "common",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Nuts, seeds and the odd chocolate chip.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 60
+        },
+        "look": null
+      },
+      {
+        "id": "honeycomb",
+        "name": "Honeycomb",
+        "rarity": "rare",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Built cell by cell, like a good test suite.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 180
+        },
         "look": null
       },
       {
@@ -173,6 +256,31 @@
         }
       },
       {
+        "id": "tempered-steel",
+        "name": "Tempered Steel",
+        "rarity": "rare",
+        "category": "bandStyle",
+        "slot": "xpBar",
+        "sprite": null,
+        "lore": null,
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "full": "━",
+            "empty": "╍",
+            "head": "╸"
+          },
+          "colors": {
+            "full": "#4ea8ff",
+            "empty": "#303a4e",
+            "head": "#b8dcff",
+            "label": "#87afff"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
         "id": "hash-bar",
         "name": "Hash Bar",
         "rarity": "common",
@@ -223,6 +331,36 @@
         }
       },
       {
+        "id": "rope-rule",
+        "name": "Rope Rule",
+        "rarity": "common",
+        "category": "bandStyle",
+        "slot": "topEdge",
+        "sprite": null,
+        "lore": "Knotted every so often, to hold the band up.",
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "line": "~",
+            "left": "{",
+            "right": "}",
+            "knot": "∘",
+            "dot": "~"
+          },
+          "colors": {
+            "line": "#af875f",
+            "left": "#d7af87",
+            "right": "#d7af87",
+            "star": "#d7af87",
+            "title": "#e4d0b8",
+            "knot": "#d7af87",
+            "dot": "#af875f"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
         "id": "jade-purse",
         "name": "Jade Purse",
         "rarity": "uncommon",
@@ -242,6 +380,123 @@
           "frames": null,
           "fps": null
         }
+      },
+      {
+        "id": "frost-rule",
+        "name": "Frost Rule",
+        "rarity": "rare",
+        "category": "bandStyle",
+        "slot": "topEdge",
+        "sprite": null,
+        "lore": "Clear and cold, like a well-written error.",
+        "effect": null,
+        "look": {
+          "glyphs": {
+            "line": "─",
+            "left": "┤",
+            "right": "├",
+            "star": "✻",
+            "knot": "✻",
+            "dot": "·"
+          },
+          "colors": {
+            "line": "#5f87af",
+            "left": "#87afd7",
+            "right": "#87afd7",
+            "star": "#d7f4ff",
+            "title": "#ffffff",
+            "knot": "#afd7ff",
+            "dot": "#5f87af"
+          },
+          "frames": null,
+          "fps": null
+        }
+      },
+      {
+        "id": "matcha-latte",
+        "name": "Matcha Latte",
+        "rarity": "uncommon",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Green, like every check on the PR.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 120
+        },
+        "look": null
+      },
+      {
+        "id": "golden-peach",
+        "name": "Golden Peach",
+        "rarity": "rare",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Ripens only on a branch that passed review.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 180
+        },
+        "look": null
+      },
+      {
+        "id": "stardust-truffle",
+        "name": "Stardust Truffle",
+        "rarity": "rare",
+        "category": "food",
+        "slot": null,
+        "sprite": null,
+        "lore": "Dusted with something that sparkles under a lamp.",
+        "effect": {
+          "xpBoostPct": 10,
+          "minutes": 180
+        },
+        "look": null
+      },
+      {
+        "id": "kite-hill",
+        "name": "Kite Hill",
+        "rarity": "common",
+        "category": "scene",
+        "slot": "scene",
+        "sprite": "kite-hill",
+        "lore": "Up high on a long string, like a long-running job.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "snowy-cabin",
+        "name": "Snowy Cabin",
+        "rarity": "uncommon",
+        "category": "scene",
+        "slot": "scene",
+        "sprite": "snowy-cabin",
+        "lore": "The fire's lit, the snow's deep, and prod is far away.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "observatory",
+        "name": "Observatory",
+        "rarity": "rare",
+        "category": "scene",
+        "slot": "scene",
+        "sprite": "observatory",
+        "lore": "Pointed at the one star that never breaks the build.",
+        "effect": null,
+        "look": null
+      },
+      {
+        "id": "sky-islands",
+        "name": "Sky Islands",
+        "rarity": "epic",
+        "category": "scene",
+        "slot": "scene",
+        "sprite": "sky-islands",
+        "lore": "Floating rocks, each one a microservice.",
+        "effect": null,
+        "look": null
       }
     ],
     "quests": [
@@ -508,11 +763,241 @@
         }
       }
     },
-    "cursor": 11
+    "cursor": 11,
+    "season": {
+      "id": "s1",
+      "name": "Season 1: Trailhead",
+      "status": "upcoming",
+      "startsAt": "2026-11-26T00:00:00.000Z",
+      "endsAt": "2027-01-25T00:00:00.000Z",
+      "xp": 0,
+      "tier": 0,
+      "tiers": [
+        {
+          "xp": 200,
+          "at": 200,
+          "gold": 100
+        },
+        {
+          "xp": 200,
+          "at": 400,
+          "items": [
+            "sugar-plum"
+          ]
+        },
+        {
+          "xp": 200,
+          "at": 600,
+          "items": [
+            "kite-hill"
+          ]
+        },
+        {
+          "xp": 200,
+          "at": 800,
+          "items": [
+            "trail-mix"
+          ]
+        },
+        {
+          "xp": 200,
+          "at": 1000,
+          "items": [
+            "rope-rule"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 1680,
+          "gold": 150
+        },
+        {
+          "xp": 680,
+          "at": 2360,
+          "items": [
+            "trail-pack"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 3040,
+          "exclusive": {
+            "id": "trailhead",
+            "name": "Trailhead",
+            "rarity": "rare"
+          }
+        },
+        {
+          "xp": 680,
+          "at": 3720,
+          "items": [
+            "matcha-latte"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 4400,
+          "items": [
+            "brass-lantern"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 5080,
+          "gold": 200
+        },
+        {
+          "xp": 680,
+          "at": 5760,
+          "items": [
+            "snowy-cabin"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 6440,
+          "items": [
+            "knit-scarf"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 7120,
+          "items": [
+            "golden-peach"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 7800,
+          "exclusive": {
+            "id": "pathfinders-hat",
+            "name": "Pathfinder's Hat",
+            "rarity": "rare"
+          }
+        },
+        {
+          "xp": 680,
+          "at": 8480,
+          "gold": 250
+        },
+        {
+          "xp": 680,
+          "at": 9160,
+          "items": [
+            "frost-rule"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 9840,
+          "items": [
+            "observatory"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 10520,
+          "items": [
+            "stardust-truffle"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 11200,
+          "exclusive": {
+            "id": "summit-banner",
+            "name": "Summit Banner",
+            "rarity": "epic"
+          }
+        },
+        {
+          "xp": 680,
+          "at": 11880,
+          "gold": 300
+        },
+        {
+          "xp": 680,
+          "at": 12560,
+          "items": [
+            "tempered-steel"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 13240,
+          "items": [
+            "sky-islands"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 13920,
+          "items": [
+            "honeycomb"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 14600,
+          "exclusive": {
+            "id": "switchback-edge",
+            "name": "Switchback Edge",
+            "rarity": "epic"
+          }
+        },
+        {
+          "xp": 680,
+          "at": 15280,
+          "gold": 350
+        },
+        {
+          "xp": 680,
+          "at": 15960,
+          "items": [
+            "comet-pendant"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 16640,
+          "items": [
+            "thunder-halo"
+          ]
+        },
+        {
+          "xp": 680,
+          "at": 17320,
+          "gold": 400
+        },
+        {
+          "xp": 680,
+          "at": 18000,
+          "exclusive": {
+            "id": "summit-at-dawn",
+            "name": "Summit at Dawn",
+            "rarity": "legendary"
+          }
+        }
+      ],
+      "beyond": {
+        "xp": 1000,
+        "gold": 100,
+        "reached": 0
+      },
+      "intoTier": 0,
+      "forTier": 200,
+      "today": {
+        "pass": 0,
+        "cap": 300,
+        "factor": 2,
+        "doubled": false
+      }
+    }
   },
   "rules": {
-    "version": 16,
-    "schemaVersion": 11,
+    "version": 17,
+    "schemaVersion": 12,
     "appliesFrom": null,
     "levelCurve": {
       "base": 100,
@@ -1131,6 +1616,206 @@
             ]
           },
           "atLeast": 4
+        }
+      }
+    ],
+    "seasons": [
+      {
+        "id": "s1",
+        "name": "Season 1: Trailhead",
+        "startsOn": "2026-11-26",
+        "endsOn": "2027-01-24",
+        "pass": {
+          "perDay": 300,
+          "rested": {
+            "factor": 2
+          },
+          "missions": {
+            "daily": 30,
+            "weekly": 120
+          },
+          "tiers": [
+            {
+              "xp": 200,
+              "gold": 100
+            },
+            {
+              "xp": 200,
+              "items": [
+                "sugar-plum"
+              ]
+            },
+            {
+              "xp": 200,
+              "items": [
+                "kite-hill"
+              ]
+            },
+            {
+              "xp": 200,
+              "items": [
+                "trail-mix"
+              ]
+            },
+            {
+              "xp": 200,
+              "items": [
+                "rope-rule"
+              ]
+            },
+            {
+              "xp": 680,
+              "gold": 150
+            },
+            {
+              "xp": 680,
+              "items": [
+                "trail-pack"
+              ]
+            },
+            {
+              "xp": 680,
+              "exclusive": {
+                "id": "trailhead",
+                "name": "Trailhead",
+                "rarity": "rare"
+              }
+            },
+            {
+              "xp": 680,
+              "items": [
+                "matcha-latte"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "brass-lantern"
+              ]
+            },
+            {
+              "xp": 680,
+              "gold": 200
+            },
+            {
+              "xp": 680,
+              "items": [
+                "snowy-cabin"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "knit-scarf"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "golden-peach"
+              ]
+            },
+            {
+              "xp": 680,
+              "exclusive": {
+                "id": "pathfinders-hat",
+                "name": "Pathfinder's Hat",
+                "rarity": "rare"
+              }
+            },
+            {
+              "xp": 680,
+              "gold": 250
+            },
+            {
+              "xp": 680,
+              "items": [
+                "frost-rule"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "observatory"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "stardust-truffle"
+              ]
+            },
+            {
+              "xp": 680,
+              "exclusive": {
+                "id": "summit-banner",
+                "name": "Summit Banner",
+                "rarity": "epic"
+              }
+            },
+            {
+              "xp": 680,
+              "gold": 300
+            },
+            {
+              "xp": 680,
+              "items": [
+                "tempered-steel"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "sky-islands"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "honeycomb"
+              ]
+            },
+            {
+              "xp": 680,
+              "exclusive": {
+                "id": "switchback-edge",
+                "name": "Switchback Edge",
+                "rarity": "epic"
+              }
+            },
+            {
+              "xp": 680,
+              "gold": 350
+            },
+            {
+              "xp": 680,
+              "items": [
+                "comet-pendant"
+              ]
+            },
+            {
+              "xp": 680,
+              "items": [
+                "thunder-halo"
+              ]
+            },
+            {
+              "xp": 680,
+              "gold": 400
+            },
+            {
+              "xp": 680,
+              "exclusive": {
+                "id": "summit-at-dawn",
+                "name": "Summit at Dawn",
+                "rarity": "legendary"
+              }
+            }
+          ],
+          "beyond": {
+            "xp": 1000,
+            "gold": 100
+          }
         }
       }
     ]

@@ -247,15 +247,26 @@ export const wakeLoops = (every: Duration.Duration, times = 1, loops = 1) =>
 /** A SQL client over a fresh database, and the server's randomness, for a test of the tables alone. */
 export const testSql = Layer.merge(Layer.unwrap(Effect.map(freshDatabase, sqlLayer)), ServerRandom.layer())
 
-/** The services behind the routes, over a fresh database, with the clock at `start`; `dev`: dev mode. */
-export const testServices = (stepper?: Stepper, dev = false, seed?: string) =>
+/** Where a test server starts: the local player's zone, and the clock's time. */
+export interface ServerAt {
+  readonly timezone?: string
+  readonly now?: string
+}
+
+/**
+ * The services behind the routes, over a fresh database, with the clock at `start` (or `at.now`); `dev`: dev mode;
+ * `at.timezone`: the local player's zone, the profile's when unset. The background loops sleep on the test clock, and
+ * wake every 30 seconds of it: a test of a distant day starts the clock there, rather than moving it weeks on.
+ */
+export const testServices = (stepper?: Stepper, dev = false, seed?: string, at: ServerAt = {}) =>
   Layer.unwrap(
     Effect.map(freshDatabase, (database) =>
-      Layer.mergeAll(services(database, profile, { stepper, dev, seed }), HttpServer.layerServices).pipe(
-        Layer.provideMerge(watchedClock),
-      ),
+      Layer.mergeAll(
+        services(database, { ...profile, timezone: at.timezone ?? profile.timezone }, { stepper, dev, seed }),
+        HttpServer.layerServices,
+      ).pipe(Layer.provideMerge(watchedClock)),
     ),
-  ).pipe(Layer.provideMerge(Layer.effectDiscard(TestClock.setTime(Date.parse(start)))))
+  ).pipe(Layer.provideMerge(Layer.effectDiscard(TestClock.setTime(Date.parse(at.now ?? start)))))
 
 /**
  * The services behind an online server's routes, over a fresh database, with the clock at `start`; `auth` decides who
@@ -355,10 +366,15 @@ export const addressedWebHandler = Effect.flatMap(HttpRouter.toHttpEffect(Public
 
 /**
  * Runs a test against a fresh server: the handlers and the services behind them, over one database. `seed` seeds the
- * server's Random; from the OS when unset.
+ * server's Random; from the OS when unset. `at` sets the local player's zone and the clock's start.
  */
-export const withServer = <A, E, R>(effect: Effect.Effect<A, E, R>, stepper?: Stepper, dev = false, seed?: string) =>
-  effect.pipe(Effect.provide(ModHandlers.pipe(Layer.provideMerge(testServices(stepper, dev, seed)))))
+export const withServer = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  stepper?: Stepper,
+  dev = false,
+  seed?: string,
+  at?: ServerAt,
+) => effect.pipe(Effect.provide(ModHandlers.pipe(Layer.provideMerge(testServices(stepper, dev, seed, at)))))
 
 // ── the public server, signed in ───────────────────────────────────────────────────────────────────────────────────────
 

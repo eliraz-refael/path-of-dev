@@ -20,6 +20,7 @@ import {
 import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import {
+  craftable,
   initialState,
   moodNow,
   offerIdOf,
@@ -475,10 +476,11 @@ describe("duplicates", () => {
       message: "Trail Mix boosts XP, so it comes only from play, never from gold or shards",
     })
     expect(step(salvaged, craftOf("honey-biscuit"), contextAt(2, start)).refusal).toBe(null)
-    // Nor does the snapshot offer XP food to craft, while it does offer the treat.
-    const shown = new Set(snapshotOf(salvaged).items.map((item) => item.id))
-    expect(shown.has("trail-mix")).toBe(false)
-    expect(shown.has("honey-biscuit")).toBe(true)
+    // Nor do the shards offer XP food to craft, while they do offer the treat. (The snapshot's items hold Trail Mix
+    // anyway: Season 1 grants it at tier 4, so the mod draws it.)
+    const offered = new Set(craftable(salvaged, contextAt(2, start)).map((item) => item.id))
+    expect(offered.has("trail-mix")).toBe(false)
+    expect(offered.has("honey-biscuit")).toBe(true)
   })
 
   it("refuses to trade in spare food, which the shop sells by the copy", () => {
