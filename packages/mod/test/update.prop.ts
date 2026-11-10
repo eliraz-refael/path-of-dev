@@ -46,7 +46,8 @@ describe('comparing versions', () => {
   })
 
   prop.prop('tells an update only for a newer version', [Version, Version], ([mod, latest]) => {
-    const found = updateOf(textOf(mod), textOf(latest), '0.0.0')
+    // The server's oldest is the least version there is, so it never asks for one: 0.0.0 is newer than 0.0.0-0.
+    const found = updateOf(textOf(mod), textOf(latest), '0.0.0-0')
     if ((compareVersions(textOf(latest), textOf(mod)) ?? 0) > 0)
       expect(found).toEqual({ from: textOf(mod), to: textOf(latest), needs: null })
     else expect(found).toBeNull()

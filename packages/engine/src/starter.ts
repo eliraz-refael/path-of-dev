@@ -8,6 +8,7 @@ import type {
   Metric,
   Rarity,
   RulesConfig,
+  Season,
   ScoringFact,
 } from "@pathofdev/schema"
 import { starterScenes, terminalGreen } from "./starter-scenes.ts"
@@ -102,9 +103,63 @@ export const starterAchievements: ReadonlyArray<AchievementDef> = [
   ),
 ]
 
+/**
+ * Season 1: Trailhead, Thursday 26 November 2026 to Sunday 24 January 2027, 60 local days. Every XP a season day
+ * grants counts toward the pass, up to 300 a day, and double after a day without play and on the first day; a
+ * mission completed on one adds 30 for a daily or 120 for a weekly. Thirty tiers make 18,000: 200 each for tiers 1-5,
+ * then 680 each. Past tier 30, every 1,000 pays 100 gold. Something lands at every tier: gold every fifth, XP food
+ * every fifth, catalogue items common to epic and never a sigil, and the season's five exclusives, which land as
+ * their art does, at tiers 8, 15, 20, 25 and 30. Frozen from its first day: test/fixtures/season-1.json holds it,
+ * and only a later `endsOn` may change, before the old one passes.
+ */
+export const season1: Season = {
+  id: "s1",
+  name: "Season 1: Trailhead",
+  startsOn: "2026-11-26",
+  endsOn: "2027-01-24",
+  pass: {
+    perDay: 300,
+    rested: { factor: 2 },
+    missions: { daily: 30, weekly: 120 },
+    tiers: [
+      { xp: 200, gold: 100 },
+      { xp: 200, items: ["sugar-plum"] },
+      { xp: 200, items: ["kite-hill"] },
+      { xp: 200, items: ["trail-mix"] },
+      { xp: 200, items: ["rope-rule"] },
+      { xp: 680, gold: 150 },
+      { xp: 680, items: ["trail-pack"] },
+      { xp: 680, exclusive: { id: "trailhead", name: "Trailhead", rarity: "rare" } },
+      { xp: 680, items: ["matcha-latte"] },
+      { xp: 680, items: ["brass-lantern"] },
+      { xp: 680, gold: 200 },
+      { xp: 680, items: ["snowy-cabin"] },
+      { xp: 680, items: ["knit-scarf"] },
+      { xp: 680, items: ["golden-peach"] },
+      { xp: 680, exclusive: { id: "pathfinders-hat", name: "Pathfinder's Hat", rarity: "rare" } },
+      { xp: 680, gold: 250 },
+      { xp: 680, items: ["frost-rule"] },
+      { xp: 680, items: ["observatory"] },
+      { xp: 680, items: ["stardust-truffle"] },
+      { xp: 680, exclusive: { id: "summit-banner", name: "Summit Banner", rarity: "epic" } },
+      { xp: 680, gold: 300 },
+      { xp: 680, items: ["tempered-steel"] },
+      { xp: 680, items: ["sky-islands"] },
+      { xp: 680, items: ["honeycomb"] },
+      { xp: 680, exclusive: { id: "switchback-edge", name: "Switchback Edge", rarity: "epic" } },
+      { xp: 680, gold: 350 },
+      { xp: 680, items: ["comet-pendant"] },
+      { xp: 680, items: ["thunder-halo"] },
+      { xp: 680, gold: 400 },
+      { xp: 680, exclusive: { id: "summit-at-dawn", name: "Summit at Dawn", rarity: "legendary" } },
+    ],
+    beyond: { xp: 1000, gold: 100 },
+  },
+}
+
 export const starterRules: RulesConfig = {
-  version: 16,
-  schemaVersion: 11,
+  version: 17,
+  schemaVersion: 12,
   appliesFrom: null,
   // Steeper than the 1.6 before sigils: a player wearing the sigil typical of their stage reaches each level about
   // when one without sigils did, on the doc's steady day of 400 XP of work and 200 of prompts. Level 1 stays 100 XP.
@@ -243,6 +298,7 @@ export const starterRules: RulesConfig = {
   },
   questPacks: ["starter"],
   achievements: starterAchievements,
+  seasons: [season1],
 }
 
 const item = (def: Pick<ItemDef, "id" | "name" | "rarity" | "category" | "slot"> & Partial<ItemDef>): ItemDef => ({
@@ -897,11 +953,15 @@ export const catalog6: ReadonlyArray<ItemDef> = catalog6Order.flatMap((id) => {
   return def === undefined ? [] : [{ ...def, ...asInCatalog6[id] }]
 })
 
+/** The starter rules as rules schema 11 had them, before seasons. */
+const { seasons: _seasons, ...beforeSeasons } = starterRules
+
 /**
- * Rules 14: the starter rules before catalogue 7, the same in every number. The tests hold it to the rules as they
- * shipped (test/fixtures/rules-14.json), so a later change to a number must spell rules 14 out here first.
+ * Rules 14: the starter rules before catalogue 7, the same in every number, and without the seasons rules 17 added.
+ * The tests hold it to the rules as they shipped (test/fixtures/rules-14.json), so a later change to a number must
+ * spell rules 14 out here first.
  */
-export const rules14: RulesConfig = { ...starterRules, version: 14, catalogVersion: 6 }
+export const rules14: RulesConfig = { ...beforeSeasons, version: 14, schemaVersion: 11, catalogVersion: 6 }
 
 // Catalogue 7 as rules 15 dealt from it, kept so a log of rules 15 runs again as it ran: catalogue 8's first items, in
 // the same order, Terminal Green without the art catalogue 8 gave it.
@@ -913,5 +973,11 @@ export const catalog7: ReadonlyArray<ItemDef> = starterCatalog
   .filter((one) => !addedInCatalog8.has(one.id))
   .map((one) => (one.id === "terminal-green" ? { ...one, sprite: null } : one))
 
-/** Rules 15: the starter rules before catalogue 8, the same in every number. */
-export const rules15: RulesConfig = { ...starterRules, version: 15, catalogVersion: 7 }
+/** Rules 15: the starter rules before catalogue 8, the same in every number, without the seasons. */
+export const rules15: RulesConfig = { ...beforeSeasons, version: 15, schemaVersion: 11, catalogVersion: 7 }
+
+/**
+ * Rules 16: the starter rules before Season 1, the same in every number, and catalogue 8 as now. Held to
+ * test/fixtures/rules-16.json, as it shipped.
+ */
+export const rules16: RulesConfig = { ...beforeSeasons, version: 16, schemaVersion: 11, catalogVersion: 8 }

@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
-import type { DevGrantXp } from "@pathofdev/schema"
-import { BandSlot, Rarity } from "@pathofdev/schema"
+import type { DevGrantXp, SeasonTier } from "@pathofdev/schema"
+import { BandSlot, Rarity, RulesConfig } from "@pathofdev/schema"
 import { Effect, Exit, Layer, Schema } from "effect"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
@@ -172,10 +172,34 @@ describe("the catalogue the server runs", () => {
         ...(BandSlot.literals.every(styled) ? [] : ["full-band"]),
       ]
       const [first] = short
-      if (first === undefined) expect(checkedRules(starterRules, kept)).toBe(kept)
-      else expect(() => checkedRules(starterRules, kept)).toThrow(first)
+      // Without the seasons, whose tiers name items of every rarity but legendary: the next test holds them.
+      const unseasoned = { ...starterRules, seasons: [] }
+      if (first === undefined) expect(checkedRules(unseasoned, kept)).toBe(kept)
+      else expect(() => checkedRules(unseasoned, kept)).toThrow(first)
     },
   )
+
+  test("stops the server when a season tier names an item the catalogue lacks, a sigil, or an exclusive twice", () => {
+    const without = starterCatalog.filter((item) => item.id !== "brass-lantern")
+    expect(() => checkedRules(starterRules, without)).toThrow("s1 tier 10: the catalogue has no brass-lantern")
+    const [season] = starterRules.seasons ?? []
+    const [first] = starterCatalog
+    if (season === undefined || first === undefined) throw new Error("no season or no catalogue")
+    const changed = (at: number, tier: Partial<SeasonTier>) => {
+      const tiers = season.pass.tiers.map((one, i) => (i === at - 1 ? { ...one, ...tier } : one))
+      const seasons = [{ ...season, pass: { ...season.pass, tiers } }]
+      return Schema.decodeUnknownSync(RulesConfig)({ ...starterRules, seasons })
+    }
+    const sigil = changed(2, { items: ["chalk-sigil"] })
+    expect(() => checkedRules(sigil, starterCatalog)).toThrow("s1 tier 2: chalk-sigil is a sigil")
+    const twice = changed(3, { exclusive: { id: "trailhead", name: "Trailhead", rarity: "rare" } })
+    expect(() => checkedRules(twice, starterCatalog)).toThrow("s1 tier 3: the exclusive trailhead is named elsewhere")
+    // No item is marked as a season's yet, so the catalogue holding an exclusive holds an ordinary item.
+    const held = [...starterCatalog, { ...first, id: "summit-banner", name: "Summit Banner" }]
+    expect(() => checkedRules(starterRules, held)).toThrow(
+      "s1 tier 20: the catalogue holds the exclusive summit-banner as an ordinary item",
+    )
+  })
 })
 
 describe("dev mode", () => {

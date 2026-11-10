@@ -5,11 +5,13 @@ import type {
   Command,
   CommandRefusal,
   Context,
+  DayTally,
   DevCommand,
   Graded,
   Input,
   InventoryEntry,
   ItemDef,
+  ItemSource,
   Mission,
   OwnedPet,
   PlayerState,
@@ -20,6 +22,7 @@ import type {
   QuestLoot,
   Rarity,
   ScoringFact,
+  Season,
   ServerEventDraft,
   Slot,
   StatCounters,
@@ -53,6 +56,7 @@ import {
   windowOf,
 } from "./quests.ts"
 import { ulids } from "./random.ts"
+import { passAfter, passedOf, recount, seasonOn, tiersReached, withPassed } from "./season.ts"
 import { boughtToday, buysXp, isFood, isXpFood, listPrice, offerParts, waresOf } from "./shop.ts"
 import { bandPct, commandKey, contextThresholds, countPrompt, measureContext, priceOf, statsOf } from "./stats.ts"
 import { streakAsOf } from "./streak.ts"
@@ -62,7 +66,8 @@ import { streakAsOf } from "./streak.ts"
 // level-up, the player stats, the daily and weekly missions (parallel ones from the sessions the server says are open)
 // and their XP boosts, hatching the pet and caring for it (food and pats), equipping items, the shop, trading
 // duplicates in (a re-roll for gold, or shards that craft a chosen item), the first-run welcome's choices (the
-// character's name, the egg's species and name, and the welcome done), and the achievements an accepted step earns.
+// character's name, the egg's species and name, and the welcome done), a season's pass and its tiers' rewards, and the
+// achievements an accepted step earns.
 // Verified-tier facts wait for the verifier, and other commands are refused for now.
 
 /** What one step builds up. It lives only inside `step`, so the function stays pure. */
@@ -86,18 +91,20 @@ const isBookkeeping = (input: Input): boolean => input.kind === "system" && book
 
 /**
  * Every step first rolls the missions of a local day or week begun since the last roll, then applies its input, then
- * unlocks the achievements the state now earns. A refused command changes nothing, the roll included: the next step
- * rolls instead. Bookkeeping rolls nothing and unlocks nothing, as its migration did neither.
+ * settles the seasons' passes, then unlocks the achievements the state now earns. A refused command changes nothing,
+ * the roll included: the next step rolls instead. Bookkeeping rolls, settles and unlocks nothing, as its migration did
+ * none of it.
  *
  *   input ─▶ rollQuests ─▶ dispatch ─┬─ refused ──────▶ the state before, nothing else
  *                                    ├─ bookkeeping ──▶ as dispatched
- *                                    └─ else ─────────▶ unlockAchievements: its events last
+ *                                    └─ else ─────────▶ settleSeasons: the step's last rolls ─▶ unlockAchievements
  */
 export const step = (state: PlayerState, input: Input, context: Context): Step => {
   const bookkept = isBookkeeping(input)
   const rolled = bookkept ? { state, events: [] } : rollQuests(state, context)
-  const result = dispatch(rolled.state, input, context)
-  if (result.refusal !== null) return refuse(state, result.refusal)
+  const dispatched = dispatch(rolled.state, input, context)
+  if (dispatched.refusal !== null) return refuse(state, dispatched.refusal)
+  const result = bookkept ? dispatched : settleSeasons(rolled.state, dispatched, context)
   const unlocked = bookkept ? { state: result.state, events: [] } : unlockAchievements(result.state, context)
   return rolled.events.length === 0 && unlocked.events.length === 0
     ? result
@@ -155,6 +162,85 @@ const rollQuests = (
       holdings: { ...state.holdings, completedQuests },
     },
     events,
+  }
+}
+
+/**
+ * After the input, each season's pass catches up with the step: its counter takes the change in the value of the
+ * season days the tallies keep, beside the mission bonuses the step added, and a tier it reaches grants its rewards
+ * once. Its drops are the step's last rolls, so a replay finds each where the live run made it, and its ids come from
+ * a stream of their own, apart from those the input made.
+ */
+const settleSeasons = (before: PlayerState, result: Step, context: Context): Step => {
+  const seasons = context.rules.seasons ?? []
+  if (seasons.length === 0) return result
+  const run: Run = {
+    state: result.state,
+    context,
+    events: [],
+    rolls: [...result.rolls],
+    newId: ulids(context.rollSeed, context.logSeq, context.now, "season"),
+    isDev: false,
+  }
+  for (const season of seasons) settle(run, season, before.progress)
+  return run.state === result.state
+    ? result
+    : { ...result, state: run.state, rolls: run.rolls, events: [...result.events, ...run.events] }
+}
+
+/**
+ * One season's pass after a step: the counter moved by the step's recount, and the tier raised to what it now reaches.
+ * The tier never falls: a late event that takes a day's double away lowers the counter by that day's value at most,
+ * and takes no tier or reward back.
+ */
+const settle = (run: Run, season: Season, before: Progress): void => {
+  const passed = passedOf(run.state, season.id)
+  const xp = Math.max(0, passed.xp + recount(season, before, run.state.progress))
+  const tier = Math.max(passed.tier, tiersReached(season, xp))
+  if (xp === passed.xp && tier === passed.tier) return
+  setHoldings(run, { seasons: withPassed(run.state, { id: season.id, xp, tier }) })
+  if (tier > passed.tier) reachTiers(run, season, passed.tier, tier)
+}
+
+/**
+ * The tiers after `from` up to `to`: one banner for them all, then each tier's rewards in turn, its gold first, then a
+ * named drop for each of its items. A tier past the pass's last pays the `beyond` gold. An exclusive is named in the
+ * banner and granted nothing for here: the catalogue doesn't hold one yet, and an item it lacks would roll a stand-in.
+ */
+const reachTiers = (run: Run, season: Season, from: number, to: number): void => {
+  const { catalog } = run.context
+  const { pass } = season
+  const reached = Array.from({ length: to - from }, (_, i) => {
+    const at = from + i + 1
+    const tier = pass.tiers[at - 1]
+    // Only items a named drop can land: seasonIssue holds every one to that as the server starts.
+    const items = (tier?.items ?? []).flatMap((id) => catalog.find((def) => def.id === id && !isSigil(def)) ?? [])
+    return { at, gold: tier === undefined ? pass.beyond.gold : (tier.gold ?? 0), items, exclusive: tier?.exclusive }
+  })
+  const last = pass.tiers.length
+  run.events.push({
+    type: "season.tier",
+    data: {
+      id: season.id,
+      name: season.name,
+      from,
+      to,
+      tier: from < last && to >= last ? "epic" : "rare",
+      rewards: {
+        gold: reached.reduce((sum, one) => sum + one.gold, 0),
+        items: reached.flatMap((one) => one.items.map((item) => item.id)),
+        exclusives: reached.flatMap((one) => one.exclusive?.id ?? []),
+      },
+    },
+  })
+  for (const { at, gold, items } of reached) {
+    const source: ItemSource = { kind: "season", ref: `${season.id}/${at}` }
+    if (gold > 0) {
+      const totalAfter = run.state.holdings.gold + gold
+      setHoldings(run, { gold: totalAfter })
+      run.events.push({ type: "gold.changed", data: { delta: gold, totalAfter, reason: "season" } })
+    }
+    for (const item of items) rewardDrop(run, { rarity: item.rarity, item: item.id }, source)
   }
 }
 
@@ -427,7 +513,7 @@ const promptRule: XpRule = { xp: 0, tier: "reported", dailyCap: null }
  * Counts one scoring fact and grants its XP, unless the day's cap is reached, and counts it toward the missions whose
  * goal it meets, capped or not. `xp` overrides the rule's amount (to the thousandth); the flat boosts multiply it,
  * and the sum is rounded down once. A graded prompt's grade and sigil ride on the grant, so the mod can say what
- * earned it, and its scores reach the missions that filter on them.
+ * earned it, and its scores reach the missions that filter on them. On a season day the XP counts toward the pass.
  */
 const grant = (
   run: Run,
@@ -452,13 +538,12 @@ const grant = (
     return
   }
   const counts = { ...tally?.counts, [fact]: count + 1 }
-  const tallies = [...progress.tallies.filter((t) => t.day !== day), { day, counts }].sort((a, b) =>
-    a.day < b.day ? -1 : 1,
-  )
+  const tallies = withTally(progress.tallies, { ...tally, day, counts })
   // In whole thousandths of XP times whole percents, so the one rounding down is exact.
   const amount = Math.floor((Math.round((options.xp ?? rule.xp) * 1000) * (100 + bonusPct(run))) / 100_000)
   const before = levelOf(run.state, rules).level
   setProgress(run, { totals, tallies, xp: { ...progress.xp, reported: progress.xp.reported + amount } })
+  towardPass(run, day, amount)
   if (amount > 0) {
     run.events.push({
       type: "xp.granted",
@@ -474,6 +559,23 @@ const grant = (
     levelUp(run, before)
   }
   advance(run, signal, day)
+}
+
+/** The tallies with `tally` in place of its day's, in day order. */
+const withTally = (tallies: ReadonlyArray<DayTally>, tally: DayTally): Array<DayTally> =>
+  [...tallies.filter((t) => t.day !== tally.day), tally].sort((a, b) => (a.day < b.day ? -1 : 1))
+
+/**
+ * XP granted on `day` counted toward the pass of the season it falls in, up to the day's cap; on any other day, and for
+ * dev XP, nothing. The step's end values the day (`settleSeasons`).
+ */
+const towardPass = (run: Run, day: string, amount: number): void => {
+  const season = seasonOn(run.context.rules, day)
+  if (season === undefined || run.isDev || amount <= 0) return
+  const { tallies } = run.state.progress
+  const tally = tallies.find((t) => t.day === day)
+  const pass = passAfter(season, tally, amount)
+  setProgress(run, { tallies: withTally(tallies, { day, counts: {}, ...tally, pass }) })
 }
 
 /**
@@ -562,20 +664,20 @@ const running = (run: Run, day: string): Array<{ readonly mission: Mission; read
     return def === undefined ? [] : [{ mission, def }]
   })
 
-/** A mission's new progress: its bar ticks, and reaching the goal completes it. */
-const progressTo = (run: Run, mission: Mission, def: QuestDef): void => {
+/** A mission's new progress on `day`: its bar ticks, and reaching the goal completes it. */
+const progressTo = (run: Run, mission: Mission, def: QuestDef, day: string): void => {
   setMission(run, mission)
   run.events.push({
     type: "quest.progress",
     data: { questId: mission.questId, progress: mission.progress, goal: def.goal.count },
   })
-  if (mission.progress >= def.goal.count) complete(run, mission, def)
+  if (mission.progress >= def.goal.count) complete(run, mission, def, day)
 }
 
 /** Counts something that happened on `day` toward every running mission of its window whose goal it meets. */
 const advance = (run: Run, signal: QuestSignal, day: string): void => {
   for (const { mission, def } of running(run, day)) {
-    if (meets(def.goal, signal)) progressTo(run, { ...mission, progress: mission.progress + 1 }, def)
+    if (meets(def.goal, signal)) progressTo(run, { ...mission, progress: mission.progress + 1 }, def, day)
   }
 }
 
@@ -585,7 +687,7 @@ const measureQuests = (run: Run, sessionId: string, pct: number, day: string): v
     if (def.goal.kind !== "context") continue
     const measured = measureMission(mission, sessionId, pct, def.goal.under)
     if (measured.progress === mission.progress) setMission(run, measured)
-    else progressTo(run, measured, def)
+    else progressTo(run, measured, def, day)
   }
 }
 
@@ -607,17 +709,18 @@ const joinQuests = (
   for (const { mission, def } of running(run, day)) {
     if (def.goal.kind !== "parallel" || graded.grade < parallelGrade(def.goal, graded.rubric)) continue
     const joined = joinParallel(mission, def.goal, prompt, run.state.progress.presence)
-    if (joined.moment) progressTo(run, { ...joined.mission, progress: mission.progress + 1 }, def)
+    if (joined.moment) progressTo(run, { ...joined.mission, progress: mission.progress + 1 }, def, day)
     else setMission(run, joined.mission)
   }
 }
 
 /**
- * A mission done: the banner at its cadence's tier, then its rewards, each as its own event: reported XP (which may
- * level up, with that drop), gold, an XP boost from now on, and a drop that always lands. A mission already granted
- * in this window grants nothing again.
+ * A mission done on `day`: the banner at its cadence's tier, then its rewards, each as its own event: reported XP
+ * (which may level up, with that drop), gold, an XP boost from now on, and a drop that always lands. A mission already
+ * granted in this window grants nothing again. On a season day its XP counts toward the pass, as any XP does, and its
+ * cadence's bonus is added on top, whatever day its window began.
  */
-const complete = (run: Run, mission: Mission, def: QuestDef): void => {
+const complete = (run: Run, mission: Mission, def: QuestDef, day: string): void => {
   const { rules, now } = run.context
   setMission(run, { ...mission, status: "completed", progress: Math.min(mission.progress, def.goal.count) })
   const holdings = run.state.holdings
@@ -636,12 +739,14 @@ const complete = (run: Run, mission: Mission, def: QuestDef): void => {
     const before = levelOf(run.state, rules).level
     const xp = run.state.progress.xp
     setProgress(run, { xp: { ...xp, reported: xp.reported + rewards.xp } })
+    towardPass(run, day, rewards.xp)
     run.events.push({
       type: "xp.granted",
       data: { amount: rewards.xp, tier: "reported", reason, totalAfter: totalXp(run.state) },
     })
     levelUp(run, before)
   }
+  missionBonus(run, mission.cadence, day)
   if (rewards.gold !== undefined && rewards.gold > 0) {
     const gold = run.state.holdings.gold + rewards.gold
     setHoldings(run, { gold })
@@ -657,7 +762,18 @@ const complete = (run: Run, mission: Mission, def: QuestDef): void => {
     }
     setProgress(run, { boosts: [...run.state.progress.boosts, boost] })
   }
-  if (rewards.loot !== undefined) rewardDrop(run, rewards.loot, `${mission.packId}/${mission.questId}`)
+  if (rewards.loot !== undefined) {
+    rewardDrop(run, rewards.loot, { kind: "quest", ref: `${mission.packId}/${mission.questId}` })
+  }
+}
+
+/** A mission completed on a season day adds its cadence's bonus to the pass, beside the day's cap; never in dev. */
+const missionBonus = (run: Run, cadence: Mission["cadence"], day: string): void => {
+  const season = seasonOn(run.context.rules, day)
+  const bonus = season?.pass.missions[cadence] ?? 0
+  if (season === undefined || run.isDev || bonus === 0) return
+  const passed = passedOf(run.state, season.id)
+  setHoldings(run, { seasons: withPassed(run.state, { ...passed, xp: passed.xp + bonus }) })
 }
 
 /**
@@ -667,7 +783,7 @@ const complete = (run: Run, mission: Mission, def: QuestDef): void => {
  * never hands out a sigil by name or by pool, as a pack could then give the best one every week: a sigil it names
  * rolls from its pool, and a sigil pool is the whole catalogue, where a sigil drops at the usual share.
  */
-const rewardDrop = (run: Run, loot: QuestLoot, ref: string): void => {
+const rewardDrop = (run: Run, loot: QuestLoot, source: ItemSource): void => {
   const { catalog } = run.context
   const named = catalog.find((def) => def.id === loot.item && !isSigil(def))
   const keep = named?.rarity ?? loot.rarity
@@ -675,7 +791,7 @@ const rewardDrop = (run: Run, loot: QuestLoot, ref: string): void => {
   const category = pooled === undefined ? catalog : catalog.filter((def) => def.category === pooled)
   const fits = category.some((def) => rarityRank(def.rarity) <= rarityRank(keep))
   const pool = named !== undefined ? [named] : fits ? category : catalog
-  roll(run, "reward", 1, { keep, pool, source: { kind: "quest", ref } })
+  roll(run, "reward", 1, { keep, pool, source })
 }
 
 const weekliesRunning = (state: PlayerState): number =>
@@ -841,16 +957,19 @@ const roll = (run: Run, trigger: RollRecord["trigger"], chance: number, options:
 }
 
 /**
- * Keeps the tallies to the last 7 days, the active days to the current streak (never fewer than 7 days), and the
- * boosts to those still running.
+ * Keeps the tallies to the last 7 days, the active days to the current streak (never fewer than 7 days, and the day
+ * before them when it is a season day, which says whether the oldest tally counts double), and the boosts to those
+ * still running.
  */
 const prune = (run: Run): void => {
   const { rules, now } = run.context
   const progress = run.state.progress
   const today = localDay(now, run.state.timezone)
   const weekAgo = addDays(today, -7)
+  const lookBack = addDays(weekAgo, -1)
+  const oldest = seasonOn(rules, lookBack) === undefined ? weekAgo : lookBack
   const start = streakAsOf(progress.activeDays, today, rules.streak.restDaysPerWeek).start ?? today
-  const keepFrom = start < weekAgo ? start : weekAgo
+  const keepFrom = start < oldest ? start : oldest
   setProgress(run, {
     tallies: progress.tallies.filter((t) => t.day >= weekAgo),
     activeDays: progress.activeDays.filter((day) => day >= keepFrom),
@@ -1293,7 +1412,8 @@ const runDev = (state: PlayerState, command: DevCommand, context: Context): Step
       if (mission === undefined || def === undefined || mission.status === "completed") {
         return refuse(state, { code: "invalid", message: "No mission on offer or running has that id" })
       }
-      complete(run, { ...mission, status: "active", progress: def.goal.count }, def)
+      const today = localDay(context.now, state.timezone)
+      complete(run, { ...mission, status: "active", progress: def.goal.count }, def, today)
       break
     }
     case "dev.rollQuests": {

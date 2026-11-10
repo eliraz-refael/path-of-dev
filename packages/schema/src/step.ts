@@ -3,7 +3,7 @@ import { CommandRefusal } from "./commands.ts"
 import { ClaimKind, ItemDef, Pity } from "./domain.ts"
 import { Count, IsoDateTime, Probability, Rarity, Ulid } from "./primitives.ts"
 import { QuestPack } from "./quests.ts"
-import { type AchievementDef, type Metric, RulesConfig, type SigilRanges } from "./rules.ts"
+import { type AchievementDef, type Metric, RulesConfig, type Season, type SigilRanges } from "./rules.ts"
 import { ServerEventDraft } from "./server-events.ts"
 import { PlayerState } from "./state.ts"
 import { GitHubWork } from "./subjects.ts"
@@ -17,7 +17,8 @@ export const RollRecord = Schema.Struct({
   number: Count,
   /**
    * turn: a finished agent turn; prompt: a graded prompt; verified: a verified fact; levelUp: a level reached;
-   * reward: a quest or milestone that always drops; reroll: a duplicate traded in, which keeps its rarity.
+   * reward: a quest, a season tier or a milestone, which always drops; reroll: a duplicate traded in, which keeps its
+   * rarity.
    */
   trigger: Schema.Literals(["turn", "prompt", "verified", "levelUp", "reward", "reroll"]),
   /** Chance of any drop; 1 for everything but a turn or a prompt. */
@@ -103,6 +104,36 @@ export const achievementsIssue = (
     const most = mostOwnable(def.criterion.of, catalog)
     if (most !== undefined && most < def.criterion.atLeast) {
       return `${def.id} asks for ${def.criterion.atLeast}, and the catalogue has ${most}`
+    }
+  }
+  return undefined
+}
+
+/**
+ * What is wrong with the seasons under a catalogue, if anything: a tier that names an item the catalogue lacks, which
+ * would roll a stand-in from the pool, or a sigil, which a named drop never hands out; or an exclusive named twice, by
+ * two tiers or as a tier's item too. An exclusive is the season's own, and no item is marked as one yet, so one the
+ * catalogue already holds would be an ordinary item, which the drops, the shop and the shards deal too. Checked with
+ * the catalogue, by the server as it starts on them.
+ */
+export const seasonIssue = (seasons: ReadonlyArray<Season>, catalog: ReadonlyArray<ItemDef>): string | undefined => {
+  const tiers = seasons.flatMap((season) => season.pass.tiers.map((tier, i) => ({ season, tier, at: i + 1 })))
+  const exclusives = tiers.flatMap(({ tier }) => tier.exclusive?.id ?? [])
+  const named = new Set(tiers.flatMap(({ tier }) => tier.items ?? []))
+  for (const { season, tier, at } of tiers) {
+    const where = `${season.id} tier ${at}`
+    for (const id of tier.items ?? []) {
+      const item = catalog.find((def) => def.id === id)
+      if (item === undefined) return `${where}: the catalogue has no ${id}`
+      if (item.sigil !== undefined) return `${where}: ${id} is a sigil`
+    }
+    const exclusive = tier.exclusive?.id
+    if (exclusive === undefined) continue
+    if (named.has(exclusive) || exclusives.filter((id) => id === exclusive).length > 1) {
+      return `${where}: the exclusive ${exclusive} is named elsewhere too`
+    }
+    if (catalog.some((def) => def.id === exclusive)) {
+      return `${where}: the catalogue holds the exclusive ${exclusive} as an ordinary item`
     }
   }
   return undefined

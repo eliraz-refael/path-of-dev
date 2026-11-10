@@ -24,6 +24,7 @@ import {
   rollLoot,
   rules14,
   rules15,
+  rules16,
   starterCatalog,
   starterRules,
   starterSceneArt,
@@ -33,8 +34,8 @@ import {
   terminalGreen,
 } from "../src/index.ts"
 
-// Catalogue 8, the pool rules 16 deals from: every item well formed and drawn, a pyramid of rarities, and the same odds
-// as catalogues 6 and 7, which rules 14 and 15 dealt from and which stay as they shipped.
+// Catalogue 8, the pool rules 16 and 17 deal from: every item well formed and drawn, a pyramid of rarities, and the
+// same odds as catalogues 6 and 7, which rules 14 and 15 dealt from and which stay as they shipped.
 
 const rarities = RaritySchema.literals
 const ofRarity = (catalog: ReadonlyArray<ItemDef>, rarity: Rarity) => catalog.filter((item) => item.rarity === rarity)
@@ -223,19 +224,24 @@ describe("the scenes", () => {
   })
 })
 
-describe("rules 16", () => {
+describe("rules 17", () => {
   const fixture = (name: string): unknown =>
     JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"))
 
-  it("leaves rules 14 and 15 as they shipped, field for field", () => {
+  it("leaves rules 14, 15 and 16 as they shipped, field for field", () => {
     expect(rules14).toEqual(fixture("rules-14.json"))
     expect(rules15).toEqual(fixture("rules-15.json"))
+    expect(rules16).toEqual(fixture("rules-16.json"))
+    for (const old of [rules14, rules15, rules16]) expect(Object.hasOwn(old, "seasons")).toBe(false)
   })
 
-  it("is rules 15 in every number, with catalogue 8 for catalogue 7, and rules 14 with catalogue 6", () => {
-    expect({ ...starterRules, version: 15, catalogVersion: 7 }).toEqual(rules15)
-    expect({ ...starterRules, version: 14, catalogVersion: 6 }).toEqual(rules14)
-    expect([starterRules.version, starterRules.catalogVersion]).toEqual([16, 8])
+  it("is rules 16 in every number, with Season 1 and rules schema 12, and 15 and 14 with catalogues 7 and 6", () => {
+    const { seasons, ...rest } = starterRules
+    expect(seasons?.map((season) => season.id)).toEqual(["s1"])
+    expect({ ...rest, version: 16, schemaVersion: 11 }).toEqual(rules16)
+    expect({ ...rest, version: 15, schemaVersion: 11, catalogVersion: 7 }).toEqual(rules15)
+    expect({ ...rest, version: 14, schemaVersion: 11, catalogVersion: 6 }).toEqual(rules14)
+    expect([starterRules.version, starterRules.schemaVersion, starterRules.catalogVersion]).toEqual([17, 12, 8])
   })
 
   it("leaves catalogues 6 and 7 as rules 14 and 15 shipped them, field for field and in their order", () => {

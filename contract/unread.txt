@@ -17,6 +17,7 @@ GET /v1/snapshot rules.pet.species
 GET /v1/snapshot rules.prompt
 GET /v1/snapshot rules.questPacks
 GET /v1/snapshot rules.schemaVersion
+GET /v1/snapshot rules.seasons
 GET /v1/snapshot rules.shop
 GET /v1/snapshot rules.streak
 GET /v1/snapshot rules.titles
@@ -52,6 +53,7 @@ GET /v1/snapshot snapshot.quests[].goalKind
 GET /v1/snapshot snapshot.quests[].packId
 GET /v1/snapshot snapshot.quests[].rewards
 GET /v1/snapshot snapshot.quests[].start
+GET /v1/snapshot snapshot.season
 GET /v1/snapshot snapshot.shop
 GET /v1/snapshot snapshot.stats
 GET /v1/snapshot snapshot.welcome

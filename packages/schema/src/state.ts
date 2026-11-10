@@ -24,10 +24,14 @@ import { CheckoutRef, GitHubWork } from "./subjects.ts"
 // progress reached that the holdings don't record yet. So everything a player owns or was granted lives in
 // `holdings`, which only the player's own choices (buying, feeding, crafting) ever shrink.
 
-/** Scoring facts granted on one local day, counted for the daily caps. */
+/**
+ * Scoring facts granted on one local day, counted for the daily caps, and on a season day the XP it counted toward the
+ * pass, at most the pass's `perDay`: absent on any other day.
+ */
 export const DayTally = Schema.Struct({
   day: IsoDate,
   counts: Schema.Record(ScoringFact, Schema.optionalKey(Count)),
+  pass: Schema.optionalKey(Count),
 })
 export interface DayTally extends Schema.Schema.Type<typeof DayTally> {}
 
@@ -140,7 +144,10 @@ export const Progress = Schema.Struct({
   prestigeXp: Count,
   /** The last 7 local days. The edge clamps event times to 7 days back, so older days can't change. */
   tallies: Schema.Array(DayTally),
-  /** Local days with activity, sorted, back to the current streak's start and never fewer than the last 7. */
+  /**
+   * Local days with activity, sorted, back to the current streak's start and never fewer than the last 7, and the
+   * day before the oldest tally when that is a season day, as a pass reads the day before each one it values.
+   */
   activeDays: Schema.Array(IsoDate),
   /** The longest streak reached, in days, as the active days stood when each was added. */
   bestStreak: Count,
@@ -173,6 +180,14 @@ export const OwnedPet = Schema.Struct({
 }).check(Schema.makeFilter((pet) => pet.forms.includes(pet.form) || { path: ["form"], issue: "form must be unlocked" }))
 export interface OwnedPet extends Schema.Schema.Type<typeof OwnedPet> {}
 
+/**
+ * A season's pass as one player has played it: its pass XP, which each step keeps equal to the value of the season
+ * days played plus the mission bonuses, and the highest tier reached, which never falls, so no tier grants twice.
+ * Tiers past the pass's last count on, one for each `beyond.xp`.
+ */
+export const SeasonPassed = Schema.Struct({ id: Schema.String, xp: Count, tier: Count })
+export interface SeasonPassed extends Schema.Schema.Type<typeof SeasonPassed> {}
+
 /** Everything a rebalance keeps: what the player owns, and the milestones already granted. */
 export const Holdings = Schema.Struct({
   gold: Count,
@@ -198,6 +213,8 @@ export const Holdings = Schema.Struct({
   loot: Schema.Struct({ nextRoll: Count, pity: Pity }),
   /** Today's purchases per offer id, for stock; offers themselves are derived from the day and the catalogue. */
   shop: Schema.Struct({ day: IsoDate, bought: Schema.Record(Schema.String, Count) }),
+  /** Each season's pass played: absent until the first, and kept for good. */
+  seasons: Schema.optionalKey(Schema.Array(SeasonPassed)),
 })
 export interface Holdings extends Schema.Schema.Type<typeof Holdings> {}
 
