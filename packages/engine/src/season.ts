@@ -16,9 +16,11 @@ import { addDays, startOfDay } from "./days.ts"
 /** The days after a season's last on which play dated inside it can still arrive: the edge's 7. */
 export const settleDays = 7
 
+const isIn = (season: Season, day: string): boolean => season.startsOn <= day && day <= season.endsOn
+
 /** The season whose days hold local day `day`, if any. */
 export const seasonOn = (rules: RulesConfig, day: string): Season | undefined =>
-  rules.seasons?.find((season) => season.startsOn <= day && day <= season.endsOn)
+  rules.seasons?.find((season) => isIn(season, day))
 
 /** The XP a day counted toward a pass, once `amount` more is granted on it: held to the pass's cap. */
 export const passAfter = (season: Season, tally: DayTally | undefined, amount: number): number =>
@@ -33,8 +35,6 @@ export const valueOf = (season: Season, progress: Pick<Progress, "tallies" | "ac
   const pass = progress.tallies.find((tally) => tally.day === day)?.pass ?? 0
   return pass === 0 ? 0 : pass * (isRested(season, progress.activeDays, day) ? season.pass.rested.factor : 1)
 }
-
-const isIn = (season: Season, day: string): boolean => season.startsOn <= day && day <= season.endsOn
 
 /**
  * How a step changed the value of the season's days the tallies keep after it: each kept day's value after, less its
@@ -72,16 +72,14 @@ export const withPassed = (state: PlayerState, passed: SeasonPassed): ReadonlyAr
 }
 
 /**
- * The season the mod shows on local day `today`: the one running or settling, else the next to come, else the last
- * one over; none when the rules have no season.
+ * The season the mod shows on local day `today`: the one running, else one settling, else the next to come, else the
+ * last one over; none when the rules have no season. Running comes first, as a season may start while the one before
+ * it still settles.
  */
 export const seasonShown = (rules: RulesConfig, today: string): Season | undefined => {
   const seasons = rules.seasons ?? []
-  return (
-    seasons.find((season) => season.startsOn <= today && today <= addDays(season.endsOn, settleDays)) ??
-    seasons.find((season) => today < season.startsOn) ??
-    seasons[seasons.length - 1]
-  )
+  const first = (status: SeasonView["status"]) => seasons.find((season) => statusOf(season, today) === status)
+  return first("running") ?? first("settling") ?? first("upcoming") ?? seasons[seasons.length - 1]
 }
 
 const statusOf = (season: Season, today: string): SeasonView["status"] =>

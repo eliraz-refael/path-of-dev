@@ -28,6 +28,7 @@ import {
   project,
   rules16,
   season1,
+  seasonShown,
   starterCatalog,
   starterRules,
   step,
@@ -476,6 +477,13 @@ describe("the snapshot's season", () => {
       intoTier: 350,
       forTier: 1000,
     })
+  })
+
+  it("shows a season that has started over the one before it, while that one still settles", () => {
+    const next = { ...season1, id: "s2", name: "Season 2", startsOn: "2027-01-27", endsOn: "2027-03-28" }
+    const rules = { ...starterRules, seasons: [season1, next] }
+    expect([seasonShown(rules, "2027-01-26")?.id, seasonShown(rules, "2027-01-27")?.id]).toEqual(["s1", "s2"])
+    expect([seasonShown(rules, "2026-11-01")?.id, seasonShown(rules, "2027-06-01")?.id]).toEqual(["s1", "s2"])
   })
 
   it("is absent under rules without a season", () => {

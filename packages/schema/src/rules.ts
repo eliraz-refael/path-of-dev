@@ -227,9 +227,12 @@ export const PetCare = Schema.Struct({
 })
 export interface PetCare extends Schema.Schema.Type<typeof PetCare> {}
 
+/** An id kept for good: a species', a badge's, a season's, and the items and exclusives its tiers name. */
+const Id = Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/u)))
+
 /** A species an egg can hatch as: its id, the name the welcome gives it, and a few words about it. */
 export const PetSpecies = Schema.Struct({
-  id: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/u))),
+  id: Id,
   name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   about: Schema.String,
 })
@@ -311,7 +314,7 @@ export type Criterion = typeof Criterion.Type
 
 /** A badge: its id, kept for good (renaming one would unlock it again), how it looks, and what earns it. */
 export const AchievementDef = Schema.Struct({
-  id: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/u))),
+  id: Id,
   name: Name,
   /** What earns it, in words the player reads. */
   about: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
@@ -327,9 +330,6 @@ export interface AchievementDef extends Schema.Schema.Type<typeof AchievementDef
 //   XP granted on a season day ─▶ its day's tally, up to `perDay` ─▶ × `rested.factor` after a day without play ─┐
 //   a mission completed on a season day ─▶ + `missions[cadence]` ───────────────────────────────────────────────┴▶ pass
 //   pass XP ─▶ each tier's cost in turn ─▶ its gold and items, once; past the last, `beyond` pays gold every `xp`
-
-/** An id kept for good, as a badge's, a species' and an item's are. */
-const Id = Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/u)))
 
 /**
  * An item a season makes for itself, named here before the catalogue has it: until it does, its tier grants nothing

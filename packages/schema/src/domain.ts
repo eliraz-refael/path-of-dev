@@ -359,7 +359,7 @@ export const PlayerStats = Schema.Struct({
 export interface PlayerStats extends Schema.Schema.Type<typeof PlayerStats> {}
 
 /**
- * A season as the mod draws it: the one running or settling today, else the next to come, else the last one over.
+ * A season as the mod draws it: the one running today, else one settling, else the next to come, else the last one.
  * `upcoming` before its first local day, `running` through its last, `settling` for the 7 days after, while play
  * dated inside it can still arrive, then `over`. The instants are the player's local midnights: the first day's, and
  * the one after the last day. `tier` is the highest reached, at most the pass's tiers, and `beyond.reached` counts
